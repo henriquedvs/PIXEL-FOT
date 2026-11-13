@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { ArrowLeft, CheckCircle2, MapPin, Shield, Users } from 'lucide-react';
 import { soundEngine } from '../audio/soundEngine';
-import { CLUBS } from '../data/clubs';
+import { CLUBS, SERIE_B_CLUBS } from '../data/clubs';
 import { Club } from '../types/game';
 import { ClubCrest } from './ClubCrest';
 
@@ -18,15 +18,16 @@ export const ClubSelection: React.FC<ClubSelectionProps> = ({
   onBack,
   onSelectClub,
 }) => {
-  const [selectedId, setSelectedId] = useState<string>(CLUBS[9].id); // Default mid/lower club ideal for rookie
-  const [divisionFilter, setDivisionFilter] = useState<'TODAS' | 'Série A' | 'Série B' | 'Série C'>('TODAS');
+  const [selectedId, setSelectedId] = useState<string>(CLUBS[12]?.id || CLUBS[0].id);
+  const [divisionFilter, setDivisionFilter] = useState<'Série A' | 'Série B' | 'TODAS'>('Série A');
 
+  const allClubs = [...CLUBS, ...SERIE_B_CLUBS];
   const visibleClubs =
     divisionFilter === 'TODAS'
-      ? CLUBS
-      : CLUBS.filter((c) => c.division === divisionFilter);
+      ? allClubs
+      : allClubs.filter((c) => c.division === divisionFilter);
 
-  const selectedClub = CLUBS.find((c) => c.id === selectedId) || CLUBS[0];
+  const selectedClub = allClubs.find((c) => c.id === selectedId) || CLUBS[0];
 
   const chanceLabel =
     playerOvr >= selectedClub.squadQuality - 3
@@ -62,7 +63,7 @@ export const ClubSelection: React.FC<ClubSelectionProps> = ({
         </div>
 
         <div className="flex items-center gap-1 bg-slate-900 p-1 rounded-lg border border-slate-800">
-          {(['TODAS', 'Série A', 'Série B', 'Série C'] as const).map((div) => (
+          {(['Série A', 'Série B', 'TODAS'] as const).map((div) => (
             <button
               key={div}
               type="button"
@@ -144,19 +145,25 @@ export const ClubSelection: React.FC<ClubSelectionProps> = ({
                 </div>
               </div>
 
-              {/* Uniform Swatch Preview */}
+              {/* Uniform 1/2/3 Swatch Preview */}
               <div className="hidden sm:flex flex-col items-center p-2.5 rounded-lg bg-slate-900 border border-slate-800 shrink-0">
-                <div className="flex gap-1">
-                  <span
-                    className="w-5 h-7 rounded-sm border border-slate-600"
-                    style={{ backgroundColor: selectedClub.kit.primary }}
-                  />
-                  <span
-                    className="w-5 h-7 rounded-sm border border-slate-600"
-                    style={{ backgroundColor: selectedClub.kit.secondary }}
-                  />
+                <div className="flex gap-1.5">
+                  {[selectedClub.kit, selectedClub.awayKit, selectedClub.thirdKit]
+                    .filter(Boolean)
+                    .map((k, idx) => (
+                      <div key={idx} className="flex">
+                        <span
+                          className="w-3.5 h-6 rounded-l-sm border border-slate-600"
+                          style={{ backgroundColor: k!.primary }}
+                        />
+                        <span
+                          className="w-3.5 h-6 rounded-r-sm border border-slate-600"
+                          style={{ backgroundColor: k!.secondary }}
+                        />
+                      </div>
+                    ))}
                 </div>
-                <span className="text-[10px] text-slate-400 mt-1">Uniforme</span>
+                <span className="text-[10px] text-slate-400 mt-1">3 Uniformes</span>
               </div>
             </div>
 

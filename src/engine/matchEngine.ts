@@ -231,6 +231,8 @@ export class MatchEngine {
   private celebrationScorerId: string | null = null;
   private celebrationTeam: 'home' | 'away' = 'home';
   private celebrationTarget = { x: 800, y: 210 };
+  private activeCelebrationAction: PlayerAnimAction = 'celebrate_arms';
+  private celebrationRunElapsed = 0;
 
   public stats: MatchStatLine = emptyStats();
   public rating = 6.5;
@@ -245,6 +247,12 @@ export class MatchEngine {
   public aimWorldX = 0;
   public aimWorldY = 0;
   public shotCharge = 0.25;
+  public shootQueueTimer = 0;
+  private queuedShotPower = 0.65;
+  private queuedShotAimY: number | null = null;
+  public passQueueTimer = 0;
+  public callForPassPulseTimer = 0;
+  public userRequestedPassTimer = 0;
   public highlightedTeammateId: string | null = null;
   public highlightTimer = 0;
 
@@ -544,44 +552,51 @@ export class MatchEngine {
     }
   }
 
+  public findBestUserPassTarget(user: SimPlayer): SimPlayer | null {
+    const mates = this.players.filter(
+      (p) => p.team === user.team && p.id !== user.id && !p.redCard
+    );
+    if (mates.length === 0) return null;
+
+    const aimAng =
+      Math.hypot(this.moveInput.x, this.moveInput.y) > 0.2
+        ? Math.atan2(this.moveInput.y, this.moveInput.x)
+        : user.facingAngle;
+    const aimX = Math.cos(aimAng);
+    const aimY = Math.sin(aimAng);
+
+    let bestMate = mates[0];
+    let bestScore = -9999;
+    for (const m of mates) {
+      const dx = m.x - user.x;
+      const dy = m.y - user.y;
+      const d = Math.hypot(dx, dy);
+      if (d < 16 || d > 560) continue;
+      const dot = (dx / d) * aimX + (dy / d) * aimY;
+      const score = dot * 230 - d * 0.2 + (m.isGoalkeeper ? -95 : 0);
+      if (score > bestScore) {
+        bestScore = score;
+        bestMate = m;
+      }
+    }
+    return bestMate;
+  }
+
   public triggerQuickPass() {
     if (this.phase !== 'PLAYING') return;
     const user = this.getUserPlayer();
     if (user.redCard) return;
 
-    if (this.ball.ownerId === user.id) {
-      // Pick teammate best aligned with current movement/facing angle
-      const mates = this.players.filter(
-        (p) => p.team === user.team && p.id !== user.id && !p.redCard
-      );
-      if (mates.length === 0) return;
-
-      const aimAng =
-        Math.hypot(this.moveInput.x, this.moveInput.y) > 0.2
-          ? Math.atan2(this.moveInput.y, this.moveInput.x)
-          : user.facingAngle;
-      const aimX = Math.cos(aimAng);
-      const aimY = Math.sin(aimAng);
-
-      let bestMate = mates[0];
-      let bestScore = -9999;
-      for (const m of mates) {
-        const dx = m.x - user.x;
-        const dy = m.y - user.y;
-        const d = Math.hypot(dx, dy);
-        if (d < 20 || d > 520) continue;
-        const dot = (dx / d) * aimX + (dy / d) * aimY;
-        const score = dot * 220 - d * 0.22 + (m.isGoalkeeper ? -90 : 0);
-        if (score > bestScore) {
-          bestScore = score;
-          bestMate = m;
-        }
-      }
+    if (this.ball.ownerId === user.id || (!this.ball.ownerId && dist(user.x, user.y, this.ball.x, this.ball.y) < 38 && this.ball.z < 28)) {
+      const bestMate = this.findBestUserPassTarget(user);
+      if (!bestMate) return;
       this.highlightedTeammateId = bestMate.id;
-      this.highlightTimer = 0.4;
+      this.highlightTimer = 0.45;
+      this.passQueueTimer = 0;
       this.executePass(user, bestMate, this.sprintHeld);
     } else {
-      this.triggerCallForPass();
+      // Queue one-touch pass if ball is arriving soon (never triggers call-for-pass)
+      this.passQueueTimer = 0.36;
     }
   }
 
@@ -589,14 +604,17 @@ export class MatchEngine {
     if (this.phase !== 'PLAYING') return;
     const user = this.getUserPlayer();
     if (user.redCard) return;
+    if (this.ball.ownerId === user.id) return;
+
+    this.callForPassPulseTimer = 0.75;
+    this.userRequestedPassTimer = 1.6;
+    soundEngine.play('menu');
+
     const owner = this.players.find((p) => p.id === this.ball.ownerId);
     if (owner && owner.team === user.team && owner.id !== user.id) {
-      this.executePass(owner, user);
-    } else if (user.isGoalkeeper && this.ball.ownerId === user.id) {
-      const mate = this.players
-        .filter((p) => p.team === user.team && p.id !== user.id && !p.redCard)
-        .sort((a, b) => dist(a.x, a.y, user.x, user.y) - dist(b.x, b.y, user.x, user.y))[0];
-      if (mate) this.executePass(user, mate);
+      this.userRequestedPassTimer = 0;
+      owner.aiDecisionTimer = 0.35;
+      this.executePass(owner, user, this.sprintHeld);
     }
   }
 
@@ -621,7 +639,6 @@ export class MatchEngine {
       if (tappedMate) {
         this.highlightedTeammateId = tappedMate.id;
         this.highlightTimer = 0.45;
-        // Through ball if user is sprinting or tapped ahead of teammate
         const dir = this.getAttackDir(user.team);
         const isThrough = this.sprintHeld || (worldX - tappedMate.x) * dir > 18;
         this.executePass(user, tappedMate, isThrough);
@@ -641,27 +658,57 @@ export class MatchEngine {
   }
 
   public startShotAim(worldX: number, worldY: number) {
+    if (this.phase !== 'PLAYING') return;
     const user = this.getUserPlayer();
-    if (this.phase !== 'PLAYING' || this.ball.ownerId !== user.id) return;
+    if (user.redCard) return;
     this.isAimingShot = true;
     this.aimWorldX = worldX;
     this.aimWorldY = worldY;
-    this.shotCharge = 0.25;
+    this.shotCharge = 0.35;
+    if (this.ball.ownerId !== user.id) {
+      this.shootQueueTimer = 0.45;
+      this.queuedShotPower = 0.65;
+      this.queuedShotAimY = worldY;
+    }
   }
 
   public updateShotAim(worldX: number, worldY: number) {
     if (!this.isAimingShot) return;
     this.aimWorldX = worldX;
     this.aimWorldY = worldY;
+    this.queuedShotAimY = worldY;
   }
 
   public releaseShotAim() {
     if (!this.isAimingShot) return;
     const user = this.getUserPlayer();
     this.isAimingShot = false;
-    if (this.ball.ownerId === user.id && this.phase === 'PLAYING') {
-      this.executeShot(user, this.aimWorldX, this.aimWorldY, this.shotCharge);
+    if (this.phase !== 'PLAYING' || user.redCard) return;
+
+    const power = Math.max(0.4, this.shotCharge);
+    const canFirstTimeStrike =
+      !this.ball.ownerId &&
+      dist(user.x, user.y, this.ball.x, this.ball.y) < 42 &&
+      this.ball.z < 30;
+
+    if (this.ball.ownerId === user.id || canFirstTimeStrike) {
+      this.shootQueueTimer = 0;
+      this.executeShot(user, this.aimWorldX, this.aimWorldY, power);
+    } else {
+      // Queue shot briefly if user pressed Shoot right before receiving the ball
+      this.shootQueueTimer = 0.38;
+      this.queuedShotPower = power;
+      this.queuedShotAimY = this.aimWorldY;
     }
+  }
+
+  public skipCelebration() {
+    if (this.phase !== 'GOAL_CELEBRATION') return;
+    this.phaseTimer = 0;
+    const concededTeam = this.ball.x > PITCH_GEO.pitchX + PITCH_GEO.pitchW / 2 ? 'away' : 'home';
+    const kickoffSide = this.half === 1 ? concededTeam : concededTeam === 'home' ? 'away' : 'home';
+    this.resetKickoff(kickoffSide);
+    soundEngine.play('whistle');
   }
 
   public executePass(passer: SimPlayer, target: SimPlayer, throughBall = false) {
@@ -765,6 +812,10 @@ export class MatchEngine {
       if (this.moodTimer <= 0) this.crowdMood = 'calm';
     }
     if (this.highlightTimer > 0) this.highlightTimer -= dt;
+    if (this.shootQueueTimer > 0) this.shootQueueTimer = Math.max(0, this.shootQueueTimer - dt);
+    if (this.passQueueTimer > 0) this.passQueueTimer = Math.max(0, this.passQueueTimer - dt);
+    if (this.callForPassPulseTimer > 0) this.callForPassPulseTimer = Math.max(0, this.callForPassPulseTimer - dt);
+    if (this.userRequestedPassTimer > 0) this.userRequestedPassTimer = Math.max(0, this.userRequestedPassTimer - dt);
     if (this.netRippleLeft > 0) this.netRippleLeft = Math.max(0, this.netRippleLeft - dt * 1.4);
     if (this.netRippleRight > 0) this.netRippleRight = Math.max(0, this.netRippleRight - dt * 1.4);
     if (this.goalExcitement > 0) this.goalExcitement = Math.max(0, this.goalExcitement - dt * 0.85);
@@ -793,6 +844,7 @@ export class MatchEngine {
     if (this.phase === 'KICKOFF' || this.phase === 'SET_PIECE' || this.phase === 'GOAL_CELEBRATION') {
       this.phaseTimer -= dt;
       if (this.phase === 'GOAL_CELEBRATION') {
+        this.celebrationRunElapsed += dt;
         const scorer = this.players.find((p) => p.id === this.celebrationScorerId);
         this.players.forEach((p) => {
           if (p.redCard) return;
@@ -800,25 +852,46 @@ export class MatchEngine {
             const dx = this.celebrationTarget.x - p.x;
             const dy = this.celebrationTarget.y - p.y;
             const d = Math.hypot(dx, dy);
-            if (d > 14) {
-              p.x += (dx / d) * 165 * dt;
-              p.y += (dy / d) * 165 * dt;
+            if (this.activeCelebrationAction === 'celebrate_slide') {
+              if (this.celebrationRunElapsed < 1.05 && d > 28) {
+                p.x += (dx / d) * 185 * dt;
+                p.y += (dy / d) * 185 * dt;
+                p.facingAngle = Math.atan2(dy, dx);
+                p.action = 'celebrate_arms';
+              } else if (this.celebrationRunElapsed < 2.15 && d > 10) {
+                const slideSpd = Math.max(25, 130 * (1 - (this.celebrationRunElapsed - 1.05) / 1.1));
+                p.x += (dx / d) * slideSpd * dt;
+                p.y += (dy / d) * slideSpd * dt;
+                p.facingAngle = Math.atan2(dy, dx);
+                p.action = 'celebrate_slide';
+              } else {
+                p.action = 'celebrate_slide';
+              }
+            } else if (d > 16 && this.celebrationRunElapsed < 1.25) {
+              p.x += (dx / d) * 170 * dt;
+              p.y += (dy / d) * 170 * dt;
               p.facingAngle = Math.atan2(dy, dx);
-              p.action = 'celebrate_arms';
+              p.action =
+                this.activeCelebrationAction === 'celebrate_crowd'
+                  ? 'celebrate_arms'
+                  : 'celebrate_arms';
             } else {
-              p.action = 'celebrate_jump';
+              p.action = this.activeCelebrationAction;
             }
             p.animPhase += dt * 13;
           } else if (p.team === this.celebrationTeam && !p.isGoalkeeper && scorer) {
             const d = dist(p.x, p.y, scorer.x, scorer.y);
-            if (d < 340 && d > 22) {
+            if (d < 360 && d > 24) {
               const ang = Math.atan2(scorer.y - p.y, scorer.x - p.x);
-              p.x += Math.cos(ang) * 135 * dt;
-              p.y += Math.sin(ang) * 135 * dt;
+              p.x += Math.cos(ang) * 145 * dt;
+              p.y += Math.sin(ang) * 145 * dt;
               p.facingAngle = ang;
               p.action = 'celebrate_arms';
-            } else if (d <= 22) {
-              p.action = 'celebrate_hug';
+            } else if (d <= 24) {
+              p.action =
+                this.activeCelebrationAction === 'celebrate_hug' || Math.abs(p.number) % 2 === 0
+                  ? 'celebrate_hug'
+                  : 'celebrate_jump';
             }
             p.animPhase += dt * 11;
           } else {
@@ -1038,6 +1111,14 @@ export class MatchEngine {
     }
 
     if (hasBall) {
+      if (p.team === this.userTeam && this.userRequestedPassTimer > 0) {
+        this.userRequestedPassTimer = 0;
+        const user = this.getUserPlayer();
+        if (!user.redCard) {
+          this.executePass(p, user, this.sprintHeld);
+          return;
+        }
+      }
       p.aiDecisionTimer -= dt;
       const oppGoalX = dir === 1 ? g.pitchX + g.pitchW : g.pitchX;
       const oppGoalY = g.pitchY + g.pitchH / 2;
@@ -1449,6 +1530,20 @@ export class MatchEngine {
           this.ball.lastTouchTeam = p.team;
           this.ball.lastTouchPlayerId = p.id;
           soundEngine.play('ball');
+
+          if (p.isUser) {
+            if (this.shootQueueTimer > 0) {
+              this.shootQueueTimer = 0;
+              const dir = this.getAttackDir(p.team);
+              const goalX = dir === 1 ? g.pitchX + g.pitchW : g.pitchX;
+              const aimY = this.queuedShotAimY ?? g.pitchY + g.pitchH / 2;
+              this.executeShot(p, goalX, aimY, this.queuedShotPower);
+            } else if (this.passQueueTimer > 0) {
+              this.passQueueTimer = 0;
+              const mate = this.findBestUserPassTarget(p);
+              if (mate) this.executePass(p, mate, this.sprintHeld);
+            }
+          }
           break;
         }
       }
@@ -1520,10 +1615,51 @@ export class MatchEngine {
 
     this.celebrationScorerId = scorer.id;
     this.celebrationTeam = scoringTeam;
-    this.celebrationTarget = {
-      x: netSide === 'right' ? PITCH_GEO.pitchX + PITCH_GEO.pitchW - 48 : PITCH_GEO.pitchX + 48,
-      y: scorer.y < PITCH_GEO.pitchY + PITCH_GEO.pitchH / 2 ? PITCH_GEO.pitchY + 26 : PITCH_GEO.pitchY + PITCH_GEO.pitchH - 26,
+    this.celebrationRunElapsed = 0;
+
+    const CELEBRATION_ACTION_MAP: Record<string, PlayerAnimAction> = {
+      arms_open: 'celebrate_arms',
+      run_crowd: 'celebrate_crowd',
+      point_sky: 'celebrate_sky',
+      jump_fist: 'celebrate_jump',
+      knee_slide: 'celebrate_slide',
+      dance: 'celebrate_dance',
+      jersey_show: 'celebrate_shirt',
+      group_hug: 'celebrate_hug',
     };
+    const allCelebs = Object.keys(CELEBRATION_ACTION_MAP);
+    const chosenId = scorer.isUser
+      ? this.career.gear.celebrationId || 'knee_slide'
+      : allCelebs[(scorer.number + Math.floor(this.matchSeconds)) % allCelebs.length];
+    this.activeCelebrationAction = CELEBRATION_ACTION_MAP[chosenId] || 'celebrate_arms';
+
+    const cornerX =
+      netSide === 'right'
+        ? PITCH_GEO.pitchX + PITCH_GEO.pitchW - 28
+        : PITCH_GEO.pitchX + 28;
+    const cornerY =
+      scorer.y < PITCH_GEO.pitchY + PITCH_GEO.pitchH / 2
+        ? PITCH_GEO.pitchY + 24
+        : PITCH_GEO.pitchY + PITCH_GEO.pitchH - 24;
+
+    if (this.activeCelebrationAction === 'celebrate_slide') {
+      this.celebrationTarget = { x: cornerX, y: cornerY };
+    } else if (this.activeCelebrationAction === 'celebrate_crowd') {
+      this.celebrationTarget = {
+        x: clamp(scorer.x + (netSide === 'right' ? 60 : -60), PITCH_GEO.pitchX + 90, PITCH_GEO.pitchX + PITCH_GEO.pitchW - 90),
+        y: scorer.y < PITCH_GEO.pitchY + PITCH_GEO.pitchH / 2 ? PITCH_GEO.pitchY + 12 : PITCH_GEO.pitchY + PITCH_GEO.pitchH - 12,
+      };
+    } else if (this.activeCelebrationAction === 'celebrate_hug') {
+      this.celebrationTarget = {
+        x: clamp(scorer.x + (netSide === 'right' ? -70 : 70), PITCH_GEO.pitchX + 120, PITCH_GEO.pitchX + PITCH_GEO.pitchW - 120),
+        y: PITCH_GEO.pitchY + PITCH_GEO.pitchH / 2,
+      };
+    } else {
+      this.celebrationTarget = {
+        x: netSide === 'right' ? PITCH_GEO.pitchX + PITCH_GEO.pitchW - 58 : PITCH_GEO.pitchX + 58,
+        y: cornerY,
+      };
+    }
 
     const clubName = scoringTeam === 'home' ? this.homeClub.shortName : this.awayClub.shortName;
     const tag = isFinal
@@ -1537,7 +1673,7 @@ export class MatchEngine {
       : 'GOOOOL!';
     this.eventBanner = `${tag} ${clubName} · ${scorer.name}`;
     this.eventTone = 'goal';
-    this.bannerTimer = 3.4;
+    this.bannerTimer = 3.8;
 
     const colors = [
       scoringTeam === 'home' ? this.homeClub.kit.primary : this.awayClub.kit.primary,
@@ -1545,7 +1681,7 @@ export class MatchEngine {
       '#10B981',
       '#FFFFFF',
     ];
-    for (let i = 0; i < 55; i++) {
+    for (let i = 0; i < 65; i++) {
       const ang = Math.random() * Math.PI * 2;
       const spd = 75 + Math.random() * 230;
       this.particles.push({
@@ -1554,7 +1690,7 @@ export class MatchEngine {
         vx: Math.cos(ang) * spd,
         vy: Math.sin(ang) * spd,
         color: colors[i % colors.length],
-        life: 1.8 + Math.random() * 1.1,
+        life: 1.9 + Math.random() * 1.1,
         size: 5 + Math.floor(Math.random() * 4),
       });
     }
@@ -1565,7 +1701,7 @@ export class MatchEngine {
     soundEngine.play('celebration');
 
     this.phase = 'GOAL_CELEBRATION';
-    this.phaseTimer = 3.1;
+    this.phaseTimer = 4.0;
   }
 
   private clampToArena(p: SimPlayer) {
@@ -1643,16 +1779,29 @@ export class MatchEngine {
 
     const user = this.getUserPlayer();
     if (this.ball.ownerId === user.id && this.phase === 'PLAYING') {
+      const defaultTarget = this.findBestUserPassTarget(user);
       for (const m of this.players) {
         if (m.team === user.team && m.id !== user.id && !m.redCard) {
-          const isHl = this.highlightedTeammateId === m.id && this.highlightTimer > 0;
-          ctx.strokeStyle = isHl ? '#FACC15' : 'rgba(248, 250, 252, 0.25)';
-          ctx.lineWidth = isHl ? 2.5 : 1.2;
+          const isHl =
+            (this.highlightedTeammateId === m.id && this.highlightTimer > 0) ||
+            defaultTarget?.id === m.id;
+          ctx.strokeStyle = isHl ? '#FACC15' : 'rgba(248, 250, 252, 0.22)';
+          ctx.lineWidth = isHl ? 2.4 : 1.1;
           ctx.beginPath();
-          ctx.arc(m.x, m.y + 8, isHl ? 20 : 15, 0, Math.PI * 2);
+          ctx.arc(m.x, m.y + 8, isHl ? 19 : 14, 0, Math.PI * 2);
           ctx.stroke();
         }
       }
+    }
+
+    if (this.callForPassPulseTimer > 0 && !user.redCard) {
+      const progress = 1 - this.callForPassPulseTimer / 0.75;
+      const r = 14 + progress * 24;
+      ctx.strokeStyle = `rgba(56, 189, 248, ${(1 - progress) * 0.95})`;
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.arc(user.x, user.y + 6, r, 0, Math.PI * 2);
+      ctx.stroke();
     }
 
     if (this.isAimingShot && this.ball.ownerId === user.id) {

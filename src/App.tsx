@@ -2,12 +2,16 @@ import { useEffect, useState } from 'react';
 import { soundEngine } from './audio/soundEngine';
 import { CareerHub } from './components/CareerHub';
 import { CharacterCreator, CreatedCharacterDraft } from './components/CharacterCreator';
+import { ClubsBrowserScreen } from './components/ClubsBrowserScreen';
 import { ClubSelection } from './components/ClubSelection';
+import { CompetitionsBrowserScreen } from './components/CompetitionsBrowserScreen';
 import { CreditsScreen } from './components/CreditsScreen';
 import { MainMenu } from './components/MainMenu';
 import { MatchView } from './components/MatchView';
 import { OrientationGuard } from './components/OrientationGuard';
+import { PlayerProfileScreen } from './components/PlayerProfileScreen';
 import { SettingsScreen } from './components/SettingsScreen';
+import { StadiumsBrowserScreen } from './components/StadiumsBrowserScreen';
 import { TitleScreen } from './components/TitleScreen';
 import { calculateOverall } from './data/positions';
 import {
@@ -69,6 +73,19 @@ export default function App() {
   const handleCharacterComplete = (draft: CreatedCharacterDraft) => {
     setCharDraft(draft);
     setScreen('CLUB_SELECT');
+  };
+
+  const handleCustomizationSave = (draft: CreatedCharacterDraft) => {
+    if (!career) return;
+    const updated: PlayerCareer = {
+      ...career,
+      personal: draft.personal,
+      appearance: draft.appearance,
+      gear: draft.gear,
+    };
+    setCareer(updated);
+    saveCareer(updated);
+    setScreen(returnScreen === 'PLAYER_PROFILE' ? 'PLAYER_PROFILE' : 'MAIN_MENU');
   };
 
   const handleClubSelected = (club: Club) => {
@@ -148,8 +165,54 @@ export default function App() {
           career={career}
           onContinueCareer={() => setScreen('CAREER_HUB')}
           onNewCareer={() => setScreen('CHAR_CREATOR')}
+          onOpenPlayerProfile={() => setScreen('PLAYER_PROFILE')}
+          onOpenClubs={() => setScreen('CLUBS_BROWSER')}
+          onOpenStadiums={() => setScreen('STADIUMS_BROWSER')}
+          onOpenCompetitions={() => setScreen('COMPETITIONS_BROWSER')}
+          onOpenCustomization={() => {
+            setReturnScreen('MAIN_MENU');
+            setScreen('CUSTOMIZATION');
+          }}
           onOpenSettings={() => handleOpenSettings('MAIN_MENU')}
           onOpenCredits={() => setScreen('CREDITS')}
+        />
+      )}
+
+      {screen === 'PLAYER_PROFILE' && (
+        <PlayerProfileScreen
+          career={career}
+          onBack={() => setScreen('MAIN_MENU')}
+          onStartNewCareer={() => setScreen('CHAR_CREATOR')}
+          onCustomize={() => {
+            setReturnScreen('PLAYER_PROFILE');
+            setScreen('CUSTOMIZATION');
+          }}
+        />
+      )}
+
+      {screen === 'CLUBS_BROWSER' && (
+        <ClubsBrowserScreen onBack={() => setScreen('MAIN_MENU')} />
+      )}
+
+      {screen === 'STADIUMS_BROWSER' && (
+        <StadiumsBrowserScreen onBack={() => setScreen('MAIN_MENU')} />
+      )}
+
+      {screen === 'COMPETITIONS_BROWSER' && (
+        <CompetitionsBrowserScreen
+          career={career}
+          onBack={() => setScreen('MAIN_MENU')}
+        />
+      )}
+
+      {screen === 'CUSTOMIZATION' && career && (
+        <CharacterCreator
+          initialCareer={career}
+          editMode
+          onBack={() =>
+            setScreen(returnScreen === 'PLAYER_PROFILE' ? 'PLAYER_PROFILE' : 'MAIN_MENU')
+          }
+          onComplete={handleCustomizationSave}
         />
       )}
 

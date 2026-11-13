@@ -26,6 +26,7 @@ export interface PixelPlayerVisual {
   hasBall: boolean;
   action?: PlayerAnimAction;
   zOffset?: number;
+  viewAngle?: 'front' | 'back' | 'side';
 }
 
 function px(
@@ -49,7 +50,16 @@ export function drawPixelPlayerSprite(
   mode: 'preview' | 'match' = 'match',
   sunShadowOffset = { x: 0, y: 0 }
 ) {
-  const { appearance, gear, kit, isGoalkeeper, animPhase, action = 'idle', zOffset = 0 } = visual;
+  const {
+    appearance,
+    gear,
+    kit,
+    isGoalkeeper,
+    animPhase,
+    action = 'idle',
+    zOffset = 0,
+    viewAngle = 'front',
+  } = visual;
   const s = pixelScale * appearance.visualHeightScale;
   const widthFactor =
     appearance.bodyType === 'Forte'
@@ -58,16 +68,20 @@ export function drawPixelPlayerSprite(
       ? 0.88
       : 1.0;
 
+  const isBackView = mode === 'preview' && viewAngle === 'back';
+  const isSideView = mode === 'preview' && viewAngle === 'side';
+
   const shirtMain = isGoalkeeper ? kit.gkPrimary : kit.primary;
   const shirtAlt = isGoalkeeper ? '#0F172A' : kit.secondary;
   const shortsCol = isGoalkeeper ? '#0F172A' : kit.shorts;
   const sockCol = isGoalkeeper ? kit.gkPrimary : kit.socks;
 
-  const isCelebrating =
-    action === 'celebrate_arms' || action === 'celebrate_jump' || action === 'celebrate_hug';
+  const isCelebrating = action.startsWith('celebrate_');
   const jumpLift =
     action === 'celebrate_jump'
-      ? Math.abs(Math.sin(animPhase * 1.4)) * 6 * s
+      ? Math.abs(Math.sin(animPhase * 1.4)) * 6.5 * s
+      : action === 'celebrate_dance'
+      ? Math.abs(Math.sin(animPhase * 2.2)) * 2.2 * s
       : action === 'header'
       ? 5 * s
       : zOffset;
@@ -77,7 +91,9 @@ export function drawPixelPlayerSprite(
       ? Math.sin(animPhase) * 3.0
       : action === 'walk'
       ? Math.sin(animPhase) * 1.1
-      : action === 'idle'
+      : action === 'celebrate_dance'
+      ? Math.sin(animPhase * 2.2) * 1.6
+      : action === 'idle' || action === 'celebrate_slide' || action === 'celebrate_sky'
       ? 0
       : Math.sin(animPhase) * 1.8;
   const armSwing = -stride * 0.85;
@@ -85,7 +101,7 @@ export function drawPixelPlayerSprite(
   ctx.save();
   ctx.translate(Math.round(centerX), Math.round(centerY));
 
-  // Coherent ground shadow (scales slightly when jumping for header or celebration)
+  // Ground shadow
   const shadowShrink = Math.max(0.6, 1 - jumpLift / (26 * s));
   ctx.fillStyle = 'rgba(0,0,0,0.34)';
   ctx.fillRect(
@@ -95,6 +111,13 @@ export function drawPixelPlayerSprite(
     Math.round(3 * s * shadowShrink)
   );
 
+  // Knee-slide grass skid trail!
+  if (action === 'celebrate_slide') {
+    const slideDir = Math.cos(visual.facingAngle) >= 0 ? -1 : 1;
+    px(ctx, slideDir * 2 * s, 4.8 * s, slideDir * 9 * s, 1.4 * s, '#14532D');
+    px(ctx, slideDir * 3 * s, 3.8 * s, slideDir * 5 * s, 1.0 * s, '#4ADE80');
+  }
+
   if (mode === 'match' && visual.isUserControlled) {
     ctx.strokeStyle = visual.hasBall ? '#FACC15' : '#34D399';
     ctx.lineWidth = 2;
@@ -103,10 +126,9 @@ export function drawPixelPlayerSprite(
     ctx.stroke();
   }
 
-  // Apply airborne lift & pose tilt for dives, tackles, falls, kicks
   ctx.translate(0, Math.round(-jumpLift));
 
-  const facingRight = mode === 'preview' ? false : Math.cos(visual.facingAngle) >= 0;
+  const facingRight = mode === 'preview' ? isSideView : Math.cos(visual.facingAngle) >= 0;
   if (mode === 'match') {
     if (action === 'dive') {
       ctx.rotate(facingRight ? 0.95 : -0.95);
@@ -116,12 +138,16 @@ export function drawPixelPlayerSprite(
       ctx.rotate(facingRight ? 1.15 : -1.15);
     } else if (action === 'kick') {
       ctx.rotate(facingRight ? -0.14 : 0.14);
+    } else if (action === 'celebrate_slide') {
+      ctx.rotate(facingRight ? -0.18 : 0.18);
+    } else if (action === 'celebrate_dance') {
+      ctx.rotate(Math.sin(animPhase * 2.0) * 0.12);
     }
   }
 
-  const w = widthFactor;
-  let leftLegY = mode === 'match' ? 2 * s + stride * 0.5 * s : 2 * s;
-  let rightLegY = mode === 'match' ? 2 * s - stride * 0.5 * s : 2 * s;
+  const w = isSideView ? widthFactor * 0.72 : widthFactor;
+  let leftLegY = mode === 'match' || isCelebrating ? 2 * s + stride * 0.5 * s : 2 * s;
+  let rightLegY = mode === 'match' || isCelebrating ? 2 * s - stride * 0.5 * s : 2 * s;
   let kickLegOffsetX = 0;
 
   if (mode === 'match') {
@@ -133,25 +159,33 @@ export function drawPixelPlayerSprite(
     }
   }
 
-  px(ctx, -2.5 * s * w, leftLegY, 2 * s, 3.2 * s, appearance.skinColor);
-  px(ctx, 0.5 * s * w + kickLegOffsetX, rightLegY, 2 * s, 3.2 * s, appearance.skinColor);
+  if (action === 'celebrate_slide') {
+    // Bent kneeling legs pose (inspired by pixel knee-slide artwork)
+    const dirSign = facingRight ? 1 : -1;
+    px(ctx, -2.5 * s * w, 2.2 * s, 3.6 * s, 2.1 * s, appearance.skinColor);
+    px(ctx, -3.5 * s * w - dirSign * 1.4 * s, 3.6 * s, 2.8 * s, 1.5 * s, sockCol);
+    px(ctx, -4.4 * s * w - dirSign * 1.8 * s, 4.1 * s, 2.1 * s, 1.2 * s, gear.bootColor);
+  } else {
+    px(ctx, -2.5 * s * w, leftLegY, 2 * s, 3.2 * s, appearance.skinColor);
+    px(ctx, 0.5 * s * w + kickLegOffsetX, rightLegY, 2 * s, 3.2 * s, appearance.skinColor);
 
-  if (gear.accessory === 'Joelho') {
-    px(ctx, -2.5 * s * w, leftLegY + 0.6 * s, 2 * s, 0.9 * s, '#F8FAFC');
-    px(ctx, 0.5 * s * w + kickLegOffsetX, rightLegY + 0.6 * s, 2 * s, 0.9 * s, '#F8FAFC');
-  }
+    if (gear.accessory === 'Joelho') {
+      px(ctx, -2.5 * s * w, leftLegY + 0.6 * s, 2 * s, 0.9 * s, '#F8FAFC');
+      px(ctx, 0.5 * s * w + kickLegOffsetX, rightLegY + 0.6 * s, 2 * s, 0.9 * s, '#F8FAFC');
+    }
 
-  const sockH = gear.sockType === 'Alta' ? 2.8 : gear.sockType === 'Média' ? 2.0 : 1.2;
-  const sockOff = 3.2 - sockH;
-  px(ctx, -2.5 * s * w, leftLegY + sockOff * s, 2 * s, sockH * s, sockCol);
-  px(ctx, 0.5 * s * w + kickLegOffsetX, rightLegY + sockOff * s, 2 * s, sockH * s, sockCol);
+    const sockH = gear.sockType === 'Alta' ? 2.8 : gear.sockType === 'Média' ? 2.0 : 1.2;
+    const sockOff = 3.2 - sockH;
+    px(ctx, -2.5 * s * w, leftLegY + sockOff * s, 2 * s, sockH * s, sockCol);
+    px(ctx, 0.5 * s * w + kickLegOffsetX, rightLegY + sockOff * s, 2 * s, sockH * s, sockCol);
 
-  const bootH = gear.bootModel === 'TravaAlta' ? 1.5 : 1.2;
-  px(ctx, -2.8 * s * w, leftLegY + 3.0 * s, 2.4 * s, bootH * s, gear.bootColor);
-  px(ctx, 0.4 * s * w + kickLegOffsetX, rightLegY + 3.0 * s, 2.4 * s, bootH * s, gear.bootColor);
-  if (gear.bootModel === 'Velocidade' || gear.bootModel === 'Controle') {
-    px(ctx, -2.6 * s * w, leftLegY + 3.2 * s, 1 * s, 0.5 * s, '#FFFFFF');
-    px(ctx, 0.6 * s * w + kickLegOffsetX, rightLegY + 3.2 * s, 1 * s, 0.5 * s, '#FFFFFF');
+    const bootH = gear.bootModel === 'TravaAlta' ? 1.5 : 1.2;
+    px(ctx, -2.8 * s * w, leftLegY + 3.0 * s, 2.4 * s, bootH * s, gear.bootColor);
+    px(ctx, 0.4 * s * w + kickLegOffsetX, rightLegY + 3.0 * s, 2.4 * s, bootH * s, gear.bootColor);
+    if (gear.bootModel === 'Velocidade' || gear.bootModel === 'Controle') {
+      px(ctx, -2.6 * s * w, leftLegY + 3.2 * s, 1 * s, 0.5 * s, '#FFFFFF');
+      px(ctx, 0.6 * s * w + kickLegOffsetX, rightLegY + 3.2 * s, 1 * s, 0.5 * s, '#FFFFFF');
+    }
   }
 
   px(ctx, -3.5 * s * w, 0.2 * s, 7 * s * w, 2.5 * s, shortsCol);
@@ -178,88 +212,178 @@ export function drawPixelPlayerSprite(
     }
   }
 
-  // Arms — raised high for celebrations, stretched for GK dives, swinging for run/sprint
-  const sleeveH = gear.sleeveLength === 'Longa' ? 3.5 : 1.9;
-  if (mode === 'match' && isCelebrating) {
-    const pump = Math.sin(animPhase * 1.6) * 1.2 * s;
-    const armUpY = action === 'celebrate_hug' ? -5.8 * s : -8.5 * s + pump;
-    const armOut = action === 'celebrate_hug' ? 1.8 * s : 0.4 * s;
-    px(ctx, torsoX - 1.6 * s - armOut, armUpY, 1.6 * s, 4.0 * s, appearance.skinColor);
-    px(ctx, torsoX + torsoW + armOut, armUpY, 1.6 * s, 4.0 * s, appearance.skinColor);
-    px(ctx, torsoX - 1.6 * s - armOut, armUpY + (4.0 - sleeveH) * s, 1.6 * s, sleeveH * s, shirtMain);
-    px(ctx, torsoX + torsoW + armOut, armUpY + (4.0 - sleeveH) * s, 1.6 * s, sleeveH * s, shirtMain);
+  // Collar Style
+  const collarCol = kit.secondary === shirtMain ? '#FFFFFF' : kit.secondary;
+  if (gear.collarStyle === 'Polo') {
+    px(ctx, -1.9 * s * w, torsoY - 0.3 * s, 3.8 * s * w, 0.9 * s, collarCol);
+    px(ctx, -0.4 * s, torsoY + 0.5 * s, 0.8 * s, 1.1 * s, collarCol);
+  } else if (gear.collarStyle === 'Gola V') {
+    px(ctx, -1.6 * s * w, torsoY, 3.2 * s * w, 0.6 * s, collarCol);
+    px(ctx, -0.9 * s * w, torsoY + 0.5 * s, 1.8 * s * w, 0.7 * s, appearance.skinColor);
   } else {
-    const leftArmY = -4.3 * s + armSwing * 0.4 * s;
-    const rightArmY = -4.3 * s - armSwing * 0.4 * s;
-    px(ctx, torsoX - 1.6 * s, leftArmY, 1.6 * s, 3.8 * s, appearance.skinColor);
-    px(ctx, torsoX + torsoW, rightArmY, 1.6 * s, 3.8 * s, appearance.skinColor);
-    px(ctx, torsoX - 1.6 * s, leftArmY, 1.6 * s, sleeveH * s, shirtMain);
-    px(ctx, torsoX + torsoW, rightArmY, 1.6 * s, sleeveH * s, shirtMain);
+    px(ctx, -1.5 * s * w, torsoY, 3.0 * s * w, 0.6 * s, collarCol);
+  }
 
-    if (gear.accessory === 'Munhequeira') {
-      px(ctx, torsoX - 1.6 * s, leftArmY + 2.8 * s, 1.6 * s, 0.8 * s, '#F8FAFC');
-      px(ctx, torsoX + torsoW, rightArmY + 2.8 * s, 1.6 * s, 0.8 * s, '#F8FAFC');
+  // Arms — 8 distinct celebration animations + regular running/gk poses
+  const sleeveH = gear.sleeveLength === 'Longa' ? 3.5 : 1.9;
+  if ((mode === 'match' || animPhase > 0) && isCelebrating) {
+    const pump = Math.sin(animPhase * 1.7) * 1.1 * s;
+    if (action === 'celebrate_sky') {
+      // Right arm pointing straight to the sky, left arm relaxed
+      px(ctx, torsoX - 1.6 * s, -4.2 * s, 1.6 * s, 3.6 * s, appearance.skinColor);
+      px(ctx, torsoX + torsoW + 0.2 * s, -10.5 * s, 1.6 * s, 6.0 * s, appearance.skinColor);
+      px(ctx, torsoX + torsoW + 0.2 * s, -6.5 * s, 1.6 * s, sleeveH * s, shirtMain);
+      px(ctx, torsoX - 1.6 * s, -4.2 * s, 1.6 * s, sleeveH * s, shirtMain);
+    } else if (action === 'celebrate_slide') {
+      // Kneeling slide with open arms celebrating!
+      px(ctx, torsoX - 2.6 * s, -5.6 * s, 2.6 * s, 1.7 * s, appearance.skinColor);
+      px(ctx, torsoX + torsoW, -5.8 * s, 2.8 * s, 1.7 * s, appearance.skinColor);
+      px(ctx, torsoX - 1.5 * s, -5.6 * s, 1.5 * s, 1.7 * s, shirtMain);
+      px(ctx, torsoX + torsoW, -5.8 * s, 1.5 * s, 1.7 * s, shirtMain);
+    } else if (action === 'celebrate_shirt') {
+      // Showing jersey / fist pump with shirt held proudly
+      px(ctx, torsoX - 1.8 * s, -8.8 * s, 1.6 * s, 4.2 * s, appearance.skinColor);
+      px(ctx, torsoX + torsoW + 0.2 * s, -8.2 * s, 1.6 * s, 3.8 * s, appearance.skinColor);
+      px(ctx, torsoX + torsoW + 0.2 * s, -8.9 * s, 2.1 * s, 2.0 * s, shirtMain);
+      px(ctx, torsoX - 1.8 * s, -6.4 * s, 1.6 * s, sleeveH * s, shirtMain);
+    } else if (action === 'celebrate_dance') {
+      const sway = Math.sin(animPhase * 2.4) * 1.8 * s;
+      px(ctx, torsoX - 1.8 * s, -6.8 * s + sway, 1.6 * s, 3.8 * s, appearance.skinColor);
+      px(ctx, torsoX + torsoW + 0.2 * s, -6.8 * s - sway, 1.6 * s, 3.8 * s, appearance.skinColor);
+      px(ctx, torsoX - 1.8 * s, -5.2 * s + sway, 1.6 * s, sleeveH * s, shirtMain);
+      px(ctx, torsoX + torsoW + 0.2 * s, -5.2 * s - sway, 1.6 * s, sleeveH * s, shirtMain);
+    } else {
+      const armUpY = action === 'celebrate_hug' ? -5.6 * s : -8.5 * s + pump;
+      const armOut = action === 'celebrate_arms' || action === 'celebrate_crowd' ? 1.8 * s : 0.5 * s;
+      px(ctx, torsoX - 1.6 * s - armOut, armUpY, 1.6 * s, 4.0 * s, appearance.skinColor);
+      px(ctx, torsoX + torsoW + armOut, armUpY, 1.6 * s, 4.0 * s, appearance.skinColor);
+      px(ctx, torsoX - 1.6 * s - armOut, armUpY + (4.0 - sleeveH) * s, 1.6 * s, sleeveH * s, shirtMain);
+      px(ctx, torsoX + torsoW + armOut, armUpY + (4.0 - sleeveH) * s, 1.6 * s, sleeveH * s, shirtMain);
+    }
+  } else {
+    const leftArmY = -4.3 * s + (isSideView ? 0 : armSwing * 0.4 * s);
+    const rightArmY = -4.3 * s - (isSideView ? 0 : armSwing * 0.4 * s);
+    px(ctx, torsoX - 1.5 * s, leftArmY, 1.5 * s, 3.8 * s, appearance.skinColor);
+    px(ctx, torsoX + torsoW, rightArmY, 1.5 * s, 3.8 * s, appearance.skinColor);
+    px(ctx, torsoX - 1.5 * s, leftArmY, 1.5 * s, sleeveH * s, shirtMain);
+    px(ctx, torsoX + torsoW, rightArmY, 1.5 * s, sleeveH * s, shirtMain);
+
+    if (gear.accessory === 'Bracadeira') {
+      px(ctx, torsoX - 1.5 * s, leftArmY + 1.4 * s, 1.5 * s, 0.8 * s, '#FACC15');
+    } else if (gear.accessory === 'Munhequeira') {
+      px(ctx, torsoX - 1.5 * s, leftArmY + 2.8 * s, 1.5 * s, 0.8 * s, '#F8FAFC');
+      px(ctx, torsoX + torsoW, rightArmY + 2.8 * s, 1.5 * s, 0.8 * s, '#F8FAFC');
     } else if (gear.accessory === 'Luvas' || isGoalkeeper) {
-      px(ctx, torsoX - 1.8 * s, leftArmY + 3.1 * s, 1.9 * s, 1.2 * s, '#F8FAFC');
-      px(ctx, torsoX + torsoW - 0.1 * s, rightArmY + 3.1 * s, 1.9 * s, 1.2 * s, '#F8FAFC');
+      px(ctx, torsoX - 1.7 * s, leftArmY + 3.1 * s, 1.8 * s, 1.2 * s, '#F8FAFC');
+      px(ctx, torsoX + torsoW - 0.1 * s, rightArmY + 3.1 * s, 1.8 * s, 1.2 * s, '#F8FAFC');
     }
   }
 
+  // Preview Jersey Name & Number (Back view prints shirtName + large number; Front shows badge number)
   if (mode === 'preview') {
-    ctx.fillStyle = '#0F172A';
-    ctx.fillRect(Math.round(-2.2 * s), Math.round(-3.5 * s), Math.round(4.4 * s), Math.round(2.8 * s));
-    ctx.fillStyle = '#FFFFFF';
-    ctx.font = `bold ${Math.max(8, Math.round(2.3 * s))}px "JetBrains Mono", monospace`;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(String(gear.jerseyNumber), 0, Math.round(-2.0 * s));
+    if (isBackView) {
+      const backName = (gear.shirtName || 'CRAQUE').toUpperCase().slice(0, 10);
+      ctx.fillStyle = '#0B121D';
+      ctx.fillRect(Math.round(-3.1 * s), Math.round(-4.1 * s), Math.round(6.2 * s), Math.round(4.1 * s));
+      ctx.fillStyle = '#FFFFFF';
+      ctx.font = `bold ${Math.max(7, Math.round(1.05 * s))}px "JetBrains Mono", monospace`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(backName, 0, Math.round(-3.4 * s));
+      ctx.fillStyle = '#FACC15';
+      ctx.font = `bold ${Math.max(10, Math.round(2.4 * s))}px "JetBrains Mono", monospace`;
+      ctx.fillText(String(gear.jerseyNumber), 0, Math.round(-1.5 * s));
+    } else if (!isSideView) {
+      ctx.fillStyle = '#0F172A';
+      ctx.fillRect(Math.round(-2.1 * s), Math.round(-3.1 * s), Math.round(4.2 * s), Math.round(2.5 * s));
+      ctx.fillStyle = '#FFFFFF';
+      ctx.font = `bold ${Math.max(8, Math.round(2.1 * s))}px "JetBrains Mono", monospace`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(String(gear.jerseyNumber), 0, Math.round(-1.8 * s));
+    }
   }
 
-  const headX = -2.8 * s;
-  const headY = -9.4 * s;
-  const headW = 5.6 * s;
-  const headH = 4.9 * s;
+  // Head with Face Shape support
+  const shapeWMod =
+    appearance.faceShape === 'Quadrado'
+      ? 1.08
+      : appearance.faceShape === 'Fino'
+      ? 0.88
+      : appearance.faceShape === 'Redondo'
+      ? 1.06
+      : 1.0;
+  const headW = (isSideView ? 4.4 : 5.6) * s * shapeWMod;
+  const headH = (appearance.faceShape === 'Redondo' ? 4.6 : 4.9) * s;
+  const headX = -headW / 2;
+  const headY = -4.5 * s - headH;
   px(ctx, headX, headY, headW, headH, appearance.skinColor);
 
-  const eyeOffsetX = mode === 'preview' ? 0 : facingRight ? 0.5 * s : -0.5 * s;
-  const eyeH =
-    appearance.eyeStyle === 'Focado'
-      ? 0.55 * s
-      : appearance.eyeStyle === 'Expressivo'
-      ? 0.95 * s
-      : 0.75 * s;
-  px(ctx, -1.6 * s + eyeOffsetX, headY + 2.2 * s, 0.8 * s, eyeH, '#111827');
-  px(ctx, 0.8 * s + eyeOffsetX, headY + 2.2 * s, 0.8 * s, eyeH, '#111827');
+  // Face details only when not viewed from behind
+  if (!isBackView) {
+    const eyeOffsetX = mode === 'preview' ? (isSideView ? 0.9 * s : 0) : facingRight ? 0.5 * s : -0.5 * s;
+    const eyeH =
+      appearance.eyeStyle === 'Focado'
+        ? 0.55 * s
+        : appearance.eyeStyle === 'Expressivo'
+        ? 0.95 * s
+        : 0.75 * s;
 
-  const browH = appearance.eyebrowStyle === 'Grossa' ? 0.65 * s : 0.4 * s;
-  const browDrop = appearance.eyebrowStyle === 'Arqueada' ? -0.25 * s : 0;
-  px(ctx, -1.8 * s + eyeOffsetX, headY + 1.4 * s + browDrop, 1.2 * s, browH, appearance.hairColor);
-  px(ctx, 0.6 * s + eyeOffsetX, headY + 1.4 * s + browDrop, 1.2 * s, browH, appearance.hairColor);
-
-  if (mode === 'preview' || isCelebrating) {
-    if (appearance.faceStyle === 'Sorriso' || isCelebrating) {
-      px(ctx, -1.0 * s, headY + 3.6 * s, 2.0 * s, 0.5 * s, '#FFFFFF');
-    } else if (appearance.faceStyle === 'Confiante') {
-      px(ctx, -0.7 * s, headY + 3.7 * s, 1.6 * s, 0.4 * s, '#7C2D12');
+    if (isSideView) {
+      px(ctx, 0.5 * s, headY + 2.1 * s, 0.8 * s, eyeH, '#111827');
+      px(ctx, 0.3 * s, headY + 1.3 * s, 1.2 * s, 0.5 * s, appearance.hairColor);
     } else {
-      px(ctx, -0.9 * s, headY + 3.8 * s, 1.8 * s, 0.4 * s, '#5C2B18');
+      px(ctx, -1.6 * s + eyeOffsetX, headY + 2.2 * s, 0.8 * s, eyeH, '#111827');
+      px(ctx, 0.8 * s + eyeOffsetX, headY + 2.2 * s, 0.8 * s, eyeH, '#111827');
+
+      const browH = appearance.eyebrowStyle === 'Grossa' ? 0.65 * s : 0.4 * s;
+      const browDrop = appearance.eyebrowStyle === 'Arqueada' ? -0.25 * s : 0;
+      px(ctx, -1.8 * s + eyeOffsetX, headY + 1.4 * s + browDrop, 1.2 * s, browH, appearance.hairColor);
+      px(ctx, 0.6 * s + eyeOffsetX, headY + 1.4 * s + browDrop, 1.2 * s, browH, appearance.hairColor);
+    }
+
+    // Facial Details (Sardas, Cicatriz, Pintura)
+    if (appearance.facialDetail === 'Sardas' && !isSideView) {
+      px(ctx, -1.8 * s, headY + 3.1 * s, 0.4 * s, 0.4 * s, '#9A3412');
+      px(ctx, -1.1 * s, headY + 3.3 * s, 0.4 * s, 0.4 * s, '#9A3412');
+      px(ctx, 1.4 * s, headY + 3.1 * s, 0.4 * s, 0.4 * s, '#9A3412');
+      px(ctx, 0.8 * s, headY + 3.3 * s, 0.4 * s, 0.4 * s, '#9A3412');
+    } else if (appearance.facialDetail === 'Cicatriz') {
+      px(ctx, 1.1 * s, headY + 1.6 * s, 0.45 * s, 1.9 * s, '#991B1B');
+    } else if (appearance.facialDetail === 'Pintura') {
+      px(ctx, -2.1 * s, headY + 2.9 * s, 1.3 * s, 0.55 * s, '#0F172A');
+      px(ctx, 0.8 * s, headY + 2.9 * s, 1.3 * s, 0.55 * s, '#0F172A');
+    }
+
+    if ((mode === 'preview' || isCelebrating) && !isSideView) {
+      if (appearance.faceStyle === 'Sorriso' || isCelebrating) {
+        px(ctx, -1.0 * s, headY + 3.6 * s, 2.0 * s, 0.5 * s, '#FFFFFF');
+      } else if (appearance.faceStyle === 'Confiante') {
+        px(ctx, -0.7 * s, headY + 3.7 * s, 1.6 * s, 0.4 * s, '#7C2D12');
+      } else {
+        px(ctx, -0.9 * s, headY + 3.8 * s, 1.8 * s, 0.4 * s, '#5C2B18');
+      }
+    }
+
+    if (appearance.mustacheStyle !== 'Nenhum' && !isSideView) {
+      const mW = appearance.mustacheStyle === 'Clássico' ? 2.8 * s : 2.0 * s;
+      px(ctx, -mW / 2 + eyeOffsetX, headY + 3.1 * s, mW, 0.55 * s, appearance.hairColor);
+    }
+
+    if (appearance.beardStyle === 'Rala') {
+      px(ctx, headX + 0.4 * s, headY + 3.6 * s, headW - 0.8 * s, 1.2 * s, `${appearance.hairColor}88`);
+    } else if (appearance.beardStyle === 'Cheia') {
+      px(ctx, headX + 0.2 * s, headY + 3.3 * s, headW - 0.4 * s, 1.8 * s, appearance.hairColor);
+    } else if (appearance.beardStyle === 'Cavanhaque' && !isSideView) {
+      px(ctx, -1.1 * s + eyeOffsetX, headY + 3.5 * s, 2.2 * s, 1.5 * s, appearance.hairColor);
     }
   }
 
-  if (appearance.mustacheStyle !== 'Nenhum') {
-    const mW = appearance.mustacheStyle === 'Clássico' ? 2.8 * s : 2.0 * s;
-    px(ctx, -mW / 2 + eyeOffsetX, headY + 3.1 * s, mW, 0.55 * s, appearance.hairColor);
-  }
-
-  if (appearance.beardStyle === 'Rala') {
-    px(ctx, headX + 0.4 * s, headY + 3.6 * s, headW - 0.8 * s, 1.2 * s, `${appearance.hairColor}88`);
-  } else if (appearance.beardStyle === 'Cheia') {
-    px(ctx, headX + 0.2 * s, headY + 3.3 * s, headW - 0.4 * s, 1.8 * s, appearance.hairColor);
-  } else if (appearance.beardStyle === 'Cavanhaque') {
-    px(ctx, -1.1 * s + eyeOffsetX, headY + 3.5 * s, 2.2 * s, 1.5 * s, appearance.hairColor);
-  }
-
+  // Hair styles (including Cacheado & Franja, plus full back coverage in back view)
   const hc = appearance.hairColor;
+  if (isBackView && appearance.hairStyle !== 'Raspado') {
+    px(ctx, headX - 0.2 * s, headY - 0.8 * s, headW + 0.4 * s, headH * 0.72, hc);
+  }
   switch (appearance.hairStyle) {
     case 'Curto':
       px(ctx, headX - 0.2 * s, headY - 0.7 * s, headW + 0.4 * s, 1.6 * s, hc);
@@ -271,6 +395,17 @@ export function drawPixelPlayerSprite(
       break;
     case 'BlackPower':
       px(ctx, headX - 1.2 * s, headY - 2.1 * s, headW + 2.4 * s, 3.2 * s, hc);
+      break;
+    case 'Cacheado':
+      px(ctx, headX - 0.8 * s, headY - 1.7 * s, headW + 1.6 * s, 2.4 * s, hc);
+      px(ctx, headX - 1.0 * s, headY - 0.2 * s, 1.0 * s, 2.2 * s, hc);
+      px(ctx, headX + headW, headY - 0.2 * s, 1.0 * s, 2.2 * s, hc);
+      break;
+    case 'Franja':
+      px(ctx, headX - 0.3 * s, headY - 0.9 * s, headW + 0.6 * s, 1.8 * s, hc);
+      if (!isBackView) {
+        px(ctx, headX + 0.4 * s, headY + 0.4 * s, headW - 1.4 * s, 1.1 * s, hc);
+      }
       break;
     case 'Longo':
       px(ctx, headX - 0.5 * s, headY - 0.9 * s, headW + 1.0 * s, 1.8 * s, hc);
@@ -292,8 +427,15 @@ export function drawPixelPlayerSprite(
       break;
   }
 
-  if (gear.accessory === 'Faixa') {
-    px(ctx, headX - 0.2 * s, headY + 0.6 * s, headW + 0.4 * s, 0.8 * s, '#F8FAFC');
+  if (gear.accessory === 'Faixa' || gear.accessory === 'FaixaCabelo') {
+    px(
+      ctx,
+      headX - 0.2 * s,
+      headY + 0.6 * s,
+      headW + 0.4 * s,
+      0.8 * s,
+      gear.accessory === 'FaixaCabelo' ? kit.primary : '#F8FAFC'
+    );
   }
 
   ctx.restore();
@@ -349,6 +491,13 @@ export function drawPixelPortrait(
     px(ctx, 6.6 * u, 1.4 * u, 2.8 * u, 2.6 * u, hc);
   } else if (opts.hairStyle === 'BlackPower') {
     px(ctx, 3.2 * u, 1.6 * u, 9.6 * u, 3.4 * u, hc);
+  } else if (opts.hairStyle === 'Cacheado') {
+    px(ctx, 3.5 * u, 1.6 * u, 9.0 * u, 2.8 * u, hc);
+    px(ctx, 3.4 * u, 3.8 * u, 1.3 * u, 2.8 * u, hc);
+    px(ctx, 11.3 * u, 3.8 * u, 1.3 * u, 2.8 * u, hc);
+  } else if (opts.hairStyle === 'Franja') {
+    px(ctx, 4.1 * u, 2.0 * u, 7.8 * u, 2.0 * u, hc);
+    px(ctx, 4.8 * u, 3.8 * u, 5.4 * u, 1.2 * u, hc);
   } else if (opts.hairStyle === 'Longo' || opts.hairStyle === 'Tranças') {
     px(ctx, 4.0 * u, 2.2 * u, 8.0 * u, 2.0 * u, hc);
     px(ctx, 3.6 * u, 3.6 * u, 1.2 * u, 5.6 * u, hc);
@@ -1188,34 +1337,51 @@ export function drawPixelStadium(
     });
   }
 
-  // 10. Floodlight Towers / Ring / Poles + Aviation Warning Beacons
-  const towers = [
-    [32, 32],
-    [g.worldW - 50, 32],
-    [32, g.worldH - 50],
-    [g.worldW - 50, g.worldH - 50],
-  ];
-  towers.forEach(([tx, ty], tIdx) => {
-    px(ctx, tx, ty, 18, 18, '#1E293B');
-    px(ctx, tx + 2, ty + 2, 14, 14, '#334155');
-    // Lamp grid
-    for (let lx = 0; lx < 3; lx++) {
-      for (let ly = 0; ly < 2; ly++) {
-        px(
-          ctx,
-          tx + 3 + lx * 4,
-          ty + 4 + ly * 5,
-          3,
-          3,
-          lightsOn ? '#FEF9C3' : '#64748B'
-        );
+  // 10. Stadium-specific Floodlight Towers / Ring / Poles + Aviation Beacons
+  const lightStyle = st?.floodlightStyle || 'towers';
+  if (lightStyle === 'ring') {
+    // Continuous LED stadium roof ring bars (modern & grand arenas)
+    for (let lx = 180; lx < g.worldW - 180; lx += 80) {
+      px(ctx, lx, 16, 44, 5, lightsOn ? '#FEF9C3' : '#475569');
+      px(ctx, lx, g.worldH - 21, 44, 5, lightsOn ? '#FEF9C3' : '#475569');
+    }
+  } else if (lightStyle === 'poles') {
+    // 6 slim sideline floodlight poles (compact & municipal stadiums)
+    const poles = [290, g.worldW / 2, g.worldW - 290];
+    poles.forEach((pxPos) => {
+      px(ctx, pxPos - 6, 10, 12, 8, '#334155');
+      px(ctx, pxPos - 4, 12, 8, 4, lightsOn ? '#FEF9C3' : '#64748B');
+      px(ctx, pxPos - 6, g.worldH - 18, 12, 8, '#334155');
+      px(ctx, pxPos - 4, g.worldH - 16, 8, 4, lightsOn ? '#FEF9C3' : '#64748B');
+    });
+  } else {
+    // 4 classic corner floodlight towers
+    const towers = [
+      [32, 32],
+      [g.worldW - 50, 32],
+      [32, g.worldH - 50],
+      [g.worldW - 50, g.worldH - 50],
+    ];
+    towers.forEach(([tx, ty], tIdx) => {
+      px(ctx, tx, ty, 18, 18, '#1E293B');
+      px(ctx, tx + 2, ty + 2, 14, 14, '#334155');
+      for (let lx = 0; lx < 3; lx++) {
+        for (let ly = 0; ly < 2; ly++) {
+          px(
+            ctx,
+            tx + 3 + lx * 4,
+            ty + 4 + ly * 5,
+            3,
+            3,
+            lightsOn ? '#FEF9C3' : '#64748B'
+          );
+        }
       }
-    }
-    // Red warning light blinking at night
-    if (lightsOn && Math.floor(timeSec * 2 + tIdx) % 2 === 0) {
-      px(ctx, tx + 7, ty - 2, 3, 3, '#EF4444');
-    }
-  });
+      if (lightsOn && Math.floor(timeSec * 2 + tIdx) % 2 === 0) {
+        px(ctx, tx + 7, ty - 2, 3, 3, '#EF4444');
+      }
+    });
+  }
 
   // 11. Pitch Mowed Grass Stripes
   const toneA = st?.turfToneA || '#1B6E3A';

@@ -6,7 +6,12 @@ export type ScreenId =
   | 'CHAR_CREATOR'
   | 'CLUB_SELECT'
   | 'CAREER_HUB'
-  | 'MATCH';
+  | 'MATCH'
+  | 'PLAYER_PROFILE'
+  | 'CLUBS_BROWSER'
+  | 'STADIUMS_BROWSER'
+  | 'COMPETITIONS_BROWSER'
+  | 'CUSTOMIZATION';
 
 export type LanguageCode = 'pt-BR' | 'en-US' | 'es-ES';
 export type GraphicsQuality = 'high' | 'medium' | 'low';
@@ -69,10 +74,15 @@ export type PositionId =
   | 'FALSE_9';
 
 export type PlaystyleId =
-  | 'VELOCISTA'
   | 'ARMADOR'
   | 'FINALIZADOR'
+  | 'VELOCISTA'
   | 'DRIBLADOR'
+  | 'VOLANTE_MARCADOR'
+  | 'PONTA_OFENSIVO'
+  | 'DEFENSOR'
+  | 'GOLEIRO'
+  // Legacy compatibility ids
   | 'MARCADOR'
   | 'CONSTRUTOR'
   | 'COMPLETO';
@@ -80,15 +90,44 @@ export type PlaystyleId =
 export type DominantFoot = 'Direito' | 'Esquerdo' | 'Ambidestro';
 export type SleeveLength = 'Curta' | 'Longa';
 export type SockType = 'Curta' | 'Média' | 'Alta';
-export type AccessoryType = 'Nenhum' | 'Munhequeira' | 'Faixa' | 'Joelho' | 'Luvas';
+export type CollarStyle = 'Redonda' | 'Gola V' | 'Polo';
+export type AccessoryType =
+  | 'Nenhum'
+  | 'Munhequeira'
+  | 'Faixa'
+  | 'FaixaCabelo'
+  | 'Bracadeira'
+  | 'Joelho'
+  | 'Luvas';
 export type BodyType = 'Magro' | 'Atlético' | 'Forte';
-export type HairStyle = 'Curto' | 'Moicano' | 'BlackPower' | 'Longo' | 'Raspado' | 'Topete' | 'Tranças';
+export type HairStyle =
+  | 'Curto'
+  | 'Moicano'
+  | 'BlackPower'
+  | 'Longo'
+  | 'Raspado'
+  | 'Topete'
+  | 'Tranças'
+  | 'Cacheado'
+  | 'Franja';
 export type FaceStyle = 'Sério' | 'Confiante' | 'Determinado' | 'Sorriso';
+export type FaceShape = 'Oval' | 'Quadrado' | 'Redondo' | 'Fino';
+export type FacialDetail = 'Nenhuma' | 'Sardas' | 'Cicatriz' | 'Pintura';
 export type EyeStyle = 'Padrão' | 'Focado' | 'Expressivo';
 export type EyebrowStyle = 'Fina' | 'Grossa' | 'Arqueada';
 export type BeardStyle = 'Nenhuma' | 'Rala' | 'Cheia' | 'Cavanhaque';
 export type MustacheStyle = 'Nenhum' | 'Fino' | 'Clássico';
 export type BootModel = 'Clássica' | 'Velocidade' | 'Controle' | 'TravaAlta';
+
+export type CelebrationId =
+  | 'arms_open'
+  | 'run_crowd'
+  | 'point_sky'
+  | 'jump_fist'
+  | 'knee_slide'
+  | 'dance'
+  | 'jersey_show'
+  | 'group_hug';
 
 export interface PlayerPersonalInfo {
   firstName: string;
@@ -106,6 +145,8 @@ export interface PlayerAppearance {
   hairStyle: HairStyle;
   hairColor: string;
   faceStyle: FaceStyle;
+  faceShape?: FaceShape;
+  facialDetail?: FacialDetail;
   eyeStyle: EyeStyle;
   eyebrowStyle: EyebrowStyle;
   beardStyle: BeardStyle;
@@ -116,12 +157,15 @@ export interface PlayerAppearance {
 
 export interface SportGear {
   jerseyNumber: number;
+  shirtName?: string;
+  collarStyle?: CollarStyle;
   dominantFoot: DominantFoot;
   bootModel: BootModel;
   bootColor: string;
   sleeveLength: SleeveLength;
   sockType: SockType;
   accessory: AccessoryType;
+  celebrationId?: CelebrationId;
 }
 
 export interface PlayerAttributes {
@@ -154,7 +198,15 @@ export interface PlayerAttributes {
 }
 
 export type FormationId = '4-3-3' | '4-4-2' | '3-5-2' | '4-2-3-1';
-export type CrestPattern = 'stripes' | 'halves' | 'sash' | 'hoops' | 'cross';
+export type CrestPattern =
+  | 'stripes'
+  | 'halves'
+  | 'sash'
+  | 'hoops'
+  | 'cross'
+  | 'diamond'
+  | 'quartered'
+  | 'star';
 
 export type StadiumArchitecture =
   | 'modern'
@@ -219,7 +271,12 @@ export type PlayerAnimAction =
   | 'fall'
   | 'dive'
   | 'celebrate_arms'
+  | 'celebrate_crowd'
+  | 'celebrate_sky'
   | 'celebrate_jump'
+  | 'celebrate_slide'
+  | 'celebrate_dance'
+  | 'celebrate_shirt'
   | 'celebrate_hug';
 
 export interface MatchEnvironment {
@@ -245,12 +302,14 @@ export interface ClubKit {
 export interface ClubSquadMember {
   id: string;
   name: string;
+  age?: number;
   number: number;
   position: PositionId;
   ovr: number;
   skinColor: string;
   hairColor: string;
   hairStyle: HairStyle;
+  beard?: BeardStyle;
   speed: number;
   passing: number;
   shooting: number;
@@ -278,8 +337,11 @@ export interface Club {
   formation: FormationId;
   division: 'Série A' | 'Série B' | 'Série C';
   history: string;
+  chantTheme?: string;
   crestPattern: CrestPattern;
   kit: ClubKit;
+  awayKit?: ClubKit;
+  thirdKit?: ClubKit;
   squad: ClubSquadMember[];
 }
 
@@ -418,6 +480,18 @@ export interface CareerHistoryEntry {
   avgRating: number;
 }
 
+export interface EvolutionPoint {
+  round: number;
+  season: number;
+  ovr: number;
+  velocidade: number;
+  finalizacao: number;
+  passeCurto: number;
+  drible: number;
+  marcacao: number;
+  reflexos: number;
+}
+
 export interface PlayerCareer {
   id: string;
   personal: PlayerPersonalInfo;
@@ -432,7 +506,7 @@ export interface PlayerCareer {
   clubId: string;
   contract: Contract;
   season: number;
-  round: number; // 1..22
+  round: number; // 1..38
   currentDayIndex: number;
   calendar: CalendarDay[];
   trainingLog: { dayLabel: string; drillName: string; medal: 'Ouro' | 'Prata' | 'Bronze'; gainText: string }[];
@@ -448,6 +522,7 @@ export interface PlayerCareer {
   recentMatches: MatchRecord[];
   awards: CareerAward[];
   history: CareerHistoryEntry[];
+  evolutionHistory?: EvolutionPoint[];
   offers: TransferOffer[];
   standings: LeagueStanding[];
   leagueLeaders: LeagueLeader[];

@@ -401,7 +401,7 @@ export const PreMatchPresentation: React.FC<PreMatchPresentationProps> = ({
         </div>
       )}
 
-      {/* STEP 2: STARTING XI LINEUPS WITH PIXEL PORTRAITS & COACHES */}
+      {/* STEP 2: STARTING XI LINEUPS WITH TACTICAL PITCH BOARD, PIXEL PORTRAITS & COACHES */}
       {step === 'LINEUPS' && (
         <div className="flex-1 overflow-y-auto custom-scroll p-4">
           <div className="max-w-6xl mx-auto space-y-4">
@@ -411,6 +411,62 @@ export const PreMatchPresentation: React.FC<PreMatchPresentationProps> = ({
                 { club: awayClub, label: 'Visitante' },
               ].map(({ club, label }) => {
                 const isUserClub = club.id === career.clubId;
+                const formationSlots: Record<string, { x: number; y: number }[]> = {
+                  '4-3-3': [
+                    { x: 50, y: 89 },
+                    { x: 18, y: 71 },
+                    { x: 39, y: 74 },
+                    { x: 61, y: 74 },
+                    { x: 82, y: 71 },
+                    { x: 50, y: 55 },
+                    { x: 30, y: 45 },
+                    { x: 70, y: 45 },
+                    { x: 20, y: 24 },
+                    { x: 50, y: 16 },
+                    { x: 80, y: 24 },
+                  ],
+                  '4-4-2': [
+                    { x: 50, y: 89 },
+                    { x: 18, y: 71 },
+                    { x: 39, y: 74 },
+                    { x: 61, y: 74 },
+                    { x: 82, y: 71 },
+                    { x: 18, y: 48 },
+                    { x: 39, y: 51 },
+                    { x: 61, y: 51 },
+                    { x: 82, y: 48 },
+                    { x: 38, y: 20 },
+                    { x: 62, y: 20 },
+                  ],
+                  '3-5-2': [
+                    { x: 50, y: 89 },
+                    { x: 26, y: 73 },
+                    { x: 50, y: 75 },
+                    { x: 74, y: 73 },
+                    { x: 16, y: 49 },
+                    { x: 38, y: 53 },
+                    { x: 62, y: 53 },
+                    { x: 84, y: 49 },
+                    { x: 50, y: 38 },
+                    { x: 38, y: 19 },
+                    { x: 62, y: 19 },
+                  ],
+                  '4-2-3-1': [
+                    { x: 50, y: 89 },
+                    { x: 18, y: 71 },
+                    { x: 39, y: 74 },
+                    { x: 61, y: 74 },
+                    { x: 82, y: 71 },
+                    { x: 38, y: 57 },
+                    { x: 62, y: 57 },
+                    { x: 50, y: 39 },
+                    { x: 20, y: 30 },
+                    { x: 50, y: 16 },
+                    { x: 80, y: 30 },
+                  ],
+                };
+                const coords = formationSlots[club.formation] || formationSlots['4-3-3'];
+
                 return (
                   <section
                     key={club.id}
@@ -445,56 +501,105 @@ export const PreMatchPresentation: React.FC<PreMatchPresentationProps> = ({
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
-                      {club.squad.map((m, idx) => {
-                        const isUserSlot =
-                          isUserClub &&
-                          ((getPositionMeta(career.position).group === 'GOLEIRO' && idx === 0) ||
-                            (getPositionMeta(career.position).group === 'DEFESA' && idx === 2) ||
-                            (getPositionMeta(career.position).group === 'MEIO_CAMPO' && idx === 6) ||
-                            (getPositionMeta(career.position).group === 'ATAQUE' && idx === 9));
+                    {/* Broadcast Tactical Formation Diagram */}
+                    <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-center">
+                      <div className="sm:col-span-5 bg-[#0A2540] border border-slate-700/80 rounded-xl p-2 flex flex-col items-center">
+                        <svg viewBox="0 0 100 124" className="w-32 h-40">
+                          <rect x="4" y="4" width="92" height="116" fill="#0B3B2B" stroke="#E2E8F0" strokeWidth="1.4" />
+                          <line x1="4" y1="62" x2="96" y2="62" stroke="#E2E8F0" strokeWidth="1" />
+                          <circle cx="50" cy="62" r="11" fill="none" stroke="#E2E8F0" strokeWidth="1" />
+                          <rect x="24" y="4" width="52" height="18" fill="none" stroke="#E2E8F0" strokeWidth="1" />
+                          <rect x="24" y="102" width="52" height="18" fill="none" stroke="#E2E8F0" strokeWidth="1" />
+                          {coords.map((pt, idx) => {
+                            const isUserSlot =
+                              isUserClub &&
+                              ((getPositionMeta(career.position).group === 'GOLEIRO' && idx === 0) ||
+                                (getPositionMeta(career.position).group === 'DEFESA' && idx === 2) ||
+                                (getPositionMeta(career.position).group === 'MEIO_CAMPO' && idx === 6) ||
+                                (getPositionMeta(career.position).group === 'ATAQUE' && idx === 9));
+                            const num = isUserSlot ? career.gear.jerseyNumber : club.squad[idx]?.number ?? idx + 1;
+                            const fill = isUserSlot ? '#10B981' : idx >= 8 ? '#38BDF8' : '#E11D48';
+                            const px = pt.x;
+                            const py = 8 + pt.y * 1.08;
+                            return (
+                              <g key={idx}>
+                                <polygon
+                                  points={`${px},${py - 5.5} ${px + 5.5},${py} ${px},${py + 5.5} ${px - 5.5},${py}`}
+                                  fill={fill}
+                                  stroke="#FFFFFF"
+                                  strokeWidth="1"
+                                />
+                                <text
+                                  x={px}
+                                  y={py + 2}
+                                  textAnchor="middle"
+                                  fill="#FFFFFF"
+                                  fontSize="4.6"
+                                  fontWeight="800"
+                                  fontFamily="JetBrains Mono, monospace"
+                                >
+                                  {num}
+                                </text>
+                              </g>
+                            );
+                          })}
+                        </svg>
+                        <div className="font-display font-bold text-xs text-white mt-1">
+                          {club.formation}
+                        </div>
+                      </div>
 
-                        const displayName = isUserSlot
-                          ? career.personal.nickname || career.personal.firstName
-                          : m.name;
-                        const displayNum = isUserSlot ? career.gear.jerseyNumber : m.number;
-                        const displayOvr = isUserSlot ? career.ovr : m.ovr;
-                        const posCode = isUserSlot
-                          ? getPositionMeta(career.position).code
-                          : getPositionMeta(m.position).code;
+                      <div className="sm:col-span-7 grid grid-cols-1 gap-1 max-h-52 overflow-y-auto custom-scroll pr-1">
+                        {club.squad.slice(0, 11).map((m, idx) => {
+                          const isUserSlot =
+                            isUserClub &&
+                            ((getPositionMeta(career.position).group === 'GOLEIRO' && idx === 0) ||
+                              (getPositionMeta(career.position).group === 'DEFESA' && idx === 2) ||
+                              (getPositionMeta(career.position).group === 'MEIO_CAMPO' && idx === 6) ||
+                              (getPositionMeta(career.position).group === 'ATAQUE' && idx === 9));
 
-                        return (
-                          <div
-                            key={m.id}
-                            className={`flex items-center justify-between gap-2 p-1.5 rounded-lg border ${
-                              isUserSlot
-                                ? 'bg-emerald-500/15 border-emerald-500/60'
-                                : 'bg-slate-900/60 border-slate-800/80'
-                            }`}
-                          >
-                            <div className="flex items-center gap-2 min-w-0">
-                              <PixelPortrait
-                                skinColor={isUserSlot ? career.appearance.skinColor : m.skinColor}
-                                hairColor={isUserSlot ? career.appearance.hairColor : m.hairColor}
-                                hairStyle={isUserSlot ? career.appearance.hairStyle : m.hairStyle}
-                                shirtPrimary={idx === 0 ? club.kit.gkPrimary : club.kit.primary}
-                                shirtSecondary={club.kit.secondary}
-                                size={28}
-                              />
-                              <div className="min-w-0">
-                                <div className="text-xs font-semibold text-white truncate">
-                                  #{displayNum} {displayName}
-                                  {idx === 1 ? ' (C)' : ''}
+                          const displayName = isUserSlot
+                            ? career.personal.nickname || career.personal.firstName
+                            : m.name;
+                          const displayNum = isUserSlot ? career.gear.jerseyNumber : m.number;
+                          const displayOvr = isUserSlot ? career.ovr : m.ovr;
+                          const posCode = isUserSlot
+                            ? getPositionMeta(career.position).code
+                            : getPositionMeta(m.position).code;
+
+                          return (
+                            <div
+                              key={m.id}
+                              className={`flex items-center justify-between gap-2 p-1.5 rounded-lg border ${
+                                isUserSlot
+                                  ? 'bg-emerald-500/15 border-emerald-500/60'
+                                  : 'bg-slate-900/60 border-slate-800/80'
+                              }`}
+                            >
+                              <div className="flex items-center gap-2 min-w-0">
+                                <PixelPortrait
+                                  skinColor={isUserSlot ? career.appearance.skinColor : m.skinColor}
+                                  hairColor={isUserSlot ? career.appearance.hairColor : m.hairColor}
+                                  hairStyle={isUserSlot ? career.appearance.hairStyle : m.hairStyle}
+                                  shirtPrimary={idx === 0 ? club.kit.gkPrimary : club.kit.primary}
+                                  shirtSecondary={club.kit.secondary}
+                                  size={24}
+                                />
+                                <div className="min-w-0">
+                                  <div className="text-[11px] font-semibold text-white truncate">
+                                    #{displayNum} {displayName}
+                                    {idx === 1 ? ' (C)' : ''}
+                                  </div>
+                                  <div className="text-[9px] text-slate-400">{posCode}</div>
                                 </div>
-                                <div className="text-[10px] text-slate-400">{posCode}</div>
                               </div>
+                              <span className="font-mono-num text-[11px] font-bold text-emerald-400 pr-1">
+                                {displayOvr}
+                              </span>
                             </div>
-                            <span className="font-mono-num text-xs font-bold text-emerald-400 pr-1">
-                              {displayOvr}
-                            </span>
-                          </div>
-                        );
-                      })}
+                          );
+                        })}
+                      </div>
                     </div>
                   </section>
                 );

@@ -33,11 +33,20 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
     if (!ctx) return;
 
     const crowd = generateCrowd(
-      CLUBS[0].kit.primary,
-      CLUBS[0].kit.secondary,
-      CLUBS[1].kit.primary,
-      'medium'
+      CLUBS[8].kit.primary,
+      CLUBS[8].kit.secondary,
+      CLUBS[13].kit.primary,
+      'high',
+      { awaySecondary: CLUBS[13].kit.secondary, capacity: 68000, importance: 0.95 }
     );
+
+    const sparkles = Array.from({ length: 42 }, (_, idx) => ({
+      x: ((idx * 173) % 1000) / 1000,
+      y: ((idx * 257) % 1000) / 1000,
+      spd: 0.04 + (idx % 5) * 0.015,
+      color: ['#10B981', '#FACC15', '#38BDF8', '#F8FAFC'][idx % 4],
+      size: idx % 3 === 0 ? 4 : 3,
+    }));
 
     let rafId = 0;
     let t = 0;
@@ -70,13 +79,25 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
       ctx.scale(zoom, zoom);
       ctx.translate(-camX, -camY);
 
-      drawPixelStadium(ctx, crowd, t, 0, 0, 0, 'medium');
+      drawPixelStadium(ctx, crowd, t, 0.65, 0, 0, 'high', {
+        homeKit: CLUBS[8].kit,
+        awayKit: CLUBS[13].kit,
+        homeShort: CLUBS[8].shortName,
+        awayShort: CLUBS[13].shortName,
+        homeScore: 2,
+        awayScore: 1,
+        matchMinuteStr: '88:12',
+        mascot: CLUBS[8].mascot,
+        crowdMood: 'excited',
+        showMosaic: true,
+        mosaicProgress: 1,
+      });
 
       // Animated pixel exhibition players warming up
       for (let i = 0; i < 6; i++) {
         const px = PITCH_GEO.pitchX + 350 + Math.sin(t * 1.1 + i * 1.2) * 170;
         const py = PITCH_GEO.pitchY + 180 + i * 65 + Math.cos(t * 1.4 + i) * 35;
-        const kit = i % 2 === 0 ? CLUBS[0].kit : CLUBS[1].kit;
+        const kit = i % 2 === 0 ? CLUBS[8].kit : CLUBS[13].kit;
         drawPixelPlayerSprite(
           ctx,
           px,
@@ -85,7 +106,7 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
           {
             appearance: {
               skinColor: '#D19A6E',
-              hairStyle: i % 2 === 0 ? 'Moicano' : 'Curto',
+              hairStyle: i % 2 === 0 ? 'Moicano' : 'Topete',
               hairColor: '#1B1717',
               faceStyle: 'Determinado',
               eyeStyle: 'Padrão',
@@ -126,6 +147,31 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
       );
 
       ctx.restore();
+
+      // Stadium spotlight beams & drifting pixel confetti
+      const beamAlpha = 0.08 + Math.sin(t * 1.5) * 0.02;
+      ctx.fillStyle = `rgba(255, 250, 220, ${beamAlpha})`;
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.lineTo(w * 0.45, h);
+      ctx.lineTo(w * 0.15, h);
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.beginPath();
+      ctx.moveTo(w, 0);
+      ctx.lineTo(w * 0.85, h);
+      ctx.lineTo(w * 0.55, h);
+      ctx.closePath();
+      ctx.fill();
+
+      sparkles.forEach((sp, i) => {
+        const sx = ((sp.x * w + Math.sin(t * 1.2 + i) * 18) + w) % w;
+        const sy = ((sp.y + t * sp.spd) % 1) * h;
+        ctx.fillStyle = sp.color;
+        ctx.fillRect(Math.round(sx), Math.round(sy), sp.size, sp.size);
+      });
+
       rafId = requestAnimationFrame(frame);
     };
 

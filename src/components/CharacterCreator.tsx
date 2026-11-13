@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowLeft, ArrowRight, Shuffle } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, Shuffle, Sparkles } from 'lucide-react';
 import { soundEngine } from '../audio/soundEngine';
+import { getClubById } from '../data/clubs';
 import {
   ATTRIBUTE_LABELS,
   PLAYSTYLES,
@@ -15,14 +16,20 @@ import {
   BeardStyle,
   BodyType,
   BootModel,
+  CelebrationId,
+  CollarStyle,
   DominantFoot,
   EyeStyle,
   EyebrowStyle,
+  FaceShape,
   FaceStyle,
+  FacialDetail,
   HairStyle,
   MustacheStyle,
+  PlayerAnimAction,
   PlayerAppearance,
   PlayerAttributes,
+  PlayerCareer,
   PlayerPersonalInfo,
   PlaystyleId,
   PositionGroup,
@@ -43,71 +50,145 @@ export interface CreatedCharacterDraft {
 }
 
 interface CharacterCreatorProps {
+  initialCareer?: PlayerCareer | null;
+  editMode?: boolean;
   onBack: () => void;
   onComplete: (draft: CreatedCharacterDraft) => void;
 }
 
-type CreatorTab = 'PESSOAL' | 'APARENCIA' | 'ESPORTIVO' | 'POSICAO' | 'ATRIBUTOS';
+type CreatorTab = 'PESSOAL' | 'APARENCIA' | 'ESPORTIVO' | 'COMEMORACAO' | 'POSICAO' | 'ATRIBUTOS';
+type ViewAngle = 'front' | 'back' | 'side';
 
 const SKIN_TONES = ['#F6D2B8', '#E8B896', '#D19A6E', '#A8704A', '#73452A', '#4D2D1B'];
-const HAIR_COLORS = ['#18181B', '#3F2718', '#6F4724', '#C49A45', '#991B1B', '#CBD5E1'];
-const BOOT_COLORS = ['#10B981', '#FACC15', '#EF4444', '#3B82F6', '#F8FAFC', '#111827'];
-const HAIR_STYLES: HairStyle[] = ['Curto', 'Moicano', 'BlackPower', 'Longo', 'Raspado', 'Topete', 'Tranças'];
+const HAIR_COLORS = ['#18181B', '#3F2718', '#6F4724', '#C49A45', '#991B1B', '#CBD5E1', '#10B981', '#38BDF8'];
+const BOOT_COLORS = ['#10B981', '#FACC15', '#EF4444', '#3B82F6', '#F8FAFC', '#111827', '#EC4899'];
+const HAIR_STYLES: HairStyle[] = [
+  'Curto',
+  'Moicano',
+  'BlackPower',
+  'Longo',
+  'Raspado',
+  'Topete',
+  'Tranças',
+  'Cacheado',
+  'Franja',
+];
 const FACE_STYLES: FaceStyle[] = ['Sério', 'Confiante', 'Determinado', 'Sorriso'];
+const FACE_SHAPES: FaceShape[] = ['Oval', 'Quadrado', 'Redondo', 'Fino'];
+const FACIAL_DETAILS: FacialDetail[] = ['Nenhuma', 'Sardas', 'Cicatriz', 'Pintura'];
 const EYE_STYLES: EyeStyle[] = ['Padrão', 'Focado', 'Expressivo'];
 const BROW_STYLES: EyebrowStyle[] = ['Fina', 'Grossa', 'Arqueada'];
 const BEARD_STYLES: BeardStyle[] = ['Nenhuma', 'Rala', 'Cheia', 'Cavanhaque'];
 const MUSTACHE_STYLES: MustacheStyle[] = ['Nenhum', 'Fino', 'Clássico'];
 const BODY_TYPES: BodyType[] = ['Magro', 'Atlético', 'Forte'];
 const BOOT_MODELS: BootModel[] = ['Clássica', 'Velocidade', 'Controle', 'TravaAlta'];
-const ACCESSORIES: AccessoryType[] = ['Nenhum', 'Munhequeira', 'Faixa', 'Joelho', 'Luvas'];
+const COLLAR_STYLES: CollarStyle[] = ['Redonda', 'Gola V', 'Polo'];
+const ACCESSORIES: AccessoryType[] = [
+  'Nenhum',
+  'Munhequeira',
+  'Faixa',
+  'FaixaCabelo',
+  'Bracadeira',
+  'Joelho',
+  'Luvas',
+];
+
+export const CELEBRATION_OPTIONS: {
+  id: CelebrationId;
+  label: string;
+  action: PlayerAnimAction;
+  desc: string;
+}[] = [
+  { id: 'knee_slide', label: 'Deslizar de Joelhos', action: 'celebrate_slide', desc: 'Corrida até a bandeirinha e deslize clássico no gramado.' },
+  { id: 'arms_open', label: 'Braços Abertos', action: 'celebrate_arms', desc: 'Abre os braços vibrando diante da arquibancada.' },
+  { id: 'point_sky', label: 'Apontar para o Céu', action: 'celebrate_sky', desc: 'Dedicação emocionante erguendo o braço ao alto.' },
+  { id: 'jersey_show', label: 'Mostrar a Camisa', action: 'celebrate_shirt', desc: 'Exibe o manto e o número com orgulho para o estádio.' },
+  { id: 'run_crowd', label: 'Correr até a Torcida', action: 'celebrate_crowd', desc: 'Dispara até a linha lateral para vibrar com a massa.' },
+  { id: 'jump_fist', label: 'Salto com Soco no Ar', action: 'celebrate_jump', desc: 'Salto explosivo com punho cerrado após o gol.' },
+  { id: 'dance', label: 'Dança Comemorativa', action: 'celebrate_dance', desc: 'Passos rítmicos estilosos celebrando com o time.' },
+  { id: 'group_hug', label: 'Abraço Coletivo', action: 'celebrate_hug', desc: 'Reúne os companheiros em volta para comemorar juntos.' },
+];
 
 export const CharacterCreator: React.FC<CharacterCreatorProps> = ({
+  initialCareer,
+  editMode = false,
   onBack,
   onComplete,
 }) => {
-  const [tab, setTab] = useState<CreatorTab>('PESSOAL');
+  const [tab, setTab] = useState<CreatorTab>(editMode ? 'APARENCIA' : 'PESSOAL');
   const [previewKitIdx, setPreviewKitIdx] = useState(0);
+  const [viewAngle, setViewAngle] = useState<ViewAngle>('front');
+  const [testCelebration, setTestCelebration] = useState(false);
 
-  const [personal, setPersonal] = useState<PlayerPersonalInfo>({
-    firstName: 'Gabriel',
-    lastName: 'Mendes',
-    nickname: 'Gabi',
-    birthDate: '2007-05-14',
-    nationality: 'Brasil',
-    hometown: 'São Paulo',
-    heightCm: 177,
-    weightKg: 72,
-  });
+  const [personal, setPersonal] = useState<PlayerPersonalInfo>(() =>
+    initialCareer?.personal
+      ? { ...initialCareer.personal }
+      : {
+          firstName: 'Gabriel',
+          lastName: 'Mendes',
+          nickname: 'Gabi',
+          birthDate: '2007-05-14',
+          nationality: 'Brasil',
+          hometown: 'São Paulo',
+          heightCm: 177,
+          weightKg: 72,
+        }
+  );
 
-  const [appearance, setAppearance] = useState<PlayerAppearance>({
-    skinColor: SKIN_TONES[2],
-    hairStyle: 'Topete',
-    hairColor: HAIR_COLORS[0],
-    faceStyle: 'Confiante',
-    eyeStyle: 'Focado',
-    eyebrowStyle: 'Grossa',
-    beardStyle: 'Nenhuma',
-    mustacheStyle: 'Nenhum',
-    bodyType: 'Atlético',
-    visualHeightScale: 1.0,
-  });
+  const [appearance, setAppearance] = useState<PlayerAppearance>(() =>
+    initialCareer?.appearance
+      ? {
+          ...initialCareer.appearance,
+          faceShape: initialCareer.appearance.faceShape ?? 'Oval',
+          facialDetail: initialCareer.appearance.facialDetail ?? 'Nenhuma',
+        }
+      : {
+          skinColor: SKIN_TONES[2],
+          hairStyle: 'Topete',
+          hairColor: HAIR_COLORS[0],
+          faceStyle: 'Confiante',
+          faceShape: 'Oval',
+          facialDetail: 'Nenhuma',
+          eyeStyle: 'Focado',
+          eyebrowStyle: 'Grossa',
+          beardStyle: 'Nenhuma',
+          mustacheStyle: 'Nenhum',
+          bodyType: 'Atlético',
+          visualHeightScale: 1.0,
+        }
+  );
 
-  const [gear, setGear] = useState<SportGear>({
-    jerseyNumber: 10,
-    dominantFoot: 'Direito',
-    bootModel: 'Velocidade',
-    bootColor: BOOT_COLORS[0],
-    sleeveLength: 'Curta',
-    sockType: 'Alta',
-    accessory: 'Munhequeira',
-  });
+  const [gear, setGear] = useState<SportGear>(() =>
+    initialCareer?.gear
+      ? {
+          ...initialCareer.gear,
+          shirtName:
+            initialCareer.gear.shirtName ??
+            (initialCareer.personal.nickname || initialCareer.personal.lastName || 'GABI').toUpperCase(),
+          collarStyle: initialCareer.gear.collarStyle ?? 'Redonda',
+          celebrationId: initialCareer.gear.celebrationId ?? 'knee_slide',
+        }
+      : {
+          jerseyNumber: 10,
+          shirtName: 'GABI',
+          collarStyle: 'Redonda',
+          dominantFoot: 'Direito',
+          bootModel: 'Velocidade',
+          bootColor: BOOT_COLORS[0],
+          sleeveLength: 'Curta',
+          sockType: 'Alta',
+          accessory: 'Munhequeira',
+          celebrationId: 'knee_slide',
+        }
+  );
 
-  const [position, setPosition] = useState<PositionId>('CAM');
-  const [playstyle, setPlaystyle] = useState<PlaystyleId>('ARMADOR');
-  const [bonusPoints, setBonusPoints] = useState(6);
+  const [position, setPosition] = useState<PositionId>(initialCareer?.position ?? 'CAM');
+  const [playstyle, setPlaystyle] = useState<PlaystyleId>(initialCareer?.playstyle ?? 'ARMADOR');
+  const [bonusPoints, setBonusPoints] = useState(editMode ? 0 : 6);
   const [attributes, setAttributes] = useState<PlayerAttributes>(() =>
-    generateInitialAttributes('CAM', 'ARMADOR')
+    initialCareer?.attributes
+      ? { ...initialCareer.attributes }
+      : generateInitialAttributes('CAM', 'ARMADOR')
   );
 
   const previewCanvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -119,14 +200,17 @@ export const CharacterCreator: React.FC<CharacterCreatorProps> = ({
   const handlePositionOrStyleChange = (nextPos: PositionId, nextStyle: PlaystyleId) => {
     setPosition(nextPos);
     setPlaystyle(nextStyle);
-    setAttributes(generateInitialAttributes(nextPos, nextStyle));
-    setBonusPoints(6);
+    if (!editMode) {
+      setAttributes(generateInitialAttributes(nextPos, nextStyle));
+      setBonusPoints(6);
+    }
     if (nextPos === 'GK_TRAD' || nextPos === 'GK_SWEEPER') {
-      setGear((g) => ({ ...g, accessory: 'Luvas', jerseyNumber: 1 }));
+      setGear((g) => ({ ...g, accessory: 'Luvas', jerseyNumber: editMode ? g.jerseyNumber : 1 }));
     }
   };
 
   const adjustAttr = (key: keyof PlayerAttributes, delta: 1 | -1) => {
+    if (editMode) return;
     if (delta === 1 && bonusPoints <= 0) return;
     const base = generateInitialAttributes(position, playstyle)[key];
     const current = attributes[key];
@@ -145,20 +229,24 @@ export const CharacterCreator: React.FC<CharacterCreatorProps> = ({
     const cities = ['Rio de Janeiro', 'Belo Horizonte', 'Recife', 'Porto Alegre', 'Salvador', 'Curitiba'];
     const fn = names[Math.floor(Math.random() * names.length)];
     const ln = lasts[Math.floor(Math.random() * lasts.length)];
-    setPersonal((p) => ({
-      ...p,
-      firstName: fn,
-      lastName: ln,
-      nickname: fn,
-      hometown: cities[Math.floor(Math.random() * cities.length)],
-      heightCm: 168 + Math.floor(Math.random() * 24),
-      weightKg: 64 + Math.floor(Math.random() * 22),
-    }));
+    if (!editMode) {
+      setPersonal((p) => ({
+        ...p,
+        firstName: fn,
+        lastName: ln,
+        nickname: fn,
+        hometown: cities[Math.floor(Math.random() * cities.length)],
+        heightCm: 168 + Math.floor(Math.random() * 24),
+        weightKg: 64 + Math.floor(Math.random() * 22),
+      }));
+    }
     setAppearance({
       skinColor: SKIN_TONES[Math.floor(Math.random() * SKIN_TONES.length)],
       hairStyle: HAIR_STYLES[Math.floor(Math.random() * HAIR_STYLES.length)],
       hairColor: HAIR_COLORS[Math.floor(Math.random() * HAIR_COLORS.length)],
       faceStyle: FACE_STYLES[Math.floor(Math.random() * FACE_STYLES.length)],
+      faceShape: FACE_SHAPES[Math.floor(Math.random() * FACE_SHAPES.length)],
+      facialDetail: FACIAL_DETAILS[Math.floor(Math.random() * FACIAL_DETAILS.length)],
       eyeStyle: EYE_STYLES[Math.floor(Math.random() * EYE_STYLES.length)],
       eyebrowStyle: BROW_STYLES[Math.floor(Math.random() * BROW_STYLES.length)],
       beardStyle: BEARD_STYLES[Math.floor(Math.random() * BEARD_STYLES.length)],
@@ -166,13 +254,33 @@ export const CharacterCreator: React.FC<CharacterCreatorProps> = ({
       bodyType: BODY_TYPES[Math.floor(Math.random() * BODY_TYPES.length)],
       visualHeightScale: 0.94 + Math.random() * 0.14,
     });
+    const randomCeleb = CELEBRATION_OPTIONS[Math.floor(Math.random() * CELEBRATION_OPTIONS.length)];
     setGear((g) => ({
       ...g,
+      shirtName: editMode ? g.shirtName : fn.toUpperCase(),
+      collarStyle: COLLAR_STYLES[Math.floor(Math.random() * COLLAR_STYLES.length)],
       jerseyNumber: 2 + Math.floor(Math.random() * 30),
       bootColor: BOOT_COLORS[Math.floor(Math.random() * BOOT_COLORS.length)],
       bootModel: BOOT_MODELS[Math.floor(Math.random() * BOOT_MODELS.length)],
+      celebrationId: randomCeleb.id,
     }));
   };
+
+  const previewKits = useMemo(() => {
+    if (initialCareer) {
+      const club = getClubById(initialCareer.clubId);
+      return [
+        club.kit,
+        club.awayKit || club.kit,
+        club.thirdKit || club.kit,
+      ];
+    }
+    return [
+      { primary: '#10B981', secondary: '#0F172A', shorts: '#0F172A', socks: '#10B981', pattern: 'stripes' as const, gkPrimary: '#FACC15' },
+      { primary: '#DC2626', secondary: '#FFFFFF', shorts: '#111827', socks: '#DC2626', pattern: 'sash' as const, gkPrimary: '#38BDF8' },
+      { primary: '#1D4ED8', secondary: '#F8FAFC', shorts: '#1E3A8A', socks: '#F8FAFC', pattern: 'halves' as const, gkPrimary: '#FB923C' },
+    ];
+  }, [initialCareer]);
 
   // Live Pixel Art preview loop
   useEffect(() => {
@@ -181,36 +289,41 @@ export const CharacterCreator: React.FC<CharacterCreatorProps> = ({
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    const kits = [
-      { primary: '#10B981', secondary: '#0F172A', shorts: '#0F172A', socks: '#10B981', pattern: 'stripes' as const, gkPrimary: '#FACC15' },
-      { primary: '#DC2626', secondary: '#FFFFFF', shorts: '#111827', socks: '#DC2626', pattern: 'sash' as const, gkPrimary: '#38BDF8' },
-      { primary: '#1D4ED8', secondary: '#F8FAFC', shorts: '#1E3A8A', socks: '#F8FAFC', pattern: 'halves' as const, gkPrimary: '#FB923C' },
-    ];
-
     let raf = 0;
     let phase = 0;
     const draw = () => {
-      phase += 0.06;
+      phase += testCelebration ? 0.11 : 0.055;
       ctx.imageSmoothingEnabled = false;
       ctx.fillStyle = '#0F1A2A';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
+      // Subtle stadium spotlight backdrop
+      ctx.fillStyle = 'rgba(16, 185, 129, 0.07)';
+      ctx.fillRect(40, 14, canvas.width - 80, canvas.height - 68);
+
       // Pixel pitch pedestal
+      ctx.fillStyle = '#14532D';
+      ctx.fillRect(18, canvas.height - 54, canvas.width - 36, 36);
       ctx.fillStyle = '#1B6E3A';
-      ctx.fillRect(24, canvas.height - 52, canvas.width - 48, 30);
-      ctx.fillStyle = '#1F7A41';
-      ctx.fillRect(36, canvas.height - 46, canvas.width - 72, 18);
+      ctx.fillRect(24, canvas.height - 50, canvas.width - 48, 28);
+      ctx.fillStyle = '#228748';
+      ctx.fillRect(38, canvas.height - 44, canvas.width - 76, 16);
 
       const isGk = position === 'GK_TRAD' || position === 'GK_SWEEPER';
+      const celebOpt = CELEBRATION_OPTIONS.find((c) => c.id === gear.celebrationId);
+      const activeAction: PlayerAnimAction = testCelebration
+        ? celebOpt?.action || 'celebrate_arms'
+        : 'idle';
+
       drawPixelPlayerSprite(
         ctx,
         canvas.width / 2,
-        canvas.height / 2 + 28 + Math.sin(phase) * 1.2,
-        8.5,
+        canvas.height / 2 + 24 + (testCelebration ? 0 : Math.sin(phase) * 1.1),
+        8.4,
         {
           appearance,
           gear,
-          kit: kits[previewKitIdx % kits.length],
+          kit: previewKits[previewKitIdx % previewKits.length],
           isGoalkeeper: isGk,
           isUserControlled: false,
           facingAngle: 0,
@@ -218,6 +331,8 @@ export const CharacterCreator: React.FC<CharacterCreatorProps> = ({
           isSprinting: false,
           isDribbling: false,
           hasBall: false,
+          action: activeAction,
+          viewAngle: testCelebration ? 'front' : viewAngle,
         },
         'preview'
       );
@@ -226,19 +341,23 @@ export const CharacterCreator: React.FC<CharacterCreatorProps> = ({
     };
     raf = requestAnimationFrame(draw);
     return () => cancelAnimationFrame(raf);
-  }, [appearance, gear, position, previewKitIdx]);
+  }, [appearance, gear, position, previewKitIdx, previewKits, viewAngle, testCelebration]);
 
   const handleSubmit = () => {
     soundEngine.play('menu');
+    const cleanNick = personal.nickname.trim() || personal.firstName.trim() || 'Craque';
     onComplete({
       personal: {
         ...personal,
         firstName: personal.firstName.trim() || 'Jogador',
         lastName: personal.lastName.trim() || 'Silva',
-        nickname: personal.nickname.trim() || personal.firstName.trim() || 'Craque',
+        nickname: cleanNick,
       },
       appearance,
-      gear,
+      gear: {
+        ...gear,
+        shirtName: (gear.shirtName || cleanNick).trim().toUpperCase().slice(0, 11),
+      },
       position,
       playstyle,
       attributes,
@@ -251,6 +370,22 @@ export const CharacterCreator: React.FC<CharacterCreatorProps> = ({
     { id: 'MEIO_CAMPO', label: 'Meio-Campo' },
     { id: 'ATAQUE', label: 'Ataque' },
   ];
+
+  const tabs: { id: CreatorTab; label: string }[] = editMode
+    ? [
+        { id: 'APARENCIA', label: 'Aparência & Rosto' },
+        { id: 'ESPORTIVO', label: 'Uniforme & Chuteira' },
+        { id: 'COMEMORACAO', label: 'Comemoração' },
+        { id: 'PESSOAL', label: 'Dados Pessoais' },
+      ]
+    : [
+        { id: 'PESSOAL', label: 'Dados Pessoais' },
+        { id: 'APARENCIA', label: 'Aparência & Rosto' },
+        { id: 'ESPORTIVO', label: 'Uniforme & Chuteira' },
+        { id: 'COMEMORACAO', label: 'Comemoração' },
+        { id: 'POSICAO', label: 'Posição & Estilo' },
+        { id: 'ATRIBUTOS', label: 'Atributos' },
+      ];
 
   return (
     <div className="w-full h-[100dvh] bg-[#0B121D] text-slate-100 flex flex-col overflow-hidden">
@@ -266,10 +401,10 @@ export const CharacterCreator: React.FC<CharacterCreatorProps> = ({
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-medium text-slate-200 cursor-pointer whitespace-nowrap"
           >
             <ArrowLeft size={15} />
-            Menu
+            Voltar
           </button>
           <h1 className="font-display font-bold text-base sm:text-lg text-white whitespace-nowrap">
-            Criação de Personagem
+            {editMode ? 'Personalização do Atleta' : 'Criação de Personagem'}
           </h1>
         </div>
 
@@ -287,8 +422,17 @@ export const CharacterCreator: React.FC<CharacterCreatorProps> = ({
             onClick={handleSubmit}
             className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-display font-bold text-xs sm:text-sm cursor-pointer whitespace-nowrap"
           >
-            Escolher Clube
-            <ArrowRight size={16} />
+            {editMode ? (
+              <>
+                <Check size={16} />
+                Salvar Personalização
+              </>
+            ) : (
+              <>
+                Escolher Clube
+                <ArrowRight size={16} />
+              </>
+            )}
           </button>
         </div>
       </header>
@@ -296,23 +440,67 @@ export const CharacterCreator: React.FC<CharacterCreatorProps> = ({
       {/* Main Horizontal Split */}
       <div className="flex-1 grid grid-cols-1 md:grid-cols-12 min-h-0">
         {/* Left Live Pixel Art Preview */}
-        <aside className="md:col-span-4 bg-[#0E1826] border-b md:border-b-0 md:border-r border-slate-800 p-3 sm:p-4 flex flex-row md:flex-col items-center justify-between gap-3 shrink-0">
-          <div className="relative flex flex-col items-center">
+        <aside className="md:col-span-4 bg-[#0E1826] border-b md:border-b-0 md:border-r border-slate-800 p-3 sm:p-4 flex flex-row md:flex-col items-center justify-between gap-3 shrink-0 overflow-y-auto custom-scroll">
+          <div className="relative flex flex-col items-center w-auto md:w-full">
             <canvas
               ref={previewCanvasRef}
-              width={210}
-              height={210}
-              className="w-[130px] h-[130px] sm:w-[190px] sm:h-[190px] rounded-xl border border-slate-700/80 pixelated bg-[#0F1A2A]"
+              width={220}
+              height={220}
+              className="w-[126px] h-[126px] sm:w-[196px] sm:h-[196px] rounded-xl border border-slate-700/80 pixelated bg-[#0F1A2A]"
             />
+
+            {/* View Angle & Kit Selector */}
+            <div className="mt-2 flex flex-wrap items-center justify-center gap-1">
+              {(
+                [
+                  { id: 'front', label: 'Frente' },
+                  { id: 'back', label: 'Costas' },
+                  { id: 'side', label: 'Lateral' },
+                ] as { id: ViewAngle; label: string }[]
+              ).map((v) => (
+                <button
+                  key={v.id}
+                  type="button"
+                  onClick={() => {
+                    soundEngine.play('menu');
+                    setTestCelebration(false);
+                    setViewAngle(v.id);
+                  }}
+                  className={`px-2.5 py-1 rounded-md text-[11px] font-semibold cursor-pointer ${
+                    !testCelebration && viewAngle === v.id
+                      ? 'bg-emerald-500 text-slate-950'
+                      : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                  }`}
+                >
+                  {v.label}
+                </button>
+              ))}
+              <button
+                type="button"
+                onClick={() => {
+                  soundEngine.play('menu');
+                  setPreviewKitIdx((i) => i + 1);
+                }}
+                className="px-2.5 py-1 rounded-md bg-slate-800 hover:bg-slate-700 text-[11px] font-semibold text-sky-300 cursor-pointer"
+              >
+                Kit {(previewKitIdx % 3) + 1}
+              </button>
+            </div>
+
             <button
               type="button"
               onClick={() => {
-                soundEngine.play('menu');
-                setPreviewKitIdx((i) => i + 1);
+                soundEngine.play(testCelebration ? 'menu' : 'celebration');
+                setTestCelebration((v) => !v);
               }}
-              className="mt-2 px-3 py-1 rounded-md bg-slate-800 hover:bg-slate-700 text-[11px] font-medium text-slate-300 cursor-pointer whitespace-nowrap"
+              className={`mt-1.5 flex items-center gap-1.5 px-3 py-1 rounded-md text-[11px] font-bold cursor-pointer ${
+                testCelebration
+                  ? 'bg-amber-400 text-slate-950'
+                  : 'bg-slate-800 hover:bg-slate-700 text-amber-300'
+              }`}
             >
-              Alternar Uniforme Teste
+              <Sparkles size={12} />
+              {testCelebration ? 'Parar Comemoração' : 'Testar Comemoração'}
             </button>
           </div>
 
@@ -323,7 +511,7 @@ export const CharacterCreator: React.FC<CharacterCreatorProps> = ({
                   {personal.nickname || `${personal.firstName} ${personal.lastName}`}
                 </div>
                 <div className="text-xs text-slate-400 truncate">
-                  {posMeta.name} · {age} anos · #{gear.jerseyNumber}
+                  {posMeta.name} · {age} anos · #{gear.jerseyNumber} ({gear.shirtName || 'CRAQUE'})
                 </div>
               </div>
               <div className="text-right shrink-0 pl-2">
@@ -344,15 +532,7 @@ export const CharacterCreator: React.FC<CharacterCreatorProps> = ({
         <section className="md:col-span-8 flex flex-col min-h-0">
           {/* Tabs */}
           <div className="flex items-center gap-1 px-3 py-2 border-b border-slate-800 bg-[#0D1624] overflow-x-auto shrink-0">
-            {(
-              [
-                { id: 'PESSOAL', label: 'Dados Pessoais' },
-                { id: 'APARENCIA', label: 'Aparência' },
-                { id: 'ESPORTIVO', label: 'Esportivo' },
-                { id: 'POSICAO', label: 'Posição & Estilo' },
-                { id: 'ATRIBUTOS', label: 'Atributos' },
-              ] as { id: CreatorTab; label: string }[]
-            ).map((t) => (
+            {tabs.map((t) => (
               <button
                 key={t.id}
                 type="button"
@@ -500,14 +680,26 @@ export const CharacterCreator: React.FC<CharacterCreatorProps> = ({
                 </div>
 
                 <OptionChips
-                  label="Tipo de cabelo"
+                  label="Estilo de cabelo"
                   options={HAIR_STYLES}
                   value={appearance.hairStyle}
                   onChange={(v) => setAppearance({ ...appearance, hairStyle: v })}
                 />
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <OptionChips
-                    label="Estilo do rosto"
+                    label="Formato do rosto"
+                    options={FACE_SHAPES}
+                    value={appearance.faceShape || 'Oval'}
+                    onChange={(v) => setAppearance({ ...appearance, faceShape: v })}
+                  />
+                  <OptionChips
+                    label="Detalhes faciais"
+                    options={FACIAL_DETAILS}
+                    value={appearance.facialDetail || 'Nenhuma'}
+                    onChange={(v) => setAppearance({ ...appearance, facialDetail: v })}
+                  />
+                  <OptionChips
+                    label="Expressão do rosto"
                     options={FACE_STYLES}
                     value={appearance.faceStyle}
                     onChange={(v) => setAppearance({ ...appearance, faceStyle: v })}
@@ -537,7 +729,7 @@ export const CharacterCreator: React.FC<CharacterCreatorProps> = ({
                     onChange={(v) => setAppearance({ ...appearance, mustacheStyle: v })}
                   />
                   <OptionChips
-                    label="Tipo físico"
+                    label="Porte físico"
                     options={BODY_TYPES}
                     value={appearance.bodyType}
                     onChange={(v) => setAppearance({ ...appearance, bodyType: v })}
@@ -565,6 +757,18 @@ export const CharacterCreator: React.FC<CharacterCreatorProps> = ({
             {tab === 'ESPORTIVO' && (
               <div className="space-y-4">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <Field label="Nome na camisa (visão Costas)">
+                    <input
+                      type="text"
+                      maxLength={11}
+                      value={gear.shirtName ?? personal.nickname}
+                      onChange={(e) =>
+                        setGear({ ...gear, shirtName: e.target.value.toUpperCase() })
+                      }
+                      onFocus={() => setViewAngle('back')}
+                      className="w-full px-3 py-2 rounded-lg bg-slate-900 border border-slate-700 text-sm text-white font-mono-num uppercase focus:border-emerald-500 outline-none"
+                    />
+                  </Field>
                   <Field label={`Número da camisa: #${gear.jerseyNumber}`}>
                     <input
                       type="range"
@@ -577,6 +781,15 @@ export const CharacterCreator: React.FC<CharacterCreatorProps> = ({
                       className="w-full accent-emerald-500 cursor-pointer"
                     />
                   </Field>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <OptionChips
+                    label="Estilo da gola"
+                    options={COLLAR_STYLES}
+                    value={gear.collarStyle || 'Redonda'}
+                    onChange={(v) => setGear({ ...gear, collarStyle: v })}
+                  />
                   <OptionChips
                     label="Pé dominante"
                     options={['Direito', 'Esquerdo', 'Ambidestro'] as DominantFoot[]}
@@ -619,7 +832,7 @@ export const CharacterCreator: React.FC<CharacterCreatorProps> = ({
                     onChange={(v) => setGear({ ...gear, sleeveLength: v })}
                   />
                   <OptionChips
-                    label="Tipo de meia"
+                    label="Tipo de meião"
                     options={['Curta', 'Média', 'Alta'] as SockType[]}
                     value={gear.sockType}
                     onChange={(v) => setGear({ ...gear, sockType: v })}
@@ -635,7 +848,57 @@ export const CharacterCreator: React.FC<CharacterCreatorProps> = ({
               </div>
             )}
 
-            {tab === 'POSICAO' && (
+            {tab === 'COMEMORACAO' && (
+              <div className="space-y-3">
+                <div className="bg-slate-900/75 border border-slate-800 rounded-xl p-3 flex items-center justify-between gap-3">
+                  <div>
+                    <div className="text-xs font-bold text-white">
+                      Escolha sua Comemoração de Gol
+                    </div>
+                    <div className="text-[11px] text-slate-400">
+                      Clique em uma opção para visualizar a animação em Pixel Art no painel à esquerda.
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  {CELEBRATION_OPTIONS.map((opt) => {
+                    const active = (gear.celebrationId || 'knee_slide') === opt.id;
+                    return (
+                      <button
+                        key={opt.id}
+                        type="button"
+                        onClick={() => {
+                          soundEngine.play('celebration');
+                          setGear({ ...gear, celebrationId: opt.id });
+                          setViewAngle('front');
+                          setTestCelebration(true);
+                        }}
+                        className={`p-3 rounded-xl border text-left transition-colors cursor-pointer ${
+                          active
+                            ? 'bg-emerald-500/15 border-emerald-500 text-white'
+                            : 'bg-slate-900/70 border-slate-800 text-slate-300 hover:border-slate-600'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="font-display font-bold text-xs text-white">
+                            {opt.label}
+                          </span>
+                          {active && (
+                            <span className="text-[10px] font-bold text-emerald-400">
+                              SELECIONADA
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-[11px] text-slate-400 mt-1">{opt.desc}</p>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {tab === 'POSICAO' && !editMode && (
               <div className="space-y-4">
                 <div>
                   <div className="text-xs font-semibold text-slate-300 mb-2">
@@ -674,7 +937,7 @@ export const CharacterCreator: React.FC<CharacterCreatorProps> = ({
 
                 <div className="border-t border-slate-800 pt-3">
                   <div className="text-xs font-semibold text-slate-300 mb-2">
-                    Estilo de Jogo
+                    Estilo de Jogo (8 Perfis Táticos)
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     {PLAYSTYLES.map((st) => (
@@ -700,7 +963,7 @@ export const CharacterCreator: React.FC<CharacterCreatorProps> = ({
               </div>
             )}
 
-            {tab === 'ATRIBUTOS' && (
+            {tab === 'ATRIBUTOS' && !editMode && (
               <div className="space-y-3">
                 <div className="flex items-center justify-between bg-slate-900/80 border border-slate-800 rounded-lg px-3.5 py-2.5">
                   <div>
@@ -734,7 +997,7 @@ export const CharacterCreator: React.FC<CharacterCreatorProps> = ({
                           <button
                             type="button"
                             onClick={() => adjustAttr(item.key, -1)}
-                            className="w-6 h-6 rounded bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-300 cursor-pointer"
+                            className="w-7 h-7 rounded bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-300 cursor-pointer"
                           >
                             -
                           </button>
@@ -744,7 +1007,7 @@ export const CharacterCreator: React.FC<CharacterCreatorProps> = ({
                           <button
                             type="button"
                             onClick={() => adjustAttr(item.key, 1)}
-                            className="w-6 h-6 rounded bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-300 cursor-pointer"
+                            className="w-7 h-7 rounded bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-300 cursor-pointer"
                           >
                             +
                           </button>

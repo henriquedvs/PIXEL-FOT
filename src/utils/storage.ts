@@ -1,9 +1,10 @@
-import { CLUBS, getClubById } from '../data/clubs';
+import { CLUBS, getClubById, resolveClubId } from '../data/clubs';
 import { calculateOverall, getPositionMeta } from '../data/positions';
 import {
   CalendarActivityType,
   CalendarDay,
   Club,
+  EvolutionPoint,
   GameSettings,
   LeagueLeader,
   LeagueStanding,
@@ -81,6 +82,37 @@ export function saveSettings(settings: GameSettings): void {
   }
 }
 
+function makeEvolutionSnapshot(
+  season: number,
+  round: number,
+  ovr: number,
+  attributes: PlayerAttributes
+): EvolutionPoint {
+  return {
+    season,
+    round,
+    ovr,
+    velocidade: attributes.velocidade,
+    finalizacao: attributes.finalizacao,
+    passeCurto: attributes.passeCurto,
+    drible: attributes.drible,
+    marcacao: attributes.marcacao,
+    reflexos: attributes.reflexos,
+  };
+}
+
+function pushEvolutionSnapshot(career: PlayerCareer): EvolutionPoint[] {
+  const prev = career.evolutionHistory ? [...career.evolutionHistory] : [];
+  const snap = makeEvolutionSnapshot(career.season, career.round, career.ovr, career.attributes);
+  const existingIdx = prev.findIndex((p) => p.season === snap.season && p.round === snap.round);
+  if (existingIdx >= 0) {
+    prev[existingIdx] = snap;
+  } else {
+    prev.push(snap);
+  }
+  return prev.slice(-64);
+}
+
 export function loadCareer(): PlayerCareer | null {
   try {
     const raw = localStorage.getItem(CAREER_KEY);
@@ -88,20 +120,112 @@ export function loadCareer(): PlayerCareer | null {
     const parsed = JSON.parse(raw) as Partial<PlayerCareer>;
     if (!parsed.clubId || !parsed.schedule) return null;
 
-    // Migrate Phase 1 saves seamlessly
+    const resolvedClubId = resolveClubId(parsed.clubId);
+    const resolvedClub = getClubById(resolvedClubId);
+
+    // Migrate schedule club IDs
+    const migratedSchedule = (parsed.schedule || []).map((f) => ({
+      ...f,
+      homeClubId: resolveClubId(f.homeClubId),
+      awayClubId: resolveClubId(f.awayClubId),
+    }));
+
+    // Migrate standings and ensure all 20 Série A clubs are represented
+    const standingMap = new Map<string, LeagueStanding>();
+    for (const s of parsed.standings || []) {
+      const rId = resolveClubId(s.clubId);
+      if (!standingMap.has(rId)) {
+        standingMap.set(rId, { ...s, clubId: rId });
+      }
+    }
+    for (const c of CLUBS) {
+      if (!standingMap.has(c.id)) {
+        standingMap.set(c.id, {
+          clubId: c.id,
+          played: 0,
+          won: 0,
+          drawn: 0,
+          lost: 0,
+          gf: 0,
+          ga: 0,
+          points: 0,
+        });
+      }
+    }
+    const migratedStandings = Array.from(standingMap.values()).sort((a, b) => {
+      if (b.points !== a.points) return b.points - a.points;
+      if (b.won !== a.won) return b.won - a.won;
+      return b.gf - b.ga - (a.gf - a.ga);
+    });
+
+    const appearance: PlayerAppearance = {
+      ...(parsed.appearance as PlayerAppearance),
+      faceShape: parsed.appearance?.faceShape ?? 'Oval',
+      facialDetail: parsed.appearance?.facialDetail ?? 'Nenhuma',
+    };
+
+    const gear: SportGear = {
+      ...(parsed.gear as SportGear),
+      shirtName:
+        parsed.gear?.shirtName ??
+        (parsed.personal?.nickname || parsed.personal?.lastName || 'CRAQUE').toUpperCase(),
+      collarStyle: parsed.gear?.collarStyle ?? 'Redonda',
+      celebrationId: parsed.gear?.celebrationId ?? 'knee_slide',
+    };
+
+    const season = parsed.season ?? 2026;
+    const round = parsed.round ?? 1;
+    const ovr = parsed.ovr ?? 68;
+    const attrs = parsed.attributes as PlayerAttributes;
+
     const migrated: PlayerCareer = {
       ...(parsed as PlayerCareer),
+      clubId: resolvedClubId,
+      contract: {
+        ...(parsed.contract || {
+          clubId: resolvedClubId,
+          clubName: resolvedClub.name,
+          weeklySalary: 12000,
+          yearsRemaining: 2,
+          role: 'Titular',
+          signedSeason: season,
+        }),
+        clubId: resolvedClubId,
+        clubName: resolvedClub.name,
+      },
+      appearance,
+      gear,
       xp: parsed.xp ?? 0,
       fatigue: parsed.fatigue ?? 12,
       trainingLog: parsed.trainingLog ?? [],
       copaStage: parsed.copaStage ?? 'Oitavas',
       estadualStage: parsed.estadualStage ?? 'Fase de Grupos',
-      leagueLeaders: parsed.leagueLeaders ?? generateInitialLeaders(parsed.clubId, parsed.personal?.nickname || 'Você'),
+      standings: migratedStandings,
+      schedule: migratedSchedule,
+      recentMatches: (parsed.recentMatches || []).map((m) => ({
+        ...m,
+        homeClubId: resolveClubId(m.homeClubId),
+        awayClubId: resolveClubId(m.awayClubId),
+        playerClubId: resolveClubId(m.playerClubId),
+      })),
+      leagueLeaders: (
+        parsed.leagueLeaders ??
+        generateInitialLeaders(resolvedClubId, parsed.personal?.nickname || 'Você')
+      ).map((l) => ({ ...l, clubId: resolveClubId(l.clubId) })),
       calendar:
         parsed.calendar && parsed.calendar.length > 0
-          ? parsed.calendar
-          : generateSeasonCalendar(parsed.schedule, parsed.clubId, parsed.season ?? 2026),
+          ? parsed.calendar.map((d) => ({
+              ...d,
+              opponentClubId: d.opponentClubId ? resolveClubId(d.opponentClubId) : undefined,
+            }))
+          : generateSeasonCalendar(migratedSchedule, resolvedClubId, season),
       currentDayIndex: parsed.currentDayIndex ?? 0,
+      evolutionHistory:
+        parsed.evolutionHistory && parsed.evolutionHistory.length > 0
+          ? parsed.evolutionHistory
+          : attrs
+          ? [makeEvolutionSnapshot(season, round, ovr, attrs)]
+          : [],
     };
     return migrated;
   } catch {
@@ -180,7 +304,7 @@ export function mergeStats(a: MatchStatLine, b: MatchStatLine): MatchStatLine {
 export function generateSchedule(clubs: Club[]): { round: number; homeClubId: string; awayClubId: string; competition: string }[] {
   const ids = clubs.map((c) => c.id);
   const n = ids.length;
-  const half = n / 2;
+  const half = Math.floor(n / 2);
   const rotating = ids.slice(1);
   const fixtures: { round: number; homeClubId: string; awayClubId: string; competition: string }[] = [];
 
@@ -190,9 +314,10 @@ export function generateSchedule(clubs: Club[]): { round: number; homeClubId: st
       const c1 = order[i];
       const c2 = order[n - 1 - i];
       const flip = (r + i) % 2 === 1;
-      const comp = r < 4 ? 'Campeonato Estadual' : r === 7 || r === 10 ? 'Copa Nacional' : 'Liga Nacional';
+      const roundNum = r + 1;
+      const comp = roundNum === 9 || roundNum === 17 ? 'Copa Nacional' : 'Brasileirão Série A';
       fixtures.push({
-        round: r + 1,
+        round: roundNum,
         homeClubId: flip ? c2 : c1,
         awayClubId: flip ? c1 : c2,
         competition: comp,
@@ -205,7 +330,7 @@ export function generateSchedule(clubs: Club[]): { round: number; homeClubId: st
   const firstLeg = [...fixtures];
   for (const f of firstLeg) {
     const rNum = f.round + (n - 1);
-    const comp = rNum === 16 || rNum === 20 ? 'Copa Nacional' : 'Liga Nacional';
+    const comp = rNum === 26 || rNum === 34 ? 'Copa Nacional' : 'Brasileirão Série A';
     fixtures.push({
       round: rNum,
       homeClubId: f.awayClubId,
@@ -341,12 +466,25 @@ export function createInitialCareer(params: {
   const schedule = generateSchedule(CLUBS);
   const season = 2026;
   const calendar = generateSeasonCalendar(schedule, params.club.id, season);
+  const normalizedAppearance: PlayerAppearance = {
+    ...params.appearance,
+    faceShape: params.appearance.faceShape ?? 'Oval',
+    facialDetail: params.appearance.facialDetail ?? 'Nenhuma',
+  };
+  const normalizedGear: SportGear = {
+    ...params.gear,
+    shirtName:
+      params.gear.shirtName ??
+      (params.personal.nickname || params.personal.lastName || 'CRAQUE').toUpperCase(),
+    collarStyle: params.gear.collarStyle ?? 'Redonda',
+    celebrationId: params.gear.celebrationId ?? 'knee_slide',
+  };
 
   return {
     id: `career_${Date.now()}`,
     personal: params.personal,
-    appearance: params.appearance,
-    gear: params.gear,
+    appearance: normalizedAppearance,
+    gear: normalizedGear,
     position: params.position,
     playstyle: params.playstyle,
     attributes: params.attributes,
@@ -379,6 +517,7 @@ export function createInitialCareer(params: {
     recentMatches: [],
     awards: [],
     history: [],
+    evolutionHistory: [makeEvolutionSnapshot(season, 1, ovr, params.attributes)],
     offers: [],
     standings,
     leagueLeaders: generateInitialLeaders(
@@ -473,6 +612,7 @@ export function completeTrainingDrill(
       next.currentDayIndex += 1;
     }
   }
+  next.evolutionHistory = pushEvolutionSnapshot(next);
 
   return next;
 }
@@ -670,7 +810,10 @@ export function applyMatchOutcomeToCareer(
   }
 
   next.trainingPoints = Math.min(4, next.trainingPoints + 2);
-  if (next.round >= 22) {
+  next.evolutionHistory = pushEvolutionSnapshot(next);
+
+  const maxRound = next.schedule.reduce((m, f) => Math.max(m, f.round), 38);
+  if (next.round >= maxRound) {
     const currentClub = getClubById(next.clubId);
     const avg = next.seasonStats.matches > 0 ? +(next.seasonStats.ratingSum / next.seasonStats.matches).toFixed(2) : 6.5;
     next.history.unshift({
@@ -688,7 +831,7 @@ export function applyMatchOutcomeToCareer(
       next.awards.push({
         id: `aw_title_${next.season}`,
         season: next.season,
-        title: `Campeão da Liga Nacional (${next.season})`,
+        title: `Campeão do Brasileirão Série A (${next.season})`,
         clubName: currentClub.name,
       });
     }

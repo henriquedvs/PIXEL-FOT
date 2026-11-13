@@ -302,22 +302,22 @@ export interface PlaystyleMeta {
 
 export const PLAYSTYLES: PlaystyleMeta[] = [
   {
-    id: 'VELOCISTA',
-    name: 'Velocista',
-    description: 'Explosão física para vencer na corrida e puxar contra-ataques.',
-    bonuses: { velocidade: 8, aceleracao: 8, resistencia: 4, agilidade: 4 },
-  },
-  {
     id: 'ARMADOR',
     name: 'Armador',
-    description: 'Passes cirúrgicos e leitura privilegiada de espaços.',
+    description: 'Passes cirúrgicos e leitura privilegiada de espaços no meio-campo.',
     bonuses: { visaoJogo: 8, passeCurto: 7, passeLongo: 6, controleBola: 3 },
   },
   {
     id: 'FINALIZADOR',
     name: 'Finalizador',
-    description: 'Frieza diante do gol, chute potente e precisão nas redes.',
+    description: 'Frieza diante do gol, chute potente e precisão letal nas redes.',
     bonuses: { finalizacao: 9, precisaoChute: 7, potenciaChute: 5, posicionamento: 3 },
+  },
+  {
+    id: 'VELOCISTA',
+    name: 'Velocista',
+    description: 'Explosão física para vencer na corrida e puxar contra-ataques.',
+    bonuses: { velocidade: 8, aceleracao: 8, resistencia: 4, agilidade: 4 },
   },
   {
     id: 'DRIBLADOR',
@@ -326,18 +326,35 @@ export const PLAYSTYLES: PlaystyleMeta[] = [
     bonuses: { drible: 9, agilidade: 6, controleBola: 6, equilibrio: 3 },
   },
   {
-    id: 'MARCADOR',
-    name: 'Marcador',
-    description: 'Pegada firme na marcação, desarmes limpos e vigor físico.',
-    bonuses: { marcacao: 8, desarme: 8, interceptacao: 5, forcaFisica: 4 },
+    id: 'VOLANTE_MARCADOR',
+    name: 'Volante marcador',
+    description: 'Cão de guarda à frente da zaga, forte em desarmes e saída rápida.',
+    bonuses: { desarme: 8, interceptacao: 7, marcacao: 6, passeCurto: 4 },
   },
   {
-    id: 'CONSTRUTOR',
-    name: 'Construtor',
-    description: 'Segurança na posse, domínio refinado e saída sob pressão.',
-    bonuses: { passeCurto: 6, dominio: 6, equilibrio: 5, posicionamento: 5, visaoJogo: 4 },
+    id: 'PONTA_OFENSIVO',
+    name: 'Ponta ofensivo',
+    description: 'Verticalidade pelas beiradas, drible em velocidade e cruzamentos precisos.',
+    bonuses: { velocidade: 7, aceleracao: 6, cruzamento: 7, drible: 6 },
   },
   {
+    id: 'DEFENSOR',
+    name: 'Defensor',
+    description: 'Segurança nos duelos aéreos, antecipação e proteção da grande área.',
+    bonuses: { marcacao: 8, desarme: 7, cabeceio: 6, forcaFisica: 5 },
+  },
+  {
+    id: 'GOLEIRO',
+    name: 'Goleiro',
+    description: 'Reflexos apurados debaixo das traves, saídas firmes e reposição ágil.',
+    bonuses: { reflexos: 9, posicionamentoGk: 8, saidasGol: 6, reposicao: 5 },
+  },
+];
+
+const LEGACY_PLAYSTYLES: Record<string, PlaystyleMeta> = {
+  MARCADOR: PLAYSTYLES[4],
+  CONSTRUTOR: PLAYSTYLES[0],
+  COMPLETO: {
     id: 'COMPLETO',
     name: 'Completo',
     description: 'Distribuição equilibrada em todas as valências do futebol.',
@@ -352,7 +369,11 @@ export const PLAYSTYLES: PlaystyleMeta[] = [
       reflexos: 4,
     },
   },
-];
+};
+
+export function getPlaystyleMeta(id: PlaystyleId): PlaystyleMeta {
+  return PLAYSTYLES.find((p) => p.id === id) || LEGACY_PLAYSTYLES[id] || PLAYSTYLES[0];
+}
 
 export const ATTRIBUTE_LABELS: {
   key: keyof PlayerAttributes;
@@ -411,7 +432,7 @@ export function generateInitialAttributes(
 ): PlayerAttributes {
   const isGK = posId === 'GK_TRAD' || posId === 'GK_SWEEPER';
   const meta = getPositionMeta(posId);
-  const style = PLAYSTYLES.find((p) => p.id === playstyleId) || PLAYSTYLES[6];
+  const style = getPlaystyleMeta(playstyleId);
 
   const base: PlayerAttributes = {
     velocidade: isGK ? 46 : 60,

@@ -68,17 +68,20 @@ export const MatchView: React.FC<MatchViewProps> = ({
   const sprintPtrRef = useRef<number | null>(null);
   const dribblePtrRef = useRef<number | null>(null);
   const passPtrRef = useRef<number | null>(null);
+  const callPtrRef = useRef<number | null>(null);
   const shootPtrRef = useRef<number | null>(null);
 
   const [pressedBtns, setPressedBtns] = useState<{
     sprint: boolean;
     dribble: boolean;
     pass: boolean;
+    call: boolean;
     shoot: boolean;
   }>({
     sprint: false,
     dribble: false,
     pass: false,
+    call: false,
     shoot: false,
   });
 
@@ -118,9 +121,10 @@ export const MatchView: React.FC<MatchViewProps> = ({
     sprintPtrRef.current = null;
     dribblePtrRef.current = null;
     passPtrRef.current = null;
+    callPtrRef.current = null;
     shootPtrRef.current = null;
     setJoyVisual({ active: false, ox: 0, oy: 0, cx: 0, cy: 0 });
-    setPressedBtns({ sprint: false, dribble: false, pass: false, shoot: false });
+    setPressedBtns({ sprint: false, dribble: false, pass: false, call: false, shoot: false });
     if (engineRef.current) {
       engineRef.current.moveInput = { x: 0, y: 0 };
       engineRef.current.sprintHeld = false;
@@ -167,6 +171,13 @@ export const MatchView: React.FC<MatchViewProps> = ({
         eng.triggerDribbleOrTackle();
       } else if (e.code === 'KeyE') {
         eng.triggerQuickPass();
+      } else if (e.code === 'KeyQ') {
+        eng.triggerCallForPass();
+      } else if (e.code === 'KeyF' && !e.repeat) {
+        const user = eng.getUserPlayer();
+        const dir = eng.getAttackDir(user.team);
+        const goalX = dir === 1 ? PITCH_GEO.pitchX + PITCH_GEO.pitchW : PITCH_GEO.pitchX;
+        eng.startShotAim(goalX, PITCH_GEO.pitchY + PITCH_GEO.pitchH / 2);
       } else if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') {
         eng.sprintHeld = true;
       }
@@ -175,6 +186,8 @@ export const MatchView: React.FC<MatchViewProps> = ({
       keysHeld.current.delete(e.code);
       if ((e.code === 'ShiftLeft' || e.code === 'ShiftRight') && engineRef.current) {
         engineRef.current.sprintHeld = false;
+      } else if (e.code === 'KeyF' && engineRef.current) {
+        engineRef.current.releaseShotAim();
       }
     };
     const onBlur = () => {
@@ -301,7 +314,7 @@ export const MatchView: React.FC<MatchViewProps> = ({
       }
     }
 
-    if (joyState.current.pointerId === null) {
+    if (joyState.current.pointerId === null && sx <= canvas.width * 0.56) {
       joyState.current = {
         pointerId: e.pointerId,
         originX: sx,
@@ -333,6 +346,7 @@ export const MatchView: React.FC<MatchViewProps> = ({
       const dx = sx - joyState.current.originX;
       const dy = sy - joyState.current.originY;
       const maxR = 46;
+      const deadzone = 6;
       const d = Math.hypot(dx, dy);
       if (d > 8) joyState.current.moved = true;
       const clampedD = Math.min(d, maxR);
@@ -341,9 +355,10 @@ export const MatchView: React.FC<MatchViewProps> = ({
       const cy = joyState.current.originY + Math.sin(ang) * clampedD;
       joyState.current.curX = cx;
       joyState.current.curY = cy;
+      const normalized = d > deadzone ? (clampedD - deadzone) / (maxR - deadzone) : 0;
       eng.moveInput = {
-        x: d > 4 ? Math.cos(ang) * (clampedD / maxR) : 0,
-        y: d > 4 ? Math.sin(ang) * (clampedD / maxR) : 0,
+        x: Math.cos(ang) * normalized,
+        y: Math.sin(ang) * normalized,
       };
       setJoyVisual({ active: true, ox: joyState.current.originX, oy: joyState.current.originY, cx, cy });
     }
@@ -456,6 +471,21 @@ export const MatchView: React.FC<MatchViewProps> = ({
     setPressedBtns((p) => ({ ...p, pass: false }));
   };
 
+  const handleCallDown = (e: React.PointerEvent<HTMLButtonElement>) => {
+    captureBtnPointer(e);
+    if (callPtrRef.current !== null) return;
+    callPtrRef.current = e.pointerId;
+    setPressedBtns((p) => ({ ...p, call: true }));
+    engineRef.current?.triggerCallForPass();
+  };
+
+  const handleCallUp = (e: React.PointerEvent<HTMLButtonElement>) => {
+    releaseBtnPointer(e);
+    if (callPtrRef.current !== e.pointerId) return;
+    callPtrRef.current = null;
+    setPressedBtns((p) => ({ ...p, call: false }));
+  };
+
   const handleShootBtnDown = (e: React.PointerEvent<HTMLButtonElement>) => {
     captureBtnPointer(e);
     if (shootPtrRef.current !== null) return;
@@ -464,14 +494,10 @@ export const MatchView: React.FC<MatchViewProps> = ({
     const eng = engineRef.current;
     if (!eng) return;
     const user = eng.getUserPlayer();
-    if (eng.ball.ownerId === user.id) {
-      const dir = eng.getAttackDir(user.team);
-      const goalX = dir === 1 ? PITCH_GEO.pitchX + PITCH_GEO.pitchW : PITCH_GEO.pitchX;
-      const goalY = PITCH_GEO.pitchY + PITCH_GEO.pitchH / 2;
-      eng.startShotAim(goalX, goalY);
-    } else {
-      eng.triggerCallForPass();
-    }
+    const dir = eng.getAttackDir(user.team);
+    const goalX = dir === 1 ? PITCH_GEO.pitchX + PITCH_GEO.pitchW : PITCH_GEO.pitchX;
+    const goalY = PITCH_GEO.pitchY + PITCH_GEO.pitchH / 2;
+    eng.startShotAim(goalX, goalY);
   };
 
   const handleShootBtnMove = (e: React.PointerEvent<HTMLButtonElement>) => {
@@ -555,6 +581,7 @@ export const MatchView: React.FC<MatchViewProps> = ({
         onPointerMove={handleCanvasPointerMove}
         onPointerUp={handleCanvasPointerUp}
         onPointerCancel={handleCanvasPointerUp}
+        onLostPointerCapture={handleCanvasPointerUp}
         className="w-full h-full block pixelated touch-none"
       />
 
@@ -665,84 +692,118 @@ export const MatchView: React.FC<MatchViewProps> = ({
         </div>
       )}
 
-      {hud && hud.phase !== 'HALFTIME' && hud.phase !== 'FULLTIME' && (
-        <div className={`pointer-events-none absolute z-20 flex items-end ${btnGap}`}>
+      {hud?.phase === 'GOAL_CELEBRATION' && (
+        <button
+          type="button"
+          onClick={() => engineRef.current?.skipCelebration()}
+          className="absolute bottom-6 right-6 z-25 px-4 py-2.5 rounded-xl bg-slate-900/90 hover:bg-slate-800 border border-amber-400/70 text-amber-200 font-display font-bold text-xs shadow-lg cursor-pointer"
+        >
+          Pular Comemoração ›
+        </button>
+      )}
+
+      {hud && hud.phase !== 'HALFTIME' && hud.phase !== 'FULLTIME' && hud.phase !== 'GOAL_CELEBRATION' && (
+        <div className={`pointer-events-none absolute z-20 flex flex-col items-end ${btnGap}`}>
           {settings.showMatchHints && (
-            <div className="hidden lg:block text-[11px] text-slate-300/85 bg-slate-950/65 px-2.5 py-1 rounded mr-2 whitespace-nowrap">
+            <div className="hidden lg:block text-[11px] text-slate-300/85 bg-slate-950/65 px-2.5 py-1 rounded whitespace-nowrap">
               {hud.userHasBall
                 ? 'PASSAR / toque no colega · Segure CHUTAR e mire'
-                : 'Arraste p/ mover · DESARMAR ou PEDIR PASSE'}
+                : 'Arraste à esquerda p/ mover · PEDIR BOLA · DESARMAR'}
             </div>
           )}
 
-          {/* Sprint button (independent multitouch capture) */}
-          <button
-            type="button"
-            onPointerDown={handleSprintDown}
-            onPointerUp={handleSprintUp}
-            onPointerCancel={handleSprintUp}
-            className={`pointer-events-auto touch-none rounded-full border-2 font-display font-bold text-[10px] flex items-center justify-center shadow-lg cursor-pointer transition-transform ${
-              pressedBtns.sprint
-                ? 'bg-sky-400 text-slate-950 border-white scale-95'
-                : 'bg-slate-900/85 border-sky-400/80 text-sky-200'
-            } ${isLarge ? 'w-16 h-16' : 'w-14 h-14'}`}
-          >
-            CORRER
-          </button>
+          <div className="flex items-end gap-2">
+            {/* Sprint button (independent multitouch capture) */}
+            <button
+              type="button"
+              onPointerDown={handleSprintDown}
+              onPointerUp={handleSprintUp}
+              onPointerCancel={handleSprintUp}
+              onLostPointerCapture={handleSprintUp}
+              className={`pointer-events-auto touch-none rounded-full border-2 font-display font-bold text-[10px] flex items-center justify-center shadow-lg cursor-pointer transition-transform ${
+                pressedBtns.sprint
+                  ? 'bg-sky-400 text-slate-950 border-white scale-95'
+                  : 'bg-slate-900/85 border-sky-400/80 text-sky-200'
+              } ${isLarge ? 'w-16 h-16' : 'w-[54px] h-[54px]'}`}
+            >
+              CORRER
+            </button>
 
-          {/* Dribble / Tackle / GK Dive button */}
-          <button
-            type="button"
-            onPointerDown={handleDribbleDown}
-            onPointerUp={handleDribbleUp}
-            onPointerCancel={handleDribbleUp}
-            className={`pointer-events-auto touch-none rounded-full border-2 font-display font-bold text-[10px] flex items-center justify-center shadow-lg cursor-pointer transition-transform ${
-              pressedBtns.dribble
-                ? 'bg-amber-400 text-slate-950 border-white scale-95'
-                : 'bg-slate-900/85 border-amber-400/85 text-amber-200'
-            } ${isLarge ? 'w-[68px] h-[68px]' : 'w-[60px] h-[60px]'}`}
-          >
-            {hud.userIsGk && !hud.userHasBall
-              ? 'DEFENDER'
-              : hud.userHasBall
-              ? 'DRIBLE'
-              : 'DESARMAR'}
-          </button>
+            {/* Dribble / Tackle / GK Dive button */}
+            <button
+              type="button"
+              onPointerDown={handleDribbleDown}
+              onPointerUp={handleDribbleUp}
+              onPointerCancel={handleDribbleUp}
+              onLostPointerCapture={handleDribbleUp}
+              className={`pointer-events-auto touch-none rounded-full border-2 font-display font-bold text-[10px] flex items-center justify-center shadow-lg cursor-pointer transition-transform ${
+                pressedBtns.dribble
+                  ? 'bg-amber-400 text-slate-950 border-white scale-95'
+                  : 'bg-slate-900/85 border-amber-400/85 text-amber-200'
+              } ${isLarge ? 'w-[66px] h-[66px]' : 'w-[58px] h-[58px]'}`}
+            >
+              {hud.userIsGk && !hud.userHasBall
+                ? 'DEFENDER'
+                : hud.userHasBall
+                ? 'DRIBLE'
+                : 'DESARMAR'}
+            </button>
 
-          {/* Dedicated PASSAR / PEDIR PASSE button for full multitouch play */}
-          <button
-            type="button"
-            onPointerDown={handlePassDown}
-            onPointerUp={handlePassUp}
-            onPointerCancel={handlePassUp}
-            className={`pointer-events-auto touch-none rounded-full border-2 font-display font-bold text-[10px] text-center leading-tight flex items-center justify-center shadow-lg cursor-pointer px-1 transition-transform ${
-              pressedBtns.pass
-                ? 'bg-teal-400 text-slate-950 border-white scale-95'
-                : 'bg-slate-900/85 border-teal-400/85 text-teal-200'
-            } ${isLarge ? 'w-[68px] h-[68px]' : 'w-[60px] h-[60px]'}`}
-          >
-            {hud.userHasBall ? 'PASSAR' : 'PEDIR'}
-          </button>
+            {/* Dedicated PASSAR button (only passes / queues one-touch pass) */}
+            <button
+              type="button"
+              onPointerDown={handlePassDown}
+              onPointerUp={handlePassUp}
+              onPointerCancel={handlePassUp}
+              onLostPointerCapture={handlePassUp}
+              className={`pointer-events-auto touch-none rounded-full border-2 font-display font-bold text-[10px] text-center leading-tight flex items-center justify-center shadow-lg cursor-pointer px-1 transition-transform ${
+                pressedBtns.pass
+                  ? 'bg-teal-400 text-slate-950 border-white scale-95'
+                  : hud.userHasBall
+                  ? 'bg-teal-500/25 border-teal-300 text-teal-100'
+                  : 'bg-slate-900/80 border-teal-500/50 text-teal-300/80'
+              } ${isLarge ? 'w-[66px] h-[66px]' : 'w-[58px] h-[58px]'}`}
+            >
+              PASSAR
+            </button>
 
-          {/* Primary Shoot / Clear / Call button */}
-          <button
-            type="button"
-            onPointerDown={handleShootBtnDown}
-            onPointerMove={handleShootBtnMove}
-            onPointerUp={handleShootBtnUp}
-            onPointerCancel={handleShootBtnUp}
-            className={`pointer-events-auto touch-none rounded-full border-2 font-display font-extrabold text-xs text-center leading-tight flex items-center justify-center shadow-xl cursor-pointer px-1 transition-transform ${
-              hud.userHasBall
-                ? pressedBtns.shoot
+            {/* Single dedicated PEDIR BOLA button */}
+            <button
+              type="button"
+              onPointerDown={handleCallDown}
+              onPointerUp={handleCallUp}
+              onPointerCancel={handleCallUp}
+              onLostPointerCapture={handleCallUp}
+              className={`pointer-events-auto touch-none rounded-full border-2 font-display font-bold text-[10px] text-center leading-tight flex items-center justify-center shadow-lg cursor-pointer px-1 transition-transform ${
+                pressedBtns.call
+                  ? 'bg-indigo-400 text-slate-950 border-white scale-95'
+                  : hud.userHasBall
+                  ? 'bg-slate-900/60 border-slate-600/60 text-slate-400'
+                  : 'bg-indigo-500/25 border-indigo-300 text-indigo-100'
+              } ${isLarge ? 'w-[66px] h-[66px]' : 'w-[58px] h-[58px]'}`}
+            >
+              PEDIR BOLA
+            </button>
+
+            {/* Dedicated CHUTAR / REPOR button (always shoots / queues first-time strike) */}
+            <button
+              type="button"
+              onPointerDown={handleShootBtnDown}
+              onPointerMove={handleShootBtnMove}
+              onPointerUp={handleShootBtnUp}
+              onPointerCancel={handleShootBtnUp}
+              onLostPointerCapture={handleShootBtnUp}
+              className={`pointer-events-auto touch-none rounded-full border-2 font-display font-extrabold text-xs text-center leading-tight flex items-center justify-center shadow-xl cursor-pointer px-1 transition-transform ${
+                pressedBtns.shoot
                   ? 'bg-emerald-300 text-slate-950 border-white scale-95'
-                  : 'bg-emerald-500 text-slate-950 border-white'
-                : pressedBtns.shoot
-                ? 'bg-emerald-500 text-slate-950 border-white scale-95'
-                : 'bg-slate-900/85 border-emerald-400/85 text-emerald-300'
-            } ${isLarge ? 'w-20 h-20' : 'w-16 h-16'}`}
-          >
-            {hud.userHasBall ? (hud.userIsGk ? 'REPOR' : 'CHUTAR') : 'PEDIR PASSE'}
-          </button>
+                  : hud.userHasBall
+                  ? 'bg-emerald-500 text-slate-950 border-white'
+                  : 'bg-slate-900/85 border-emerald-400/85 text-emerald-200'
+              } ${isLarge ? 'w-20 h-20' : 'w-16 h-16'}`}
+            >
+              {hud.userIsGk ? 'REPOR' : 'CHUTAR'}
+            </button>
+          </div>
         </div>
       )}
 

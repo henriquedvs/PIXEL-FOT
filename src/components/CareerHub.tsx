@@ -29,6 +29,7 @@ import {
 } from '../types/game';
 import { calculateAge } from '../utils/storage';
 import { ClubCrest } from './ClubCrest';
+import { EvolutionChart } from './EvolutionChart';
 import { TrainingMinigame } from './TrainingMinigame';
 
 interface CareerHubProps {
@@ -69,6 +70,7 @@ export const CareerHub: React.FC<CareerHubProps> = ({
   const club = getClubById(career.clubId);
   const posMeta = getPositionMeta(career.position);
   const age = calculateAge(career.personal.birthDate);
+  const maxRound = career.schedule.reduce((m, f) => Math.max(m, f.round), 38);
 
   const nextFixture = useMemo(() => {
     return (
@@ -218,7 +220,7 @@ export const CareerHub: React.FC<CareerHubProps> = ({
               <div>
                 <div className="flex items-center justify-between text-xs text-slate-400">
                   <span className="font-semibold text-emerald-400">
-                    {nextEnv.competitionName} · Rodada {career.round}/22
+                    {nextEnv.competitionName} · Rodada {career.round}/{maxRound}
                   </span>
                   <span>
                     {nextEnv.weather} · {nextEnv.temperatureC}°C · {nextEnv.kickoffTime}
@@ -547,7 +549,7 @@ export const CareerHub: React.FC<CareerHubProps> = ({
         {tab === 'COMPETICOES' && (
           <div className="max-w-6xl mx-auto space-y-4">
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              <InfoCell label="Liga Nacional" value={`${club.division} · Rod. ${career.round}/22`} highlight />
+              <InfoCell label="Brasileirão" value={`${club.division} · Rod. ${career.round}/${maxRound}`} highlight />
               <InfoCell label="Copa Nacional" value={career.copaStage} />
               <InfoCell label="Campeonato Estadual" value={career.estadualStage} />
               <InfoCell label="Supercopa Nacional" value={career.season > 2026 ? 'Classificado' : 'Aguardando campeões'} />
@@ -556,7 +558,7 @@ export const CareerHub: React.FC<CareerHubProps> = ({
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
               <section className="lg:col-span-7 bg-[#111B2B] border border-slate-800 rounded-xl p-4 overflow-x-auto">
                 <h2 className="font-display font-bold text-sm text-white mb-3">
-                  Tabela Completa — Liga Nacional ({career.season})
+                  Tabela Completa — Brasileirão Série A ({career.season})
                 </h2>
                 <table className="w-full text-xs text-left">
                   <thead className="text-[11px] text-slate-400 border-b border-slate-800">
@@ -661,6 +663,8 @@ export const CareerHub: React.FC<CareerHubProps> = ({
                 value={career.injuryMatchesRemaining > 0 ? career.injuryType || 'Lesionado' : '100% Apto'}
               />
             </div>
+
+            <EvolutionChart points={career.evolutionHistory || []} />
 
             <div className="bg-[#111B2B] border border-slate-800 rounded-xl p-4">
               <h2 className="font-display font-bold text-sm text-white mb-3">
@@ -853,7 +857,7 @@ export const CareerHub: React.FC<CareerHubProps> = ({
                 )}
                 {career.history.length === 0 ? (
                   <p className="text-xs text-slate-400">
-                    O resumo por temporada será registrado ao concluir as 22 rodadas.
+                    O resumo por temporada será registrado ao concluir as {maxRound} rodadas.
                   </p>
                 ) : (
                   <div className="space-y-1.5">
