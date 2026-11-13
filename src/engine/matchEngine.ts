@@ -191,6 +191,9 @@ export interface MatchHudSnapshot {
   teamFoulsAway: number;
   userHasBall: boolean;
   userTeamHasBall: boolean;
+  userTeamHasSetPiece: boolean;
+  advantageActive: boolean;
+  momentum: number; // -100 (away) to +100 (home)
   userStamina: number;
   userIsGk: boolean;
   isAimingShot: boolean;
@@ -416,6 +419,16 @@ export class MatchEngine {
   private pendingOffsideIds = new Set<string>();
   private giveAndGoMateId: string | null = null;
   private giveAndGoTimer = 0;
+  private momentum = 0;
+  private powerShotTimer = 0;
+  private advantageTimer = 0;
+  private offsideLineX: number | null = null;
+  private offsideLineTimer = 0;
+  private netImpactLeftY = PITCH_GEO.pitchY + PITCH_GEO.pitchH / 2;
+  private netImpactRightY = PITCH_GEO.pitchY + PITCH_GEO.pitchH / 2;
+  private dynamicCamZoomBoost = 0;
+  private setPieceTeam: 'home' | 'away' | null = null;
+  private shotShockwave = { x: 0, y: 0, timer: 0 };
 
   // Replay buffer
   private replayBuffer: ReplayFrame[] = [];
@@ -712,6 +725,7 @@ export class MatchEngine {
     const incoming = bench.splice(incomingIdx, 1)[0];
     if (!incoming) return false;
 
+    const prevNum = outgoing.number;
     const prevName = outgoing.name;
     const visuals = this.createNpcAppearance(incoming);
     outgoing.name = incoming.name;
@@ -733,13 +747,31 @@ export class MatchEngine {
     if (team === 'home') this.homeSubsUsed += 1;
     else this.awaySubsUsed += 1;
 
-    this.fourthOfficialText = `SUB`;
-    this.fourthOfficialTimer = 3.2;
-    this.eventBanner = `SUBSTITUIÇÃO · Sai ${prevName} · Entra #${incoming.number} ${incoming.name}`;
+    this.fourthOfficialText = `${prevNum}/${incoming.number}`;
+    this.fourthOfficialTimer = 3.8;
+    const touchX = PITCH_GEO.pitchX + PITCH_GEO.pitchW * 0.5;
+    const touchY = PITCH_GEO.pitchY - 12;
+    for (let i = 0; i < 10; i++) {
+      this.particles.push({
+        x: touchX + (Math.random() - 0.5) * 16,
+        y: touchY,
+        vx: (Math.random() - 0.5) * 55,
+        vy: -25 - Math.random() * 45,
+        color: i % 2 === 0 ? '#34D399' : '#FACC15',
+        life: 0.75,
+        size: 3,
+      });
+    }
+    this.shiftMomentum(team, 6);
+    this.eventBanner = `SUBSTITUIÇÃO · Sai #${prevNum} ${prevName} · Entra #${incoming.number} ${incoming.name}`;
     this.eventTone = 'sub';
     this.bannerTimer = 2.6;
     soundEngine.play('applause');
     return true;
+  }
+
+  private shiftMomentum(team: 'home' | 'away', delta: number) {
+    this.momentum = clamp(this.momentum + (team === 'home' ? delta : -delta), -100, 100);
   }
 
   private slotToWorld(team: 'home' | 'away', slotX: number, slotY: number) {
@@ -882,9 +914,23 @@ export class MatchEngine {
   }
 
   public triggerQuickPass() {
-    if (this.phase !== 'PLAYING') return;
     const user = this.getUserPlayer();
     if (user.redCard) return;
+
+    // Allow user to execute a live Set-Piece immediately using analog direction!
+    if (this.phase === 'SET_PIECE' && this.setPieceTeam === this.userTeam) {
+      const owner = this.players.find((p) => p.id === this.ball.ownerId) || user;
+      const bestMate = this.findBestUserPassTarget(owner) || this.findBestPassTarget(owner);
+      if (bestMate) {
+        this.phase = 'PLAYING';
+        this.phaseTimer = 0;
+        this.setPieceTeam = null;
+        this.executePass(owner, bestMate, this.sprintHeld);
+      }
+      return;
+    }
+
+    if (this.phase !== 'PLAYING') return;
 
     if (
       this.ball.ownerId === user.id ||
@@ -978,7 +1024,7 @@ export class MatchEngine {
       this.submitPenaltyChoice(dir);
       return;
     }
-    if (this.phase !== 'PLAYING') return;
+    if (this.phase !== 'PLAYING' && !(this.phase === 'SET_PIECE' && this.setPieceTeam === this.userTeam)) return;
     const user = this.getUserPlayer();
     if (user.redCard) return;
     this.isAimingShot = true;
@@ -1003,7 +1049,23 @@ export class MatchEngine {
     if (!this.isAimingShot) return;
     const user = this.getUserPlayer();
     this.isAimingShot = false;
-    if (this.phase !== 'PLAYING' || user.redCard) return;
+    if (user.redCard) return;
+
+    if (this.phase === 'SET_PIECE' && this.setPieceTeam === this.userTeam) {
+      const owner = this.players.find((p) => p.id === this.ball.ownerId) || user;
+      const dir = this.getAttackDir(owner.team);
+      const goalX = dir === 1 ? PITCH_GEO.pitchX + PITCH_GEO.pitchW : PITCH_GEO.pitchX;
+      const aimOffsetY = Math.hypot(this.moveInput.x, this.moveInput.y) > 0.2
+        ? PITCH_GEO.pitchY + PITCH_GEO.pitchH / 2 + this.moveInput.y * (PITCH_GEO.goalH * 0.45)
+        : this.aimWorldY;
+      this.phase = 'PLAYING';
+      this.phaseTimer = 0;
+      this.setPieceTeam = null;
+      this.executeShot(owner, goalX, aimOffsetY, Math.max(0.55, this.shotCharge));
+      return;
+    }
+
+    if (this.phase !== 'PLAYING') return;
 
     const power = Math.max(0.4, this.shotCharge);
     const canFirstTimeStrike =
@@ -1121,6 +1183,7 @@ export class MatchEngine {
 
     if (passer.team === 'home') this.teamPassesHome += 1;
     else this.teamPassesAway += 1;
+    this.shiftMomentum(passer.team, 2.5);
 
     soundEngine.play('pass');
   }
@@ -1144,7 +1207,8 @@ export class MatchEngine {
     const spread = ((100 - shooter.shootStat) / 100) * 0.2;
     const angle = baseAngle + (Math.random() - 0.5) * spread;
     const pwr = clamp(power01, 0.35, 1.0);
-    const speed = 475 + pwr * 295 + (shooter.shootStat - 60) * 2.2;
+    const isPowerShot = pwr >= 0.78;
+    const speed = (475 + pwr * 295 + (shooter.shootStat - 60) * 2.2) * (isPowerShot ? 1.08 : 1.0);
 
     this.pendingOffsideIds.clear();
     this.ball.ownerId = null;
@@ -1160,8 +1224,27 @@ export class MatchEngine {
     shooter.actionTimer = 0.35;
     this.cameraFlashTimer = Math.max(this.cameraFlashTimer, 0.55);
 
+    if (isPowerShot) {
+      this.powerShotTimer = 0.85;
+      this.shotShockwave = { x: shooter.x, y: shooter.y, timer: 0.35 };
+      this.shakeTimer = Math.max(this.shakeTimer, 0.12);
+      for (let i = 0; i < 8; i++) {
+        const sa = angle + Math.PI + (Math.random() - 0.5) * 1.1;
+        this.particles.push({
+          x: this.ball.x,
+          y: this.ball.y,
+          vx: Math.cos(sa) * (80 + Math.random() * 80),
+          vy: Math.sin(sa) * (80 + Math.random() * 80),
+          color: i % 2 === 0 ? '#FACC15' : '#FB923C',
+          life: 0.35,
+          size: 3,
+        });
+      }
+    }
+
     if (shooter.team === 'home') this.teamShotsHome += 1;
     else this.teamShotsAway += 1;
+    this.shiftMomentum(shooter.team, isPowerShot ? 12 : 8);
 
     if (shooter.isUser) {
       this.stats.shots += 1;
@@ -1410,6 +1493,14 @@ export class MatchEngine {
       this.giveAndGoTimer -= dt;
       if (this.giveAndGoTimer <= 0) this.giveAndGoMateId = null;
     }
+    if (this.powerShotTimer > 0) this.powerShotTimer = Math.max(0, this.powerShotTimer - dt);
+    if (this.advantageTimer > 0) this.advantageTimer = Math.max(0, this.advantageTimer - dt);
+    if (this.offsideLineTimer > 0) {
+      this.offsideLineTimer = Math.max(0, this.offsideLineTimer - dt);
+      if (this.offsideLineTimer <= 0) this.offsideLineX = null;
+    }
+    if (this.shotShockwave.timer > 0) this.shotShockwave.timer = Math.max(0, this.shotShockwave.timer - dt);
+    this.momentum *= Math.pow(0.96, dt * 60 * 0.08);
     if (this.shootQueueTimer > 0) this.shootQueueTimer = Math.max(0, this.shootQueueTimer - dt);
     if (this.passQueueTimer > 0) this.passQueueTimer = Math.max(0, this.passQueueTimer - dt);
     if (this.callForPassPulseTimer > 0) this.callForPassPulseTimer = Math.max(0, this.callForPassPulseTimer - dt);
@@ -1571,6 +1662,7 @@ export class MatchEngine {
         }
       } else if (this.phaseTimer <= 0) {
         this.phase = 'PLAYING';
+        this.setPieceTeam = null;
         this.ball.pickupLockTimer = 0;
       }
       this.updateCamera(dt);
@@ -2042,6 +2134,22 @@ export class MatchEngine {
     if (Math.random() > stealChance) return;
 
     if (activeLunge && Math.random() < 0.14) {
+      // Referee Advantage Rule: if carrier keeps forward momentum in open play, wave advantage!
+      const g = PITCH_GEO;
+      const midY = g.pitchY + g.pitchH / 2;
+      const dirCarrier = this.getAttackDir(carrier.team);
+      const inBox =
+        dirCarrier === 1
+          ? carrier.x > g.pitchX + g.pitchW - 162 && Math.abs(carrier.y - midY) < 170
+          : carrier.x < g.pitchX + 162 && Math.abs(carrier.y - midY) < 170;
+      if (!inBox && Math.hypot(carrier.vx, carrier.vy) > 60 && Math.random() < 0.45) {
+        this.advantageTimer = 1.6;
+        this.eventBanner = 'SEGUE O JOGO · VANTAGEM!';
+        this.eventTone = 'info';
+        this.bannerTimer = 1.6;
+        tackler.tackleCooldown = 1.0;
+        return;
+      }
       this.triggerFoul(tackler, carrier);
       return;
     }
@@ -2050,6 +2158,7 @@ export class MatchEngine {
     this.ball.pickupLockTimer = 0.25;
     this.ball.lastTouchTeam = tackler.team;
     this.ball.lastTouchPlayerId = tackler.id;
+    this.shiftMomentum(tackler.team, 4);
 
     if (tackler.isUser) {
       this.stats.tackles += 1;
@@ -2176,11 +2285,17 @@ export class MatchEngine {
       return;
     }
 
-    // #9 appearance: record fast ball trail
+    // Record fast ball trail (golden for Power Shots!)
     const ballSpd = Math.hypot(this.ball.vx, this.ball.vy);
     if (ballSpd > 380) {
-      this.ballTrail.push({ x: this.ball.x, y: this.ball.y, z: this.ball.z, alpha: 0.9 });
-      if (this.ballTrail.length > 9) this.ballTrail.shift();
+      this.ballTrail.push({
+        x: this.ball.x,
+        y: this.ball.y,
+        z: this.ball.z,
+        alpha: 0.92,
+        isPower: this.powerShotTimer > 0,
+      });
+      if (this.ballTrail.length > 10) this.ballTrail.shift();
     }
 
     this.ball.x += this.ball.vx * dt;
@@ -2306,9 +2421,11 @@ export class MatchEngine {
         if (p.redCard) continue;
         const reach = p.isGoalkeeper ? 24 : 17;
         if (dist(p.x, p.y, this.ball.x, this.ball.y) < reach) {
-          // Real Offside check!
+          // Real Offside check + Crisp Offside Line Flash
           if (this.pendingOffsideIds.has(p.id)) {
             this.pendingOffsideIds.clear();
+            this.offsideLineX = p.x;
+            this.offsideLineTimer = 1.6;
             const defendingTeam: 'home' | 'away' = p.team === 'home' ? 'away' : 'home';
             if (p.team === 'home') this.teamOffsidesHome += 1;
             else this.teamOffsidesAway += 1;
@@ -2348,7 +2465,8 @@ export class MatchEngine {
             soundEngine.play('crowd');
           } else if (this.ball.z > 14 && !p.isGoalkeeper) {
             p.action = 'header';
-            p.actionTimer = 0.3;
+            p.actionTimer = 0.32;
+            this.spawnTurfParticles(p.x, p.y - 14, 4);
           }
 
           this.ball.ownerId = p.id;
@@ -2415,7 +2533,8 @@ export class MatchEngine {
     }
 
     this.phase = 'SET_PIECE';
-    this.phaseTimer = 0.7;
+    this.setPieceTeam = team;
+    this.phaseTimer = team === this.userTeam ? 1.55 : 0.75;
   }
 
   private scoreGoal(scoringTeam: 'home' | 'away', netSide: 'left' | 'right') {
@@ -2424,8 +2543,14 @@ export class MatchEngine {
     if (scoringTeam === 'home') this.homeScore += 1;
     else this.awayScore += 1;
 
-    if (netSide === 'left') this.netRippleLeft = 1.25;
-    else this.netRippleRight = 1.25;
+    if (netSide === 'left') {
+      this.netRippleLeft = 1.35;
+      this.netImpactLeftY = this.ball.y;
+    } else {
+      this.netRippleRight = 1.35;
+      this.netImpactRightY = this.ball.y;
+    }
+    this.shiftMomentum(scoringTeam, 35);
 
     const rawMinute = Math.floor(this.matchSeconds / 60) + (this.half === 2 ? 45 : 0);
     const isLate = rawMinute >= 80;
@@ -2589,6 +2714,14 @@ export class MatchEngine {
     const targetY = this.ball.y * 0.62 + user.y * 0.38;
     this.camX += (targetX - this.camX) * Math.min(1, dt * 6.5);
     this.camY += (targetY - this.camY) * Math.min(1, dt * 6.5);
+
+    const g = PITCH_GEO;
+    const inPenaltyBox =
+      this.ball.wasShot &&
+      (this.ball.x < g.pitchX + 175 || this.ball.x > g.pitchX + g.pitchW - 175);
+    const targetBoost =
+      this.phase === 'GOAL_CELEBRATION' ? 0.13 : inPenaltyBox ? 0.07 : 0;
+    this.dynamicCamZoomBoost += (targetBoost - this.dynamicCamZoomBoost) * Math.min(1, dt * 4.5);
   }
 
   public screenToWorld(sx: number, sy: number, canvasW: number, canvasH: number) {
@@ -2602,7 +2735,7 @@ export class MatchEngine {
     const base = Math.max(canvasW / 980, canvasH / 600);
     const mult =
       this.zoomPreset === 'close' ? 1.18 : this.zoomPreset === 'wide' ? 0.82 : 1.0;
-    return clamp(base * mult, 0.66, 1.75);
+    return clamp(base * (mult + this.dynamicCamZoomBoost), 0.66, 1.85);
   }
 
   public render(ctx: CanvasRenderingContext2D, canvasW: number, canvasH: number) {
@@ -2652,12 +2785,68 @@ export class MatchEngine {
         cameraFlash: this.cameraFlashTimer,
         fourthOfficialText: this.fourthOfficialText,
         scuffMarks: this.scuffMarks,
+        ballX: this.ball.x,
+        ballY: this.ball.y,
+        netImpactLeftY: this.netImpactLeftY,
+        netImpactRightY: this.netImpactRightY,
       }
     );
 
+    // Offside line flash across pitch
+    if (this.offsideLineX !== null && this.offsideLineTimer > 0) {
+      const a = Math.min(0.85, this.offsideLineTimer);
+      ctx.strokeStyle = `rgba(239, 68, 68, ${a})`;
+      ctx.lineWidth = 2.5;
+      ctx.setLineDash([8, 6]);
+      ctx.beginPath();
+      ctx.moveTo(this.offsideLineX, PITCH_GEO.pitchY);
+      ctx.lineTo(this.offsideLineX, PITCH_GEO.pitchY + PITCH_GEO.pitchH);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+
+    // Power-shot expanding pixel ground shockwave ring
+    if (this.shotShockwave.timer > 0) {
+      const p = 1 - this.shotShockwave.timer / 0.35;
+      ctx.strokeStyle = `rgba(250, 204, 21, ${(1 - p) * 0.85})`;
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(this.shotShockwave.x, this.shotShockwave.y, 10 + p * 34, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+
     const user = this.getUserPlayer();
+    // Interactive Set-Piece Aim Guide when user's team has a restart
+    if (this.phase === 'SET_PIECE' && this.setPieceTeam === this.userTeam) {
+      const owner = this.players.find((p) => p.id === this.ball.ownerId) || user;
+      const aimAng =
+        Math.hypot(this.moveInput.x, this.moveInput.y) > 0.2
+          ? Math.atan2(this.moveInput.y, this.moveInput.x)
+          : this.getAttackDir(this.userTeam) === 1
+          ? 0
+          : Math.PI;
+      ctx.strokeStyle = 'rgba(56, 189, 248, 0.85)';
+      ctx.lineWidth = 2.5;
+      ctx.setLineDash([6, 6]);
+      ctx.beginPath();
+      ctx.moveTo(owner.x, owner.y);
+      ctx.lineTo(owner.x + Math.cos(aimAng) * 140, owner.y + Math.sin(aimAng) * 140);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+
     if (this.ball.ownerId === user.id && this.phase === 'PLAYING') {
       const defaultTarget = this.findBestUserPassTarget(user);
+      if (defaultTarget) {
+        ctx.strokeStyle = 'rgba(250, 204, 21, 0.25)';
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([4, 6]);
+        ctx.beginPath();
+        ctx.moveTo(user.x, user.y + 6);
+        ctx.lineTo(defaultTarget.x, defaultTarget.y + 6);
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
       for (const m of this.players) {
         if (m.team === user.team && m.id !== user.id && !m.redCard) {
           const isHl =
@@ -2669,7 +2858,7 @@ export class MatchEngine {
           ctx.arc(m.x, m.y + 8, isHl ? 19 : 14, 0, Math.PI * 2);
           ctx.stroke();
 
-          // #13 appearance: Tactical '!' icon over open forward runners
+          // Tactical '!' icon over open forward runners
           if (m.homeSlotX > 0.65 && Math.hypot(m.vx, m.vy) > 95) {
             ctx.fillStyle = '#0F172A';
             ctx.fillRect(Math.round(m.x - 5), Math.round(m.y - 34), 10, 10);
@@ -2708,7 +2897,7 @@ export class MatchEngine {
       ctx.arc(this.aimWorldX, this.aimWorldY, 16, 0, Math.PI * 2);
       ctx.stroke();
 
-      // #12 appearance: Floating pixel power bar right above user's feet
+      // Floating pixel power bar right above user's feet
       const bx = Math.round(user.x - 16);
       const by = Math.round(user.y - 38);
       ctx.fillStyle = '#020617';
@@ -2718,7 +2907,7 @@ export class MatchEngine {
       ctx.fillRect(bx + 1, by + 1, Math.round(30 * this.shotCharge), 4);
     }
 
-    // #9 appearance: Ball speed trail
+    // Ball speed trail
     if (this.ballTrail.length > 0) {
       drawPixelBallTrail(ctx, this.ballTrail);
     }
@@ -2733,7 +2922,7 @@ export class MatchEngine {
     type DrawItem = { y: number; draw: () => void };
     const drawList: DrawItem[] = [];
 
-    // #1 appearance: 2 Linesmen patrolling touchlines
+    // 2 Linesmen patrolling touchlines
     this.linesmen.forEach((lm, idx) => {
       drawList.push({
         y: lm.y,
@@ -2750,9 +2939,21 @@ export class MatchEngine {
           this.ref.x,
           this.ref.y,
           this.ref.phase,
-          this.ref.cardTimer > 0 ? this.ref.cardColor : null
+          this.ref.cardTimer > 0 ? this.ref.cardColor : null,
+          this.advantageTimer > 0
         ),
     });
+
+    let topPerformerId = 'user_player';
+    let topRating = -1;
+    for (const pl of this.players) {
+      if (pl.redCard) continue;
+      const r = pl.isUser ? this.rating : pl.matchRating;
+      if (r > topRating) {
+        topRating = r;
+        topPerformerId = pl.id;
+      }
+    }
 
     for (const p of this.players) {
       if (p.redCard) continue;
@@ -2772,6 +2973,7 @@ export class MatchEngine {
               isGoalkeeper: p.isGoalkeeper,
               isUserControlled: p.isUser,
               isCaptain: p.isCaptain,
+              isMotmLeader: p.id === topPerformerId,
               facingAngle: p.facingAngle,
               animPhase: p.animPhase,
               isSprinting: p.isUser && this.sprintHeld,
@@ -2783,7 +2985,7 @@ export class MatchEngine {
             sunShadow
           );
 
-          // #13 appearance: Tired player sweat drop pixels (< 25% stamina)
+          // Tired player sweat drop pixels (< 25% stamina)
           if (p.stamina < 25) {
             ctx.fillStyle = '#38BDF8';
             ctx.fillRect(Math.round(p.x + 8), Math.round(p.y - 20), 2, 3);
@@ -2889,6 +3091,9 @@ export class MatchEngine {
       teamFoulsAway: this.teamFoulsAway,
       userHasBall: this.ball.ownerId === user.id,
       userTeamHasBall: owner?.team === this.userTeam,
+      userTeamHasSetPiece: this.phase === 'SET_PIECE' && this.setPieceTeam === this.userTeam,
+      advantageActive: this.advantageTimer > 0,
+      momentum: Math.round(this.momentum),
       userStamina: Math.round(user.stamina),
       userIsGk: user.isGoalkeeper,
       isAimingShot: this.isAimingShot,

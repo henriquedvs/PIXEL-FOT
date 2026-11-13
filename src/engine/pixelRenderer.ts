@@ -20,6 +20,7 @@ export interface PixelPlayerVisual {
   isGoalkeeper: boolean;
   isUserControlled: boolean;
   isCaptain?: boolean;
+  isMotmLeader?: boolean;
   facingAngle: number;
   animPhase: number;
   isSprinting: boolean;
@@ -44,6 +45,7 @@ export interface BallTrailPoint {
   y: number;
   z: number;
   alpha: number;
+  isPower?: boolean;
 }
 
 function px(
@@ -56,6 +58,20 @@ function px(
 ) {
   ctx.fillStyle = color;
   ctx.fillRect(Math.round(x), Math.round(y), Math.round(w), Math.round(h));
+}
+
+function pxOutline(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  color: string,
+  outline = 'rgba(10, 16, 28, 0.72)',
+  pad = 1
+) {
+  px(ctx, x - pad, y - pad, w + pad * 2, h + pad * 2, outline);
+  px(ctx, x, y, w, h, color);
 }
 
 export function drawPixelPlayerSprite(
@@ -78,6 +94,7 @@ export function drawPixelPlayerSprite(
     viewAngle = 'front',
   } = visual;
   const s = pixelScale * appearance.visualHeightScale;
+  const ol = Math.max(1, Math.round(0.45 * s));
   const widthFactor =
     appearance.bodyType === 'Forte'
       ? 1.18
@@ -96,64 +113,71 @@ export function drawPixelPlayerSprite(
   const isCelebrating = action.startsWith('celebrate_');
   const jumpLift =
     action === 'celebrate_jump'
-      ? Math.abs(Math.sin(animPhase * 1.4)) * 6.5 * s
+      ? Math.abs(Math.sin(animPhase * 1.4)) * 7.2 * s
       : action === 'celebrate_dance'
-      ? Math.abs(Math.sin(animPhase * 2.2)) * 2.2 * s
+      ? Math.abs(Math.sin(animPhase * 2.2)) * 2.6 * s
       : action === 'header'
-      ? 5 * s
+      ? 6.2 * s
       : zOffset;
 
   const stride =
     action === 'sprint' || visual.isSprinting
-      ? Math.sin(animPhase) * 3.0
+      ? Math.sin(animPhase) * 3.3
       : action === 'walk'
-      ? Math.sin(animPhase) * 1.1
+      ? Math.sin(animPhase) * 1.15
       : action === 'celebrate_dance'
-      ? Math.sin(animPhase * 2.2) * 1.6
+      ? Math.sin(animPhase * 2.2) * 1.8
       : action === 'idle' || action === 'celebrate_slide' || action === 'celebrate_sky'
       ? 0
-      : Math.sin(animPhase) * 1.8;
-  const armSwing = -stride * 0.85;
+      : Math.sin(animPhase) * 2.0;
+  const armSwing = -stride * 0.9;
 
   ctx.save();
   ctx.translate(Math.round(centerX), Math.round(centerY));
 
-  // Ground shadow
-  const shadowShrink = Math.max(0.6, 1 - jumpLift / (26 * s));
-  ctx.fillStyle = 'rgba(0,0,0,0.34)';
+  // Soft Ground Shadow + Turf Contact
+  const shadowShrink = Math.max(0.55, 1 - jumpLift / (26 * s));
+  ctx.fillStyle = 'rgba(0,0,0,0.36)';
   ctx.fillRect(
-    Math.round(-5 * s * widthFactor * shadowShrink + sunShadowOffset.x),
-    Math.round(5.5 * s + sunShadowOffset.y),
-    Math.round(10 * s * widthFactor * shadowShrink),
-    Math.round(3 * s * shadowShrink)
+    Math.round(-5.5 * s * widthFactor * shadowShrink + sunShadowOffset.x),
+    Math.round(5.4 * s + sunShadowOffset.y),
+    Math.round(11 * s * widthFactor * shadowShrink),
+    Math.round(3.2 * s * shadowShrink)
   );
 
   // Knee-slide grass skid trail!
   if (action === 'celebrate_slide') {
     const slideDir = Math.cos(visual.facingAngle) >= 0 ? -1 : 1;
-    px(ctx, slideDir * 2 * s, 4.8 * s, slideDir * 9 * s, 1.4 * s, '#14532D');
-    px(ctx, slideDir * 3 * s, 3.8 * s, slideDir * 5 * s, 1.0 * s, '#4ADE80');
+    px(ctx, slideDir * 2 * s, 4.8 * s, slideDir * 10 * s, 1.5 * s, '#14532D');
+    px(ctx, slideDir * 3 * s, 3.8 * s, slideDir * 6 * s, 1.0 * s, '#4ADE80');
   }
 
   if (mode === 'match' && visual.isUserControlled) {
     ctx.strokeStyle = visual.hasBall ? '#FACC15' : '#34D399';
     ctx.lineWidth = 2;
     ctx.beginPath();
-    ctx.ellipse(0, 6 * s, 7.8 * s, 4.2 * s, 0, 0, Math.PI * 2);
+    ctx.ellipse(0, 6 * s, 8.2 * s, 4.3 * s, 0, 0, Math.PI * 2);
     ctx.stroke();
 
-    // #11: Crisp directional aim triangle under controlled player's feet
-    const dirX = Math.cos(visual.facingAngle) * 10.5 * s;
-    const dirY = Math.sin(visual.facingAngle) * 5.8 * s + 6 * s;
+    // Crisp directional aim triangle under controlled player's feet
+    const dirX = Math.cos(visual.facingAngle) * 11 * s;
+    const dirY = Math.sin(visual.facingAngle) * 6 * s + 6 * s;
     ctx.fillStyle = visual.hasBall ? '#FACC15' : '#34D399';
-    ctx.fillRect(Math.round(dirX - 2), Math.round(dirY - 2), 4, 4);
+    ctx.fillRect(Math.round(dirX - 2), Math.round(dirY - 2), 5, 5);
   }
 
-  // #17: Skill dribble sparkle boots glow
+  // Skill dribble sparkle boots glow
   if (mode === 'match' && visual.isDribbling) {
-    const spOff = Math.sin(animPhase * 4) * 3 * s;
-    px(ctx, -6 * s + spOff, 4 * s, 2 * s, 2 * s, '#FACC15');
-    px(ctx, 4 * s - spOff, 3 * s, 2 * s, 2 * s, '#38BDF8');
+    const spOff = Math.sin(animPhase * 4) * 3.2 * s;
+    px(ctx, -6 * s + spOff, 4 * s, 2.2 * s, 2.2 * s, '#FACC15');
+    px(ctx, 4 * s - spOff, 3 * s, 2.2 * s, 2.2 * s, '#38BDF8');
+  }
+
+  // Golden CRAQUE leader star badge
+  if (mode === 'match' && visual.isMotmLeader && (isCelebrating || !visual.isUserControlled)) {
+    const bob = Math.round(Math.sin(animPhase * 0.8) * 1.5);
+    px(ctx, -2.5 * s, -13.5 * s - jumpLift + bob, 5 * s, 1.2 * s, '#FACC15');
+    px(ctx, -1.3 * s, -14.8 * s - jumpLift + bob, 2.6 * s, 3.6 * s, '#FDE047');
   }
 
   ctx.translate(0, Math.round(-jumpLift));
@@ -161,75 +185,91 @@ export function drawPixelPlayerSprite(
   const facingRight = mode === 'preview' ? isSideView : Math.cos(visual.facingAngle) >= 0;
   if (mode === 'match') {
     if (action === 'dive') {
-      ctx.rotate(facingRight ? 0.95 : -0.95);
+      ctx.rotate(facingRight ? 1.05 : -1.05);
     } else if (action === 'tackle') {
-      ctx.rotate(facingRight ? -0.58 : 0.58);
+      ctx.rotate(facingRight ? -0.68 : 0.68);
     } else if (action === 'fall') {
       ctx.rotate(facingRight ? 1.15 : -1.15);
     } else if (action === 'kick') {
-      ctx.rotate(facingRight ? -0.14 : 0.14);
-    } else if (action === 'celebrate_slide') {
       ctx.rotate(facingRight ? -0.18 : 0.18);
+    } else if (action === 'sprint' || visual.isSprinting) {
+      ctx.rotate(facingRight ? 0.08 : -0.08);
+    } else if (action === 'celebrate_slide') {
+      ctx.rotate(facingRight ? -0.2 : 0.2);
     } else if (action === 'celebrate_dance') {
-      ctx.rotate(Math.sin(animPhase * 2.0) * 0.12);
+      ctx.rotate(Math.sin(animPhase * 2.0) * 0.14);
     }
   }
 
   const w = isSideView ? widthFactor * 0.72 : widthFactor;
-  let leftLegY = mode === 'match' || isCelebrating ? 2 * s + stride * 0.5 * s : 2 * s;
-  let rightLegY = mode === 'match' || isCelebrating ? 2 * s - stride * 0.5 * s : 2 * s;
+  let leftLegY = mode === 'match' || isCelebrating ? 2 * s + stride * 0.55 * s : 2 * s;
+  let rightLegY = mode === 'match' || isCelebrating ? 2 * s - stride * 0.55 * s : 2 * s;
   let kickLegOffsetX = 0;
 
   if (mode === 'match') {
     if (action === 'kick' || action === 'pass') {
-      kickLegOffsetX = (facingRight ? 1 : -1) * (action === 'kick' ? 2.6 * s : 1.6 * s);
-      rightLegY -= 0.8 * s;
+      kickLegOffsetX = (facingRight ? 1 : -1) * (action === 'kick' ? 2.8 * s : 1.7 * s);
+      rightLegY -= 0.9 * s;
     } else if (action === 'tackle') {
-      kickLegOffsetX = (facingRight ? 1 : -1) * 3.2 * s;
+      kickLegOffsetX = (facingRight ? 1 : -1) * 3.6 * s;
     }
   }
 
   if (action === 'celebrate_slide') {
-    // Bent kneeling legs pose (inspired by pixel knee-slide artwork)
+    // Bent kneeling legs pose (pixel knee-slide artwork)
     const dirSign = facingRight ? 1 : -1;
-    px(ctx, -2.5 * s * w, 2.2 * s, 3.6 * s, 2.1 * s, appearance.skinColor);
-    px(ctx, -3.5 * s * w - dirSign * 1.4 * s, 3.6 * s, 2.8 * s, 1.5 * s, sockCol);
-    px(ctx, -4.4 * s * w - dirSign * 1.8 * s, 4.1 * s, 2.1 * s, 1.2 * s, gear.bootColor);
+    pxOutline(ctx, -2.5 * s * w, 2.2 * s, 3.8 * s, 2.2 * s, appearance.skinColor, 'rgba(10,16,28,0.68)', ol);
+    pxOutline(ctx, -3.5 * s * w - dirSign * 1.4 * s, 3.6 * s, 3.0 * s, 1.5 * s, sockCol, 'rgba(10,16,28,0.68)', ol);
+    px(ctx, -4.5 * s * w - dirSign * 1.9 * s, 4.1 * s, 2.2 * s, 1.3 * s, gear.bootColor);
   } else {
-    px(ctx, -2.5 * s * w, leftLegY, 2 * s, 3.2 * s, appearance.skinColor);
-    px(ctx, 0.5 * s * w + kickLegOffsetX, rightLegY, 2 * s, 3.2 * s, appearance.skinColor);
+    pxOutline(ctx, -2.6 * s * w, leftLegY, 2.1 * s, 3.3 * s, appearance.skinColor, 'rgba(10,16,28,0.65)', ol);
+    pxOutline(ctx, 0.5 * s * w + kickLegOffsetX, rightLegY, 2.1 * s, 3.3 * s, appearance.skinColor, 'rgba(10,16,28,0.65)', ol);
 
     if (gear.accessory === 'Joelho') {
-      px(ctx, -2.5 * s * w, leftLegY + 0.6 * s, 2 * s, 0.9 * s, '#F8FAFC');
-      px(ctx, 0.5 * s * w + kickLegOffsetX, rightLegY + 0.6 * s, 2 * s, 0.9 * s, '#F8FAFC');
+      px(ctx, -2.6 * s * w, leftLegY + 0.6 * s, 2.1 * s, 0.9 * s, '#F8FAFC');
+      px(ctx, 0.5 * s * w + kickLegOffsetX, rightLegY + 0.6 * s, 2.1 * s, 0.9 * s, '#F8FAFC');
     }
 
     const sockH = gear.sockType === 'Alta' ? 2.8 : gear.sockType === 'Média' ? 2.0 : 1.2;
-    const sockOff = 3.2 - sockH;
-    px(ctx, -2.5 * s * w, leftLegY + sockOff * s, 2 * s, sockH * s, sockCol);
-    px(ctx, 0.5 * s * w + kickLegOffsetX, rightLegY + sockOff * s, 2 * s, sockH * s, sockCol);
+    const sockOff = 3.3 - sockH;
+    px(ctx, -2.6 * s * w, leftLegY + sockOff * s, 2.1 * s, sockH * s, sockCol);
+    px(ctx, 0.5 * s * w + kickLegOffsetX, rightLegY + sockOff * s, 2.1 * s, sockH * s, sockCol);
+    // Crisp folded top sock cuff stripe
+    const cuffCol = sockCol.toUpperCase() === '#FFFFFF' ? kit.primary : '#F8FAFC';
+    px(ctx, -2.6 * s * w, leftLegY + sockOff * s, 2.1 * s, 0.55 * s, cuffCol);
+    px(ctx, 0.5 * s * w + kickLegOffsetX, rightLegY + sockOff * s, 2.1 * s, 0.55 * s, cuffCol);
 
-    const bootH = gear.bootModel === 'TravaAlta' ? 1.5 : 1.2;
-    px(ctx, -2.8 * s * w, leftLegY + 3.0 * s, 2.4 * s, bootH * s, gear.bootColor);
-    px(ctx, 0.4 * s * w + kickLegOffsetX, rightLegY + 3.0 * s, 2.4 * s, bootH * s, gear.bootColor);
+    const bootH = gear.bootModel === 'TravaAlta' ? 1.55 : 1.25;
+    pxOutline(ctx, -2.9 * s * w, leftLegY + 3.0 * s, 2.5 * s, bootH * s, gear.bootColor, 'rgba(10,16,28,0.75)', ol);
+    pxOutline(ctx, 0.4 * s * w + kickLegOffsetX, rightLegY + 3.0 * s, 2.5 * s, bootH * s, gear.bootColor, 'rgba(10,16,28,0.75)', ol);
+    // Cleat studs (travas) & boot accent
+    px(ctx, -2.7 * s * w, leftLegY + 3.0 * s + bootH * s, 0.6 * s, 0.45 * s, '#CBD5E1');
+    px(ctx, -1.2 * s * w, leftLegY + 3.0 * s + bootH * s, 0.6 * s, 0.45 * s, '#CBD5E1');
+    px(ctx, 0.6 * s * w + kickLegOffsetX, rightLegY + 3.0 * s + bootH * s, 0.6 * s, 0.45 * s, '#CBD5E1');
+    px(ctx, 2.1 * s * w + kickLegOffsetX, rightLegY + 3.0 * s + bootH * s, 0.6 * s, 0.45 * s, '#CBD5E1');
     if (gear.bootModel === 'Velocidade' || gear.bootModel === 'Controle') {
-      px(ctx, -2.6 * s * w, leftLegY + 3.2 * s, 1 * s, 0.5 * s, '#FFFFFF');
-      px(ctx, 0.6 * s * w + kickLegOffsetX, rightLegY + 3.2 * s, 1 * s, 0.5 * s, '#FFFFFF');
+      px(ctx, -2.6 * s * w, leftLegY + 3.2 * s, 1.1 * s, 0.5 * s, '#FFFFFF');
+      px(ctx, 0.6 * s * w + kickLegOffsetX, rightLegY + 3.2 * s, 1.1 * s, 0.5 * s, '#FFFFFF');
     }
   }
 
-  px(ctx, -3.5 * s * w, 0.2 * s, 7 * s * w, 2.5 * s, shortsCol);
+  // Outlined 2-tone shorts with side stripe & center seam
+  pxOutline(ctx, -3.6 * s * w, 0.1 * s, 7.2 * s * w, 2.6 * s, shortsCol, 'rgba(10,16,28,0.72)', ol);
+  px(ctx, -3.6 * s * w, 0.2 * s, 0.7 * s * w, 2.4 * s, shirtAlt);
+  px(ctx, 2.9 * s * w, 0.2 * s, 0.7 * s * w, 2.4 * s, shirtAlt);
+  px(ctx, -0.3 * s, 1.4 * s, 0.6 * s, 1.3 * s, 'rgba(10,16,28,0.35)');
 
-  const torsoX = -3.8 * s * w;
-  const torsoY = -4.6 * s;
-  const torsoW = 7.6 * s * w;
-  const torsoH = 5.0 * s;
-  px(ctx, torsoX, torsoY, torsoW, torsoH, shirtMain);
+  // Outlined Jersey Torso
+  const torsoX = -3.9 * s * w;
+  const torsoY = -4.7 * s;
+  const torsoW = 7.8 * s * w;
+  const torsoH = 5.1 * s;
+  pxOutline(ctx, torsoX, torsoY, torsoW, torsoH, shirtMain, 'rgba(10,16,28,0.76)', ol);
 
   if (!isGoalkeeper) {
     if (kit.pattern === 'stripes') {
       px(ctx, torsoX + 1.5 * s * w, torsoY, 1.3 * s * w, torsoH, shirtAlt);
-      px(ctx, torsoX + 4.8 * s * w, torsoY, 1.3 * s * w, torsoH, shirtAlt);
+      px(ctx, torsoX + 4.9 * s * w, torsoY, 1.3 * s * w, torsoH, shirtAlt);
     } else if (kit.pattern === 'hoops') {
       px(ctx, torsoX, torsoY + 1.3 * s, torsoW, 1.1 * s, shirtAlt);
       px(ctx, torsoX, torsoY + 3.2 * s, torsoW, 1.1 * s, shirtAlt);
@@ -237,79 +277,95 @@ export function drawPixelPlayerSprite(
       px(ctx, 0, torsoY, torsoW / 2, torsoH, shirtAlt);
     } else if (kit.pattern === 'sash') {
       for (let i = 0; i < 4; i++) {
-        px(ctx, torsoX + i * 1.6 * s * w, torsoY + i * 1.1 * s, 2.2 * s * w, 1.4 * s, shirtAlt);
+        px(ctx, torsoX + i * 1.6 * s * w, torsoY + i * 1.1 * s, 2.3 * s * w, 1.4 * s, shirtAlt);
       }
     }
+  } else {
+    // Goalkeeper chest chevron accent
+    px(ctx, torsoX + 1.2 * s * w, torsoY + 1.1 * s, torsoW - 2.4 * s * w, 0.9 * s, 'rgba(255,255,255,0.22)');
   }
 
-  // Collar Style
+  // Subtle 16-bit shoulder highlight & bottom waist shadow
+  px(ctx, torsoX + 0.6 * s * w, torsoY + 0.2 * s, torsoW - 1.2 * s * w, 0.65 * s, 'rgba(255,255,255,0.16)');
+  px(ctx, torsoX, torsoY + torsoH - 0.7 * s, torsoW, 0.7 * s, 'rgba(0,0,0,0.18)');
+
+  // Collar Style + Shaded Neck Pixel
   const collarCol = kit.secondary === shirtMain ? '#FFFFFF' : kit.secondary;
+  px(ctx, -1.1 * s, torsoY - 0.8 * s, 2.2 * s, 1.0 * s, appearance.skinColor);
   if (gear.collarStyle === 'Polo') {
-    px(ctx, -1.9 * s * w, torsoY - 0.3 * s, 3.8 * s * w, 0.9 * s, collarCol);
+    px(ctx, -2.0 * s * w, torsoY - 0.35 * s, 4.0 * s * w, 0.95 * s, collarCol);
     px(ctx, -0.4 * s, torsoY + 0.5 * s, 0.8 * s, 1.1 * s, collarCol);
   } else if (gear.collarStyle === 'Gola V') {
-    px(ctx, -1.6 * s * w, torsoY, 3.2 * s * w, 0.6 * s, collarCol);
+    px(ctx, -1.7 * s * w, torsoY, 3.4 * s * w, 0.65 * s, collarCol);
     px(ctx, -0.9 * s * w, torsoY + 0.5 * s, 1.8 * s * w, 0.7 * s, appearance.skinColor);
   } else {
-    px(ctx, -1.5 * s * w, torsoY, 3.0 * s * w, 0.6 * s, collarCol);
+    px(ctx, -1.6 * s * w, torsoY, 3.2 * s * w, 0.65 * s, collarCol);
   }
 
-  // Arms — 8 distinct celebration animations + regular running/gk poses
+  // Arms — 8 distinct celebration animations + regular running/gk/dive poses
   const sleeveH = gear.sleeveLength === 'Longa' ? 3.5 : 1.9;
+  const sleeveTrim = collarCol;
   if ((mode === 'match' || animPhase > 0) && isCelebrating) {
     const pump = Math.sin(animPhase * 1.7) * 1.1 * s;
     if (action === 'celebrate_sky') {
-      // Right arm pointing straight to the sky, left arm relaxed
-      px(ctx, torsoX - 1.6 * s, -4.2 * s, 1.6 * s, 3.6 * s, appearance.skinColor);
-      px(ctx, torsoX + torsoW + 0.2 * s, -10.5 * s, 1.6 * s, 6.0 * s, appearance.skinColor);
+      pxOutline(ctx, torsoX - 1.7 * s, -4.2 * s, 1.6 * s, 3.6 * s, appearance.skinColor, 'rgba(10,16,28,0.65)', ol);
+      pxOutline(ctx, torsoX + torsoW + 0.2 * s, -10.8 * s, 1.6 * s, 6.2 * s, appearance.skinColor, 'rgba(10,16,28,0.65)', ol);
       px(ctx, torsoX + torsoW + 0.2 * s, -6.5 * s, 1.6 * s, sleeveH * s, shirtMain);
-      px(ctx, torsoX - 1.6 * s, -4.2 * s, 1.6 * s, sleeveH * s, shirtMain);
+      px(ctx, torsoX - 1.7 * s, -4.2 * s, 1.6 * s, sleeveH * s, shirtMain);
     } else if (action === 'celebrate_slide') {
-      // Kneeling slide with open arms celebrating!
-      px(ctx, torsoX - 2.6 * s, -5.6 * s, 2.6 * s, 1.7 * s, appearance.skinColor);
-      px(ctx, torsoX + torsoW, -5.8 * s, 2.8 * s, 1.7 * s, appearance.skinColor);
+      pxOutline(ctx, torsoX - 2.7 * s, -5.6 * s, 2.7 * s, 1.7 * s, appearance.skinColor, 'rgba(10,16,28,0.65)', ol);
+      pxOutline(ctx, torsoX + torsoW, -5.8 * s, 2.9 * s, 1.7 * s, appearance.skinColor, 'rgba(10,16,28,0.65)', ol);
       px(ctx, torsoX - 1.5 * s, -5.6 * s, 1.5 * s, 1.7 * s, shirtMain);
       px(ctx, torsoX + torsoW, -5.8 * s, 1.5 * s, 1.7 * s, shirtMain);
     } else if (action === 'celebrate_shirt') {
-      // Showing jersey / fist pump with shirt held proudly
-      px(ctx, torsoX - 1.8 * s, -8.8 * s, 1.6 * s, 4.2 * s, appearance.skinColor);
-      px(ctx, torsoX + torsoW + 0.2 * s, -8.2 * s, 1.6 * s, 3.8 * s, appearance.skinColor);
-      px(ctx, torsoX + torsoW + 0.2 * s, -8.9 * s, 2.1 * s, 2.0 * s, shirtMain);
+      pxOutline(ctx, torsoX - 1.8 * s, -8.8 * s, 1.6 * s, 4.2 * s, appearance.skinColor, 'rgba(10,16,28,0.65)', ol);
+      pxOutline(ctx, torsoX + torsoW + 0.2 * s, -8.2 * s, 1.6 * s, 3.8 * s, appearance.skinColor, 'rgba(10,16,28,0.65)', ol);
+      pxOutline(ctx, torsoX + torsoW + 0.2 * s, -9.2 * s, 2.2 * s, 2.2 * s, shirtMain, 'rgba(10,16,28,0.75)', ol);
       px(ctx, torsoX - 1.8 * s, -6.4 * s, 1.6 * s, sleeveH * s, shirtMain);
     } else if (action === 'celebrate_dance') {
-      const sway = Math.sin(animPhase * 2.4) * 1.8 * s;
-      px(ctx, torsoX - 1.8 * s, -6.8 * s + sway, 1.6 * s, 3.8 * s, appearance.skinColor);
-      px(ctx, torsoX + torsoW + 0.2 * s, -6.8 * s - sway, 1.6 * s, 3.8 * s, appearance.skinColor);
+      const sway = Math.sin(animPhase * 2.4) * 1.9 * s;
+      pxOutline(ctx, torsoX - 1.8 * s, -6.8 * s + sway, 1.6 * s, 3.8 * s, appearance.skinColor, 'rgba(10,16,28,0.65)', ol);
+      pxOutline(ctx, torsoX + torsoW + 0.2 * s, -6.8 * s - sway, 1.6 * s, 3.8 * s, appearance.skinColor, 'rgba(10,16,28,0.65)', ol);
       px(ctx, torsoX - 1.8 * s, -5.2 * s + sway, 1.6 * s, sleeveH * s, shirtMain);
       px(ctx, torsoX + torsoW + 0.2 * s, -5.2 * s - sway, 1.6 * s, sleeveH * s, shirtMain);
     } else {
       const armUpY = action === 'celebrate_hug' ? -5.6 * s : -8.5 * s + pump;
       const armOut = action === 'celebrate_arms' || action === 'celebrate_crowd' ? 1.8 * s : 0.5 * s;
-      px(ctx, torsoX - 1.6 * s - armOut, armUpY, 1.6 * s, 4.0 * s, appearance.skinColor);
-      px(ctx, torsoX + torsoW + armOut, armUpY, 1.6 * s, 4.0 * s, appearance.skinColor);
+      pxOutline(ctx, torsoX - 1.6 * s - armOut, armUpY, 1.6 * s, 4.0 * s, appearance.skinColor, 'rgba(10,16,28,0.65)', ol);
+      pxOutline(ctx, torsoX + torsoW + armOut, armUpY, 1.6 * s, 4.0 * s, appearance.skinColor, 'rgba(10,16,28,0.65)', ol);
       px(ctx, torsoX - 1.6 * s - armOut, armUpY + (4.0 - sleeveH) * s, 1.6 * s, sleeveH * s, shirtMain);
       px(ctx, torsoX + torsoW + armOut, armUpY + (4.0 - sleeveH) * s, 1.6 * s, sleeveH * s, shirtMain);
     }
+  } else if (action === 'dive' && mode === 'match') {
+    // Stretched flying goalkeeper save pose
+    pxOutline(ctx, torsoX - 1.7 * s, -9.2 * s, 1.7 * s, 4.8 * s, appearance.skinColor, 'rgba(10,16,28,0.65)', ol);
+    pxOutline(ctx, torsoX + torsoW, -9.2 * s, 1.7 * s, 4.8 * s, appearance.skinColor, 'rgba(10,16,28,0.65)', ol);
+    px(ctx, torsoX - 1.7 * s, -6.8 * s, 1.7 * s, sleeveH * s, shirtMain);
+    px(ctx, torsoX + torsoW, -6.8 * s, 1.7 * s, sleeveH * s, shirtMain);
+    px(ctx, torsoX - 2.0 * s, -10.2 * s, 2.2 * s, 1.5 * s, '#F8FAFC');
+    px(ctx, torsoX + torsoW - 0.2 * s, -10.2 * s, 2.2 * s, 1.5 * s, '#F8FAFC');
   } else {
-    const leftArmY = -4.3 * s + (isSideView ? 0 : armSwing * 0.4 * s);
-    const rightArmY = -4.3 * s - (isSideView ? 0 : armSwing * 0.4 * s);
-    px(ctx, torsoX - 1.5 * s, leftArmY, 1.5 * s, 3.8 * s, appearance.skinColor);
-    px(ctx, torsoX + torsoW, rightArmY, 1.5 * s, 3.8 * s, appearance.skinColor);
-    px(ctx, torsoX - 1.5 * s, leftArmY, 1.5 * s, sleeveH * s, shirtMain);
-    px(ctx, torsoX + torsoW, rightArmY, 1.5 * s, sleeveH * s, shirtMain);
+    const leftArmY = -4.4 * s + (isSideView ? 0 : armSwing * 0.45 * s);
+    const rightArmY = -4.4 * s - (isSideView ? 0 : armSwing * 0.45 * s);
+    pxOutline(ctx, torsoX - 1.6 * s, leftArmY, 1.6 * s, 3.8 * s, appearance.skinColor, 'rgba(10,16,28,0.65)', ol);
+    pxOutline(ctx, torsoX + torsoW, rightArmY, 1.6 * s, 3.8 * s, appearance.skinColor, 'rgba(10,16,28,0.65)', ol);
+    px(ctx, torsoX - 1.6 * s, leftArmY, 1.6 * s, sleeveH * s, shirtMain);
+    px(ctx, torsoX + torsoW, rightArmY, 1.6 * s, sleeveH * s, shirtMain);
+    px(ctx, torsoX - 1.6 * s, leftArmY + (sleeveH - 0.5) * s, 1.6 * s, 0.5 * s, sleeveTrim);
+    px(ctx, torsoX + torsoW, rightArmY + (sleeveH - 0.5) * s, 1.6 * s, 0.5 * s, sleeveTrim);
 
     if (gear.accessory === 'Bracadeira' || visual.isCaptain) {
-      px(ctx, torsoX - 1.5 * s, leftArmY + 1.4 * s, 1.5 * s, 0.85 * s, '#FACC15');
+      px(ctx, torsoX - 1.6 * s, leftArmY + 1.4 * s, 1.6 * s, 0.9 * s, '#FACC15');
     } else if (gear.accessory === 'Munhequeira') {
-      px(ctx, torsoX - 1.5 * s, leftArmY + 2.8 * s, 1.5 * s, 0.8 * s, '#F8FAFC');
-      px(ctx, torsoX + torsoW, rightArmY + 2.8 * s, 1.5 * s, 0.8 * s, '#F8FAFC');
+      px(ctx, torsoX - 1.6 * s, leftArmY + 2.8 * s, 1.6 * s, 0.8 * s, '#F8FAFC');
+      px(ctx, torsoX + torsoW, rightArmY + 2.8 * s, 1.6 * s, 0.8 * s, '#F8FAFC');
     } else if (gear.accessory === 'Luvas' || isGoalkeeper) {
-      px(ctx, torsoX - 1.7 * s, leftArmY + 3.1 * s, 1.8 * s, 1.2 * s, '#F8FAFC');
-      px(ctx, torsoX + torsoW - 0.1 * s, rightArmY + 3.1 * s, 1.8 * s, 1.2 * s, '#F8FAFC');
+      px(ctx, torsoX - 1.8 * s, leftArmY + 3.1 * s, 1.9 * s, 1.3 * s, '#F8FAFC');
+      px(ctx, torsoX + torsoW - 0.1 * s, rightArmY + 3.1 * s, 1.9 * s, 1.3 * s, '#F8FAFC');
     }
   }
 
-  // #10: Crisp jersey number visible on sprites during match + Preview Name/Number
+  // Crisp jersey number visible on sprites during match + Preview Name/Number
   if (mode === 'match') {
     const numCol =
       shirtMain.toUpperCase() === '#FFFFFF' || shirtMain.toUpperCase() === '#F8FAFC'
@@ -344,7 +400,7 @@ export function drawPixelPlayerSprite(
     }
   }
 
-  // Head with Face Shape support
+  // Head with Face Shape support & Pixel Outline + Ears
   const shapeWMod =
     appearance.faceShape === 'Quadrado'
       ? 1.08
@@ -356,27 +412,39 @@ export function drawPixelPlayerSprite(
   const headW = (isSideView ? 4.4 : 5.6) * s * shapeWMod;
   const headH = (appearance.faceShape === 'Redondo' ? 4.6 : 4.9) * s;
   const headX = -headW / 2;
-  const headY = -4.5 * s - headH;
-  px(ctx, headX, headY, headW, headH, appearance.skinColor);
+  const headY = -4.6 * s - headH;
+  if (!isSideView) {
+    px(ctx, headX - 0.65 * s, headY + 1.8 * s, 0.7 * s, 1.3 * s, appearance.skinColor);
+    px(ctx, headX + headW - 0.05 * s, headY + 1.8 * s, 0.7 * s, 1.3 * s, appearance.skinColor);
+  }
+  pxOutline(ctx, headX, headY, headW, headH, appearance.skinColor, 'rgba(10,16,28,0.75)', ol);
+  // Subtle jawline shadow
+  px(ctx, headX + 0.3 * s, headY + headH - 0.55 * s, headW - 0.6 * s, 0.55 * s, 'rgba(120,53,15,0.22)');
 
   // Face details only when not viewed from behind
   if (!isBackView) {
-    const eyeOffsetX = mode === 'preview' ? (isSideView ? 0.9 * s : 0) : facingRight ? 0.5 * s : -0.5 * s;
+    const eyeOffsetX = mode === 'preview' ? (isSideView ? 0.9 * s : 0) : facingRight ? 0.55 * s : -0.55 * s;
     const eyeH =
       appearance.eyeStyle === 'Focado'
-        ? 0.55 * s
+        ? 0.6 * s
         : appearance.eyeStyle === 'Expressivo'
         ? 0.95 * s
-        : 0.75 * s;
+        : 0.78 * s;
 
     if (isSideView) {
-      px(ctx, 0.5 * s, headY + 2.1 * s, 0.8 * s, eyeH, '#111827');
+      px(ctx, 0.3 * s, headY + 2.1 * s, 1.1 * s, eyeH, '#FFFFFF');
+      px(ctx, 0.7 * s, headY + 2.1 * s, 0.75 * s, eyeH, '#111827');
       px(ctx, 0.3 * s, headY + 1.3 * s, 1.2 * s, 0.5 * s, appearance.hairColor);
     } else {
+      // Shaded eyes with sclera highlights in preview & larger scales
+      if (s >= 3.0) {
+        px(ctx, -1.8 * s + eyeOffsetX, headY + 2.2 * s, 1.1 * s, eyeH, '#FFFFFF');
+        px(ctx, 0.7 * s + eyeOffsetX, headY + 2.2 * s, 1.1 * s, eyeH, '#FFFFFF');
+      }
       px(ctx, -1.6 * s + eyeOffsetX, headY + 2.2 * s, 0.8 * s, eyeH, '#111827');
       px(ctx, 0.8 * s + eyeOffsetX, headY + 2.2 * s, 0.8 * s, eyeH, '#111827');
 
-      const browH = appearance.eyebrowStyle === 'Grossa' ? 0.65 * s : 0.4 * s;
+      const browH = appearance.eyebrowStyle === 'Grossa' ? 0.65 * s : 0.42 * s;
       const browDrop = appearance.eyebrowStyle === 'Arqueada' ? -0.25 * s : 0;
       px(ctx, -1.8 * s + eyeOffsetX, headY + 1.4 * s + browDrop, 1.2 * s, browH, appearance.hairColor);
       px(ctx, 0.6 * s + eyeOffsetX, headY + 1.4 * s + browDrop, 1.2 * s, browH, appearance.hairColor);
@@ -396,7 +464,10 @@ export function drawPixelPlayerSprite(
     }
 
     if ((mode === 'preview' || isCelebrating) && !isSideView) {
-      if (appearance.faceStyle === 'Sorriso' || isCelebrating) {
+      if (isCelebrating) {
+        px(ctx, -0.95 * s + eyeOffsetX * 0.5, headY + 3.55 * s, 1.9 * s, 0.8 * s, '#7F1D1D');
+        px(ctx, -0.75 * s + eyeOffsetX * 0.5, headY + 3.55 * s, 1.5 * s, 0.35 * s, '#FFFFFF');
+      } else if (appearance.faceStyle === 'Sorriso') {
         px(ctx, -1.0 * s, headY + 3.6 * s, 2.0 * s, 0.5 * s, '#FFFFFF');
       } else if (appearance.faceStyle === 'Confiante') {
         px(ctx, -0.7 * s, headY + 3.7 * s, 1.6 * s, 0.4 * s, '#7C2D12');
@@ -426,38 +497,38 @@ export function drawPixelPlayerSprite(
   }
   switch (appearance.hairStyle) {
     case 'Curto':
-      px(ctx, headX - 0.2 * s, headY - 0.7 * s, headW + 0.4 * s, 1.6 * s, hc);
+      pxOutline(ctx, headX - 0.2 * s, headY - 0.8 * s, headW + 0.4 * s, 1.6 * s, hc, 'rgba(10,16,28,0.5)', ol * 0.7);
       px(ctx, headX - 0.2 * s, headY, 0.8 * s, 1.8 * s, hc);
       px(ctx, headX + headW - 0.6 * s, headY, 0.8 * s, 1.8 * s, hc);
       break;
     case 'Moicano':
-      px(ctx, -1.1 * s, headY - 2.2 * s, 2.2 * s, 2.8 * s, hc);
+      pxOutline(ctx, -1.1 * s, headY - 2.3 * s, 2.2 * s, 2.9 * s, hc, 'rgba(10,16,28,0.5)', ol * 0.7);
       break;
     case 'BlackPower':
-      px(ctx, headX - 1.2 * s, headY - 2.1 * s, headW + 2.4 * s, 3.2 * s, hc);
+      pxOutline(ctx, headX - 1.2 * s, headY - 2.1 * s, headW + 2.4 * s, 3.2 * s, hc, 'rgba(10,16,28,0.5)', ol * 0.7);
       break;
     case 'Cacheado':
-      px(ctx, headX - 0.8 * s, headY - 1.7 * s, headW + 1.6 * s, 2.4 * s, hc);
+      pxOutline(ctx, headX - 0.8 * s, headY - 1.7 * s, headW + 1.6 * s, 2.4 * s, hc, 'rgba(10,16,28,0.5)', ol * 0.7);
       px(ctx, headX - 1.0 * s, headY - 0.2 * s, 1.0 * s, 2.2 * s, hc);
       px(ctx, headX + headW, headY - 0.2 * s, 1.0 * s, 2.2 * s, hc);
       break;
     case 'Franja':
-      px(ctx, headX - 0.3 * s, headY - 0.9 * s, headW + 0.6 * s, 1.8 * s, hc);
+      pxOutline(ctx, headX - 0.3 * s, headY - 0.9 * s, headW + 0.6 * s, 1.8 * s, hc, 'rgba(10,16,28,0.5)', ol * 0.7);
       if (!isBackView) {
         px(ctx, headX + 0.4 * s, headY + 0.4 * s, headW - 1.4 * s, 1.1 * s, hc);
       }
       break;
     case 'Longo':
-      px(ctx, headX - 0.5 * s, headY - 0.9 * s, headW + 1.0 * s, 1.8 * s, hc);
+      pxOutline(ctx, headX - 0.5 * s, headY - 0.9 * s, headW + 1.0 * s, 1.8 * s, hc, 'rgba(10,16,28,0.5)', ol * 0.7);
       px(ctx, headX - 0.9 * s, headY, 1.1 * s, 4.6 * s, hc);
       px(ctx, headX + headW - 0.2 * s, headY, 1.1 * s, 4.6 * s, hc);
       break;
     case 'Topete':
       px(ctx, headX, headY - 1.2 * s, headW, 1.8 * s, hc);
-      px(ctx, -1.6 * s, headY - 2.0 * s, 3.4 * s, 1.2 * s, hc);
+      pxOutline(ctx, -1.6 * s, headY - 2.0 * s, 3.4 * s, 1.2 * s, hc, 'rgba(10,16,28,0.5)', ol * 0.7);
       break;
     case 'Tranças':
-      px(ctx, headX - 0.3 * s, headY - 1.0 * s, headW + 0.6 * s, 1.6 * s, hc);
+      pxOutline(ctx, headX - 0.3 * s, headY - 1.0 * s, headW + 0.6 * s, 1.6 * s, hc, 'rgba(10,16,28,0.5)', ol * 0.7);
       px(ctx, headX - 0.8 * s, headY + 0.4 * s, 0.9 * s, 4.1 * s, hc);
       px(ctx, headX + headW - 0.1 * s, headY + 0.4 * s, 0.9 * s, 4.1 * s, hc);
       break;
@@ -578,8 +649,15 @@ export interface CrowdSpectator {
   x: number;
   y: number;
   shirtColor: string;
+  shirtStripe: string | null;
   skinColor: string;
+  hairColor: string;
+  hairShape: 'short' | 'afro' | 'spiky' | 'long';
   hatColor: string | null;
+  hasScarf: boolean;
+  hasDrum: boolean;
+  flagPattern: 'stripes' | 'halves' | 'quartered' | 'cross';
+  seatEmpty: boolean;
   phase: number;
   freq: number;
   sector: 'north' | 'south' | 'west' | 'east';
@@ -591,6 +669,9 @@ export interface CrowdSpectator {
 }
 
 const SKIN_TONES = ['#F5CBA7', '#E0AC69', '#C68642', '#8D5524', '#5C3820'];
+const CROWD_HAIR_COLORS = ['#0F172A', '#3B2314', '#78350F', '#D97706', '#FDE047', '#94A3B8'];
+const HAIR_SHAPES: CrowdSpectator['hairShape'][] = ['short', 'afro', 'spiky', 'long'];
+const FLAG_PATTERNS: CrowdSpectator['flagPattern'][] = ['stripes', 'halves', 'quartered', 'cross'];
 
 function hashNum(n: number): number {
   const s = Math.sin(n * 12.9898 + 78.233) * 43758.5453;
@@ -613,12 +694,11 @@ export function generateCrowd(
   const capacity = opts?.capacity ?? 42000;
   const importance = opts?.importance ?? 0.65;
 
-  // Occupancy percentage depends on stadium size & match importance
   const capNorm = Math.min(1, Math.max(0.55, capacity / 55000));
-  const fillRate = Math.min(0.99, 0.68 + importance * 0.24 + capNorm * 0.08);
+  const fillRate = Math.min(0.99, 0.72 + importance * 0.21 + capNorm * 0.06);
 
-  const stepX = quality === 'high' ? 11 : quality === 'medium' ? 17 : 28;
-  const stepY = quality === 'high' ? 13 : quality === 'medium' ? 19 : 30;
+  const stepX = quality === 'high' ? 10 : quality === 'medium' ? 16 : 26;
+  const stepY = quality === 'high' ? 12 : quality === 'medium' ? 18 : 28;
   const rowsNS = quality === 'high' ? 6 : quality === 'medium' ? 4 : 3;
   const colsWE = quality === 'high' ? 6 : quality === 'medium' ? 4 : 3;
 
@@ -635,31 +715,45 @@ export function generateCrowd(
     isOrg: boolean
   ) => {
     const r1 = hashNum(seedIdx);
-    if (r1 > fillRate) return;
     const r2 = hashNum(seedIdx + 101);
     const r3 = hashNum(seedIdx + 307);
     const r4 = hashNum(seedIdx + 619);
+    const r5 = hashNum(seedIdx + 911);
 
+    const seatEmpty = r1 > fillRate;
     const palette = isAway ? awayColors : homeColors;
     const shirtColor = palette[Math.floor(r2 * palette.length)];
+    const shirtStripe = r5 > 0.62 ? (isAway ? awaySec : homeSecondary) : null;
     const skinColor = SKIN_TONES[Math.floor(r3 * SKIN_TONES.length)];
-    const hatColor = r4 > 0.72 ? (isAway ? awayPrimary : r4 > 0.86 ? homeSecondary : homePrimary) : null;
+    const hairColor = CROWD_HAIR_COLORS[Math.floor(r5 * CROWD_HAIR_COLORS.length)];
+    const hairShape = HAIR_SHAPES[Math.floor(r4 * HAIR_SHAPES.length)];
+    const hatColor = r4 > 0.74 ? (isAway ? awayPrimary : r4 > 0.87 ? homeSecondary : homePrimary) : null;
     const behavior = isOrg
       ? behaviors[Math.floor(r2 * 3)]
       : behaviors[Math.floor(r4 * behaviors.length)];
 
-    const flagThreshold = isOrg ? 0.14 : 0.045;
-    const hasFlag = r3 < flagThreshold;
-    const isGiantFlag = isOrg && r3 < 0.022;
+    const flagThreshold = isOrg ? 0.16 : 0.05;
+    const hasFlag = !seatEmpty && r3 < flagThreshold;
+    const isGiantFlag = !seatEmpty && isOrg && r3 < 0.026;
+    const hasScarf = !seatEmpty && !hasFlag && (isOrg ? r5 < 0.34 : r5 < 0.12);
+    const hasDrum = !seatEmpty && isOrg && (sector === 'west' || sector === 'north') && r2 > 0.91 && r3 > 0.45;
+    const flagPattern = FLAG_PATTERNS[Math.floor(r5 * FLAG_PATTERNS.length)];
 
     specs.push({
-      x: Math.round(x + (r2 - 0.5) * 3),
+      x: Math.round(x + (r2 - 0.5) * 2.5),
       y: Math.round(y + (r3 - 0.5) * 2),
       shirtColor,
+      shirtStripe,
       skinColor,
+      hairColor,
+      hairShape,
       hatColor,
+      hasScarf,
+      hasDrum,
+      flagPattern,
+      seatEmpty,
       phase: r2 * Math.PI * 2,
-      freq: 0.85 + r4 * 0.45,
+      freq: 0.85 + r4 * 0.48,
       sector,
       isAwaySector: isAway,
       isOrganized: isOrg,
@@ -670,7 +764,6 @@ export function generateCrowd(
   };
 
   let idx = 1;
-  // North & South multi-tier stands (leaving aisle gaps every ~160px)
   for (let x = 135; x < PITCH_GEO.worldW - 135; x += stepX) {
     const inAisle = (x - 135) % 180 < 16;
     if (inAisle) continue;
@@ -683,7 +776,6 @@ export function generateCrowd(
     }
   }
 
-  // West (Home Organized Fan Sector) & East (Visitor Sector) behind goals
   for (let y = 165; y < PITCH_GEO.worldH - 165; y += stepY) {
     const inAisle = (y - 165) % 190 < 16;
     if (inAisle) continue;
@@ -698,102 +790,176 @@ export function generateCrowd(
   return specs;
 }
 
+// High-Detail 16x12 Multi-Color Pixel Mascot Grids
+// 0=bg, 1=secondary/club, 2=gold/accent, 3=dark outline/pupil, 4=white eye/teeth/highlight
 const MASCOT_GRIDS: Record<MascotId, string[]> = {
   leao: [
-    '01111110',
-    '11222211',
-    '12022021',
-    '12211221',
-    '11222211',
-    '01122110',
+    '0003322222233000',
+    '0032211221122300',
+    '0321222222221230',
+    '3212443223442123',
+    '3212433223342123',
+    '3222223333222223',
+    '3122243443422213',
+    '0322344334432230',
+    '0312233333322130',
+    '0032211221122300',
+    '0003322222233000',
+    '0000033333300000',
   ],
   aguia: [
-    '10011001',
-    '11022011',
-    '11122111',
-    '01111110',
-    '00122100',
-    '00100100',
+    '0330003443000330',
+    '3113034444303113',
+    '3141343443431413',
+    '3111444224441113',
+    '0311142222411130',
+    '0031112222111300',
+    '0003141331413000',
+    '0003111111113000',
+    '0000322002230000',
+    '0003220000223000',
+    '0000000000000000',
+    '0000000000000000',
   ],
   lobo: [
-    '10000001',
-    '11011011',
-    '12111121',
-    '01122110',
-    '00111100',
-    '00011000',
+    '0330000000000330',
+    '3143003333003413',
+    '3141311111131413',
+    '0311143113411130',
+    '0311132112311130',
+    '0311111331111130',
+    '0031443333441300',
+    '0031344334431300',
+    '0003113333113000',
+    '0000311111130000',
+    '0000033333300000',
+    '0000000000000000',
   ],
   tigre: [
-    '11011011',
-    '21222212',
-    '12011021',
-    '21222212',
-    '01122110',
-    '00111100',
+    '0333003333003330',
+    '3212322332232123',
+    '3232221221222323',
+    '0322432222342230',
+    '0332443223442330',
+    '0322223333222230',
+    '0344234444324430',
+    '0034433443344300',
+    '0003223333223000',
+    '0000322112230000',
+    '0000033333300000',
+    '0000000000000000',
   ],
   dragao: [
-    '01011010',
-    '11122111',
-    '01211210',
-    '11122111',
-    '10111101',
-    '00100100',
+    '3300330000330033',
+    '3233113003113323',
+    '0321111331111230',
+    '0314311111134130',
+    '3112211111122113',
+    '3111123113211113',
+    '0314432222344130',
+    '0032222442222300',
+    '0003224224223000',
+    '0000322222230000',
+    '0000033223300000',
+    '0000000330000000',
   ],
   estrela: [
-    '00022000',
-    '00222200',
-    '22211222',
-    '02211220',
-    '02200220',
-    '20000002',
+    '0000003223000000',
+    '0000032442300000',
+    '0000324224230000',
+    '3333222112223333',
+    '3244221441222223',
+    '0322221441222230',
+    '0032222112222300',
+    '0032222222222300',
+    '0322230000322230',
+    '3223000000003223',
+    '3300000000000033',
+    '0000000000000000',
   ],
   touro: [
-    '20000002',
-    '21011012',
-    '01111110',
-    '01011010',
-    '00122100',
-    '00111100',
+    '4300000000000034',
+    '4430033333300344',
+    '0343311111133430',
+    '0031111111111300',
+    '0031431111341300',
+    '0031111111111300',
+    '0003112222113000',
+    '0003132112313000',
+    '0000322222230000',
+    '0000032442300000',
+    '0000003333000000',
+    '0000000000000000',
   ],
   coroa: [
-    '20022002',
-    '21022012',
-    '21222212',
-    '11111111',
-    '22222222',
-    '11111111',
+    '0300000330000030',
+    '3230003243000323',
+    '3223032442303223',
+    '3212322112232123',
+    '3222221441222223',
+    '3112222222222113',
+    '3222222222222223',
+    '3113411331143113',
+    '3222222222222223',
+    '0333333333333330',
+    '0000000000000000',
+    '0000000000000000',
   ],
   ancora: [
-    '00022000',
-    '00122100',
-    '00022000',
-    '20022002',
-    '22022022',
-    '02222220',
+    '0000003223000000',
+    '0000032442300000',
+    '0000003223000000',
+    '0003333223333000',
+    '0003422222243000',
+    '0000003223000000',
+    '0330003223000330',
+    '3423003223003243',
+    '3222303223032223',
+    '0322232222322230',
+    '0032222222222300',
+    '0003333333333000',
   ],
   pinheiro: [
-    '00011000',
-    '00111100',
-    '01122110',
-    '11111111',
-    '00022000',
-    '00022000',
+    '0000003113000000',
+    '0000031441300000',
+    '0000311221130000',
+    '0003111111113000',
+    '0031411111141300',
+    '0311112222111130',
+    '3111111111111113',
+    '0333111111113330',
+    '0000032222300000',
+    '0000032332300000',
+    '0000032222300000',
+    '0000333333330000',
   ],
   falcao: [
-    '00111100',
-    '01211210',
-    '11122111',
-    '00111100',
-    '01100110',
-    '10000001',
+    '0000033333300000',
+    '0003111111113000',
+    '0031431111341300',
+    '0311114224111130',
+    '3111112222111113',
+    '3110311221130113',
+    '3100031111300013',
+    '0000031441300000',
+    '0000311001130000',
+    '0003220000223000',
+    '0000000000000000',
+    '0000000000000000',
   ],
   raio: [
-    '00022200',
-    '00222000',
-    '02222220',
-    '00022200',
-    '00220000',
-    '02000000',
+    '0000003222223000',
+    '0000032442230000',
+    '0000324422300000',
+    '0003222222233000',
+    '0032222222223000',
+    '0033333222230000',
+    '0000032222300000',
+    '0000322230000000',
+    '0003223000000000',
+    '0032230000000000',
+    '0033000000000000',
+    '0000000000000000',
   ],
 };
 
@@ -821,58 +987,104 @@ function drawMascotMosaic(
   openProgress = 1
 ) {
   const grid = MASCOT_GRIDS[mascot] || MASCOT_GRIDS.estrela;
-  const totalW = 360;
-  const visibleW = Math.max(24, Math.round(totalW * Math.min(1, Math.max(0.08, openProgress))));
+  const totalW = 460;
+  const visibleW = Math.max(36, Math.round(totalW * Math.min(1, Math.max(0.08, openProgress))));
   const startX = Math.round(PITCH_GEO.worldW / 2 - visibleW / 2);
-  const startY = 22;
+  const startY = 18;
+  const totalH = 98;
 
-  // Giant Tifo / Bandeirão unfurling cloth
+  // Shimmering card mosaic backdrop across North stand
   ctx.fillStyle = primary;
-  ctx.fillRect(startX, startY, visibleW, 82);
-  ctx.strokeStyle = secondary;
-  ctx.lineWidth = 3;
-  ctx.strokeRect(startX, startY, visibleW, 82);
+  ctx.fillRect(startX, startY, visibleW, totalH);
+  ctx.strokeStyle = '#FACC15';
+  ctx.lineWidth = 2;
+  ctx.strokeRect(startX, startY, visibleW, totalH);
 
-  // Decorative side stripes on Bandeirão
-  if (visibleW > 120) {
-    ctx.fillStyle = secondary;
-    ctx.fillRect(startX + 10, startY + 6, 12, 70);
-    ctx.fillRect(startX + visibleW - 22, startY + 6, 12, 70);
+  // Card-tile grid texture (thousands of plaquinhas shimmer)
+  const tileW = 10;
+  const tileH = 7;
+  for (let gx = startX + 2; gx < startX + visibleW - 6; gx += tileW) {
+    for (let gy = startY + 2; gy < startY + totalH - 6; gy += tileH) {
+      const shimmer = Math.sin(timeSec * 5 + gx * 0.08 + gy * 0.14);
+      if (shimmer > 0.35) {
+        ctx.fillStyle = 'rgba(255,255,255,0.12)';
+        ctx.fillRect(gx, gy, tileW - 2, tileH - 2);
+      } else if (shimmer < -0.5) {
+        ctx.fillStyle = 'rgba(0,0,0,0.16)';
+        ctx.fillRect(gx, gy, tileW - 2, tileH - 2);
+      }
+    }
   }
 
-  if (openProgress >= 0.45) {
-    const cellW = 30;
-    const cellH = 9;
-    const gridX = PITCH_GEO.worldW / 2 - (8 * cellW) / 2;
-    const gridY = startY + 8;
+  // Diagonal rays & flanking golden stars on mosaic (inspired by Tifo banner artwork)
+  if (visibleW > 180) {
+    ctx.fillStyle = secondary;
+    ctx.fillRect(startX + 10, startY + 6, 16, totalH - 12);
+    ctx.fillRect(startX + 32, startY + 6, 8, totalH - 12);
+    ctx.fillRect(startX + visibleW - 26, startY + 6, 16, totalH - 12);
+    ctx.fillRect(startX + visibleW - 40, startY + 6, 8, totalH - 12);
+
+    // Golden stars row flanking the mascot emblem
+    for (let st = 0; st < 4; st++) {
+      const lx = startX + 66 + st * 22;
+      const rx = startX + visibleW - 72 - st * 22;
+      const pulse = Math.round(Math.sin(timeSec * 6 + st) * 1.5);
+      px(ctx, lx, startY + 42 + pulse, 7, 7, '#FACC15');
+      px(ctx, lx + 2, startY + 40 + pulse, 3, 11, '#FDE047');
+      px(ctx, rx, startY + 42 + pulse, 7, 7, '#FACC15');
+      px(ctx, rx + 2, startY + 40 + pulse, 3, 11, '#FDE047');
+    }
+  }
+
+  if (openProgress >= 0.4) {
+    const cols = grid[0].length;
+    const cellW = 11;
+    const cellH = 6;
+    const gridX = Math.round(PITCH_GEO.worldW / 2 - (cols * cellW) / 2);
+    const gridY = startY + 6;
 
     for (let r = 0; r < grid.length; r++) {
-      for (let c = 0; c < grid[r].length; c++) {
+      for (let c = 0; c < cols; c++) {
         const ch = grid[r][c];
         if (ch === '0') continue;
-        ctx.fillStyle = ch === '2' ? '#FACC15' : secondary;
-        const bounce = Math.round(Math.sin(timeSec * 5 + c * 0.5) * 1.5);
-        ctx.fillRect(gridX + c * cellW, gridY + r * cellH + bounce, cellW - 2, cellH - 1);
+        ctx.fillStyle =
+          ch === '3'
+            ? '#0B121D'
+            : ch === '4'
+            ? '#FFFFFF'
+            : ch === '2'
+            ? '#FACC15'
+            : secondary;
+        const waveY = Math.round(Math.sin(timeSec * 5.2 + c * 0.42 + r * 0.2) * 1.4);
+        ctx.fillRect(gridX + c * cellW, gridY + r * cellH + waveY, cellW - 1, cellH - 1);
       }
     }
 
     // Slogan ribbon below pixel emblem
     ctx.fillStyle = '#0B121D';
-    ctx.fillRect(PITCH_GEO.worldW / 2 - 90, startY + 65, 180, 14);
+    ctx.fillRect(PITCH_GEO.worldW / 2 - 105, startY + 80, 210, 14);
+    ctx.strokeStyle = '#FACC15';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(PITCH_GEO.worldW / 2 - 105, startY + 80, 210, 14);
     ctx.fillStyle = '#FACC15';
     ctx.font = 'bold 9px "JetBrains Mono", monospace';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText(MASCOT_SLOGANS[mascot] || 'RAÇA & VITÓRIA', PITCH_GEO.worldW / 2, startY + 72);
+    ctx.fillText(MASCOT_SLOGANS[mascot] || 'RAÇA & VITÓRIA', PITCH_GEO.worldW / 2, startY + 87);
   }
 
-  // Secondary West-stand Bandeirão during entrance or big goals
+  // Secondary West-stand Vertical Bandeirão with stitched crest bar
+  const westWave = Math.round(Math.sin(timeSec * 4) * 2);
   ctx.fillStyle = secondary;
-  ctx.fillRect(26, PITCH_GEO.worldH / 2 - 120, 74, 240);
+  ctx.fillRect(24, PITCH_GEO.worldH / 2 - 135 + westWave, 82, 270);
   ctx.fillStyle = primary;
-  ctx.fillRect(34, PITCH_GEO.worldH / 2 - 110, 58, 220);
+  ctx.fillRect(32, PITCH_GEO.worldH / 2 - 125 + westWave, 66, 250);
+  ctx.fillStyle = '#0B121D';
+  ctx.fillRect(42, PITCH_GEO.worldH / 2 - 36 + westWave, 46, 72);
   ctx.fillStyle = '#FACC15';
-  ctx.fillRect(48, PITCH_GEO.worldH / 2 - 22, 30, 44);
+  ctx.fillRect(48, PITCH_GEO.worldH / 2 - 28 + westWave, 34, 56);
+  ctx.fillStyle = primary;
+  ctx.fillRect(56, PITCH_GEO.worldH / 2 - 14 + westWave, 18, 28);
 }
 
 interface AdBrand {
@@ -1088,6 +1300,10 @@ export function drawPixelStadium(
     cameraFlash?: number;
     fourthOfficialText?: string;
     scuffMarks?: TurfScuffMark[];
+    ballX?: number;
+    ballY?: number;
+    netImpactLeftY?: number;
+    netImpactRightY?: number;
   }
 ) {
   const g = PITCH_GEO;
@@ -1200,7 +1416,7 @@ export function drawPixelStadium(
     px(ctx, bb.x + 5, bb.y, 4, 4, '#FFFFFF');
   });
 
-  // #4: Sideline Photographers behind both goals + Camera Flash bursts
+  // Sideline Photographers behind both goals + Camera Flash bursts
   const flash = options?.cameraFlash ?? 0;
   const photographers = [
     { x: g.pitchX - 58, y: midNetY - 96 },
@@ -1218,7 +1434,27 @@ export function drawPixelStadium(
     }
   });
 
-  // Sector Signage & Club Banners (Faixas)
+  // Broadcast TV Cameras on Tripods behind goals & corners tracking live ball
+  const trackX = options?.ballX ?? g.worldW / 2;
+  const trackY = options?.ballY ?? g.worldH / 2;
+  const tvCameras = [
+    { x: g.pitchX - 38, y: g.pitchY - 12 },
+    { x: g.pitchX + g.pitchW + 38, y: g.pitchY - 12 },
+    { x: g.pitchX - 58, y: midNetY - 118 },
+    { x: g.pitchX + g.pitchW + 58, y: midNetY + 118 },
+  ];
+  tvCameras.forEach((cam) => {
+    const ang = Math.atan2(trackY - cam.y, trackX - cam.x);
+    ctx.save();
+    ctx.translate(cam.x, cam.y);
+    px(ctx, -4, -4, 8, 8, '#334155');
+    ctx.rotate(ang);
+    px(ctx, -3, -3, 9, 6, '#0F172A');
+    px(ctx, 5, -2, 4, 4, '#38BDF8');
+    ctx.restore();
+  });
+
+  // Sector Signage & Detailed Stitched Club Fence Banners (Faixas de Alambrado)
   const sectorNames = [
     { x: 310, y: 122, text: 'SETOR NORTE' },
     { x: g.worldW - 360, y: 122, text: 'TRIBUNA DE HONRA' },
@@ -1234,14 +1470,27 @@ export function drawPixelStadium(
     ctx.fillText(sec.text, sec.x, sec.y + 6);
   });
 
-  // Club banners along stands
-  px(ctx, 180, 130, 220, 8, homePrimary);
-  px(ctx, g.worldW - 400, 130, 220, 8, homePrimary);
-  px(ctx, 190, g.worldH - 138, 200, 8, homeSecondary);
-  px(ctx, g.worldW - 390, g.worldH - 138, 200, 8, awayPrimary);
+  const homeShort = options?.homeShort || 'CAS';
+  const awayShort = options?.awayShort || 'VIS';
+  const fenceBanners = [
+    { x: 175, y: 130, w: 230, c1: homePrimary, c2: homeSecondary, label: `${homeShort} · RAÇA E TRADIÇÃO` },
+    { x: g.worldW - 405, y: 130, w: 230, c1: homePrimary, c2: homeSecondary, label: 'SEMPRE CONTIGO' },
+    { x: 185, y: g.worldH - 139, w: 210, c1: homeSecondary, c2: homePrimary, label: `${homeShort} ULTRAS` },
+    { x: g.worldW - 395, y: g.worldH - 139, w: 210, c1: awayPrimary, c2: options?.awayKit?.secondary || '#FFFFFF', label: `${awayShort} VISITANTE` },
+  ];
+  fenceBanners.forEach((fb) => {
+    px(ctx, fb.x, fb.y, fb.w, 10, '#090D16');
+    px(ctx, fb.x + 1, fb.y + 1, fb.w - 2, 8, fb.c1);
+    px(ctx, fb.x + 6, fb.y + 1, 14, 8, fb.c2);
+    px(ctx, fb.x + fb.w - 20, fb.y + 1, 14, 8, fb.c2);
+    ctx.fillStyle = '#FFFFFF';
+    ctx.font = 'bold 6px "JetBrains Mono", monospace';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(fb.label, fb.x + fb.w / 2, fb.y + 5);
+  });
 
   // 3. Player Entrance Tunnel (bottom center) + Press Cabins (top center) + Dugouts
-  // Entrance Tunnel
   const tunnelX = g.worldW / 2 - 36;
   const tunnelY = g.worldH - 132;
   px(ctx, tunnelX, tunnelY, 72, 28, '#020617');
@@ -1276,18 +1525,21 @@ export function drawPixelStadium(
     );
   }
 
-  // #2: 4th Official with glowing substitution / added-time board
+  // 4th Official with glowing substitution / added-time board
   const fourthX = g.pitchX + g.pitchW / 2;
   const fourthY = g.pitchY - 34;
   px(ctx, fourthX - 4, fourthY - 4, 8, 8, '#0F172A');
   px(ctx, fourthX - 2, fourthY - 8, 5, 4, '#E0AC69');
   if (options?.fourthOfficialText) {
-    px(ctx, fourthX + 6, fourthY - 12, 22, 11, '#020617');
-    ctx.fillStyle = '#34D399';
+    px(ctx, fourthX + 6, fourthY - 13, 34, 12, '#020617');
+    ctx.strokeStyle = '#334155';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(fourthX + 6, fourthY - 13, 34, 12);
+    ctx.fillStyle = options.fourthOfficialText.includes('/') ? '#EF4444' : '#34D399';
     ctx.font = 'bold 7px "JetBrains Mono", monospace';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText(options.fourthOfficialText, fourthX + 17, fourthY - 6);
+    ctx.fillText(options.fourthOfficialText, fourthX + 23, fourthY - 7);
   }
 
   // 4. Live Jumbotrons / Telões
@@ -1295,8 +1547,8 @@ export function drawPixelStadium(
     ctx,
     g.worldW / 2 - 74,
     132,
-    options?.homeShort || 'CAS',
-    options?.awayShort || 'VIS',
+    homeShort,
+    awayShort,
     options?.homeScore ?? 0,
     options?.awayScore ?? 0,
     options?.matchMinuteStr || "00'",
@@ -1311,8 +1563,8 @@ export function drawPixelStadium(
       ctx,
       166,
       132,
-      options?.homeShort || 'CAS',
-      options?.awayShort || 'VIS',
+      homeShort,
+      awayShort,
       options?.homeScore ?? 0,
       options?.awayScore ?? 0,
       options?.matchMinuteStr || "00'",
@@ -1327,13 +1579,18 @@ export function drawPixelStadium(
   // 5. Advertising Boards (LED & Static)
   drawAdvertisingBoards(ctx, timeSec, goalExcitement, homePrimary, homeSecondary, lightsOn);
 
-  // 6. Rich Animated Pixel Crowd
+  // 6. Ultra-Detailed Animated Pixel Crowd (Bleacher Seats + Hair + Scarves + Drums + Multi-Segment Flags)
   const isGoalHome = mood === 'goal_home' || mood === 'celebrating_victory';
   const isGoalAway = mood === 'goal_away';
   const olaWaveCenter = ((timeSec * 380) % (g.worldW + 200)) - 100;
+  const awaySec = options?.awayKit?.secondary || '#FFFFFF';
 
   for (let i = 0; i < crowd.length; i++) {
     const sp = crowd[i];
+    // Concrete stadium seat bucket visible even when empty or behind fan
+    px(ctx, sp.x - 3, sp.y - 1, 7, 5, sp.isAwaySector ? '#334155' : '#263449');
+    if (sp.seatEmpty) continue;
+
     const cheering =
       (isGoalHome && !sp.isAwaySector) ||
       (isGoalAway && sp.isAwaySector) ||
@@ -1341,7 +1598,6 @@ export function drawPixelStadium(
     const disappointed =
       mood === 'disappointed' || (isGoalAway && !sp.isAwaySector) || (isGoalHome && sp.isAwaySector);
 
-    // Mexican wave (Ola) ripple during excitement or home goals
     const olaBoost =
       (mood === 'excited' || isGoalHome) && Math.abs(sp.x - olaWaveCenter) < 90
         ? Math.sin(((sp.x - olaWaveCenter + 90) / 180) * Math.PI) * 4.5
@@ -1371,47 +1627,110 @@ export function drawPixelStadium(
     const sx = sp.x;
     const sy = sp.y - Math.max(0, jump);
 
-    // Torso
+    // Torso + 2-tone striped jersey
     px(ctx, sx - 3, sy - 3, 7, 6, sp.shirtColor);
-    // Head
-    px(ctx, sx - 2, sy - 7, 4, 4, sp.skinColor);
-    if (sp.hatColor) {
-      px(ctx, sx - 2, sy - 8, 4, 2, sp.hatColor);
+    if (sp.shirtStripe) {
+      px(ctx, sx - 1, sy - 3, 3, 6, sp.shirtStripe);
     }
 
-    // Arms behavior (raising arms, clapping, hands on head)
-    if (cheering || (sp.behavior === 'waver' && mood === 'excited')) {
+    // Head + Realistic Hair Silhouette or Cap
+    px(ctx, sx - 2, sy - 7, 4, 4, sp.skinColor);
+    if (sp.hatColor) {
+      px(ctx, sx - 2, sy - 9, 4, 2, sp.hatColor);
+      px(ctx, sx - 1, sy - 9, 5, 1, sp.hatColor);
+    } else {
+      if (sp.hairShape === 'afro') {
+        px(ctx, sx - 3, sy - 9, 6, 3, sp.hairColor);
+      } else if (sp.hairShape === 'spiky') {
+        px(ctx, sx - 2, sy - 9, 4, 2, sp.hairColor);
+        px(ctx, sx - 1, sy - 10, 2, 1, sp.hairColor);
+      } else if (sp.hairShape === 'long') {
+        px(ctx, sx - 3, sy - 8, 6, 2, sp.hairColor);
+        px(ctx, sx - 3, sy - 6, 1, 3, sp.hairColor);
+        px(ctx, sx + 2, sy - 6, 1, 3, sp.hairColor);
+      } else {
+        px(ctx, sx - 2, sy - 8, 4, 2, sp.hairColor);
+      }
+    }
+
+    // Raised Club Scarf (Cachecol) during excitement or goals!
+    if (sp.hasScarf && (cheering || mood === 'excited')) {
+      const scarfBob = Math.round(Math.sin(timeSec * 8 + sp.phase) * 1.5);
+      const sc1 = sp.isAwaySector ? awayPrimary : homePrimary;
+      const sc2 = sp.isAwaySector ? awaySec : homeSecondary;
+      px(ctx, sx - 5, sy - 11 + scarfBob, 11, 3, sc1);
+      px(ctx, sx - 2, sy - 11 + scarfBob, 5, 3, sc2);
+      px(ctx, sx - 5, sy - 8 + scarfBob, 2, 3, sp.skinColor);
+      px(ctx, sx + 4, sy - 8 + scarfBob, 2, 3, sp.skinColor);
+    } else if (cheering || (sp.behavior === 'waver' && mood === 'excited')) {
       const armWave = Math.round(Math.sin(timeSec * 15 + sp.phase) * 2);
       px(ctx, sx - 5, sy - 7 + armWave, 2, 4, sp.skinColor);
       px(ctx, sx + 4, sy - 7 - armWave, 2, 4, sp.skinColor);
     } else if (disappointed) {
-      // Hands on head / slumped
       px(ctx, sx - 4, sy - 7, 2, 3, sp.skinColor);
       px(ctx, sx + 3, sy - 7, 2, 3, sp.skinColor);
     } else if (sp.behavior === 'clapper' && Math.sin(timeSec * 9 + sp.phase) > 0.2) {
       px(ctx, sx - 2, sy - 2, 5, 2, sp.skinColor);
     }
 
-    // Waving Flags & Giant Bandeirões
+    // Torcida Organizada Drum Corps (Bateria) pulsing on the beat
+    if (sp.hasDrum && quality !== 'low') {
+      const beat = Math.sin(timeSec * 14 + sp.phase) > 0.35 ? 1 : 0;
+      px(ctx, sx - 4, sy - 1 - beat, 8, 6, '#F8FAFC');
+      px(ctx, sx - 4, sy + 1 - beat, 8, 2, homePrimary);
+      px(ctx, sx - 5, sy - 4 + beat * 2, 2, 4, '#FACC15');
+    }
+
+    // Multi-Segment Wind-Rippled Flags & Giant Bandeirões
     if (sp.hasFlag && quality !== 'low') {
-      const waveSpeed = cheering ? 12 : 6;
-      const wave = Math.round(Math.sin(timeSec * waveSpeed + sp.phase) * 3);
+      const waveSpeed = cheering ? 12 : 6.5;
       const flagColor = sp.isAwaySector ? awayPrimary : homePrimary;
-      const flagAlt = sp.isAwaySector ? '#FFFFFF' : homeSecondary;
+      const flagAlt = sp.isAwaySector ? awaySec : homeSecondary;
       if (sp.isGiantFlag && quality === 'high') {
-        px(ctx, sx + 3, sy - 26, 2, 22, '#E2E8F0');
-        px(ctx, sx + 5, sy - 26, 16 + wave, 11, flagColor);
-        px(ctx, sx + 5, sy - 22, 16 + wave, 4, flagAlt);
+        // Angled tall flagpole + 4-segment undulating large flag
+        px(ctx, sx + 3, sy - 30, 2, 27, '#F1F5F9');
+        for (let seg = 0; seg < 4; seg++) {
+          const segY = Math.round(Math.sin(timeSec * waveSpeed + sp.phase - seg * 0.7) * (1.2 + seg * 0.5));
+          const colA =
+            sp.flagPattern === 'halves' && seg >= 2
+              ? flagAlt
+              : sp.flagPattern === 'cross' && seg === 1
+              ? flagAlt
+              : flagColor;
+          px(ctx, sx + 5 + seg * 5, sy - 30 + segY, 5, 13, colA);
+          if (sp.flagPattern === 'stripes') {
+            px(ctx, sx + 5 + seg * 5, sy - 25 + segY, 5, 4, flagAlt);
+          } else if (sp.flagPattern === 'quartered' && seg >= 2) {
+            px(ctx, sx + 5 + seg * 5, sy - 23 + segY, 5, 6, flagAlt);
+          } else if (sp.flagPattern === 'cross') {
+            px(ctx, sx + 5 + seg * 5, sy - 25 + segY, 5, 3, flagAlt);
+          }
+        }
       } else {
-        px(ctx, sx + 3, sy - 16, 2, 12, '#E2E8F0');
-        px(ctx, sx + 5, sy - 16, 9 + Math.round(wave * 0.5), 6, flagColor);
+        // 3-segment wind-rippled supporter flag
+        px(ctx, sx + 3, sy - 18, 2, 14, '#E2E8F0');
+        for (let seg = 0; seg < 3; seg++) {
+          const segY = Math.round(Math.sin(timeSec * waveSpeed + sp.phase - seg * 0.8) * 1.4);
+          px(ctx, sx + 5 + seg * 4, sy - 18 + segY, 4, 7, seg === 1 ? flagAlt : flagColor);
+        }
       }
     }
   }
 
+  // Acoustic Vuvuzela / Crowd Soundwave Pulses over organized sectors on excitement
+  if ((goalExcitement > 0.35 || mood === 'excited') && quality === 'high') {
+    const pulse = (timeSec * 2.2) % 1;
+    const rad = Math.round(12 + pulse * 26);
+    ctx.strokeStyle = `rgba(250, 204, 21, ${(1 - pulse) * 0.36})`;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(62, g.worldH / 2, rad, -0.8, 0.8);
+    ctx.stroke();
+  }
+
   // 7. Stadium Roof Canopy & Steel Trusses (semi-transparent architectural overhang)
   if (st?.roofCover || arch === 'grand' || arch === 'modern') {
-    ctx.fillStyle = 'rgba(15, 23, 42, 0.36)';
+    ctx.fillStyle = 'rgba(15, 23, 42, 0.34)';
     ctx.fillRect(10, 10, g.worldW - 20, 26);
     ctx.fillRect(10, g.worldH - 36, g.worldW - 20, 26);
     ctx.fillStyle = 'rgba(148, 163, 184, 0.28)';
@@ -1422,7 +1741,7 @@ export function drawPixelStadium(
   }
 
   // 8. Mascot Mosaic / Bandeirão (pre-match opening & big goal celebrations)
-  if ((options?.showMosaic || goalExcitement > 0.65) && options?.mascot) {
+  if ((options?.showMosaic || goalExcitement > 0.55) && options?.mascot) {
     drawMascotMosaic(
       ctx,
       options.mascot,
@@ -1433,7 +1752,7 @@ export function drawPixelStadium(
     );
   }
 
-  // 9. Flares / Sinalizadores on goals or opening mosaic + #14 rising colored smoke
+  // 9. Flares / Sinalizadores on goals or opening mosaic + rising colored smoke
   if ((options?.showMosaic || goalExcitement > 0.2) && options?.environmentalEffects !== false) {
     const flareSpots = [190, 490, 1110, 1410];
     flareSpots.forEach((fx, idx) => {
@@ -1443,13 +1762,33 @@ export function drawPixelStadium(
       ctx.fillRect(fx - flicker, fy - flicker, flicker * 2, flicker * 2);
       ctx.fillStyle = '#FEF08A';
       ctx.fillRect(fx - 2, fy - 2, 5, 5);
-      // Rising colored pixel smoke plumes
       for (let sm = 1; sm <= 3; sm++) {
         const driftX = Math.sin(timeSec * 3 + idx + sm) * 6;
         const riseY = fy - sm * 10 - ((timeSec * 14 + idx * 7) % 14);
         ctx.fillStyle = sm === 1 ? 'rgba(248,250,252,0.28)' : 'rgba(203,213,225,0.18)';
         ctx.fillRect(Math.round(fx - 4 + driftX), Math.round(riseY), 9 + sm * 2, 7);
       }
+    });
+  }
+
+  // Behind-Stadium Goal Fireworks bursts (Noite / Fim de tarde / big goals)
+  if (goalExcitement > 0.4 && options?.environmentalEffects !== false) {
+    const fwSpots = [
+      { x: 260, y: 74, c: homePrimary },
+      { x: g.worldW - 260, y: 74, c: '#FACC15' },
+      { x: g.worldW / 2, y: 58, c: homeSecondary },
+    ];
+    fwSpots.forEach((fw, fIdx) => {
+      const phase = (timeSec * 1.6 + fIdx * 0.35) % 1;
+      const r = phase * 34;
+      const alpha = Math.max(0, 1 - phase);
+      ctx.fillStyle = fw.c;
+      ctx.globalAlpha = alpha;
+      for (let p = 0; p < 8; p++) {
+        const a = (p / 8) * Math.PI * 2;
+        px(ctx, fw.x + Math.cos(a) * r, fw.y + Math.sin(a) * r, 4, 4, p % 2 === 0 ? fw.c : '#FEF08A');
+      }
+      ctx.globalAlpha = 1;
     });
   }
 
@@ -1499,7 +1838,7 @@ export function drawPixelStadium(
     });
   }
 
-  // 11. Pitch Mowed Grass Stripes
+  // 11. Pitch Mowed Grass Stripes + Worn Goalkeeper Box Patches
   const toneA = st?.turfToneA || '#1B6E3A';
   const toneB = st?.turfToneB || '#1F7A41';
   const stripes = 14;
@@ -1507,6 +1846,24 @@ export function drawPixelStadium(
   for (let i = 0; i < stripes; i++) {
     ctx.fillStyle = i % 2 === 0 ? toneA : toneB;
     ctx.fillRect(Math.round(g.pitchX + i * sw), g.pitchY, Math.ceil(sw), g.pitchH);
+  }
+
+  // Worn goalkeeper turf/earth patches inside both 6-yard boxes
+  const midY = g.pitchY + g.pitchH / 2;
+  ctx.fillStyle = 'rgba(120, 53, 15, 0.22)';
+  ctx.fillRect(g.pitchX + 4, midY - 46, 36, 92);
+  ctx.fillRect(g.pitchX + g.pitchW - 40, midY - 46, 36, 92);
+
+  // Drifting Cloud Shadows during day / overcast matches
+  if (!lightsOn && options?.environmentalEffects !== false && quality !== 'low') {
+    const cloudOffset = (timeSec * 18) % (g.pitchW + 420);
+    ctx.fillStyle = options?.env?.weather === 'Nublado' ? 'rgba(15, 23, 42, 0.12)' : 'rgba(15, 23, 42, 0.06)';
+    for (let c = 0; c < 3; c++) {
+      const cx = g.pitchX - 240 + ((cloudOffset + c * 420) % (g.pitchW + 420));
+      const cy = g.pitchY + 60 + c * 180;
+      ctx.fillRect(Math.round(cx), cy, 170, 74);
+      ctx.fillRect(Math.round(cx + 28), cy - 18, 110, 18);
+    }
   }
 
   // Wet Turf Puddles & Animated Rain Ripples + Floodlight Reflections
@@ -1518,7 +1875,6 @@ export function drawPixelStadium(
       ctx.fillStyle = 'rgba(125, 211, 252, 0.16)';
       ctx.fillRect(pxPos, pyPos, 30, 12);
       ctx.fillRect(pxPos + 6, pyPos - 3, 18, 18);
-      // Animated raindrop ripple rings
       const rip = ((timeSec * 1.8 + i * 0.37) % 1) * 10;
       ctx.strokeStyle = `rgba(186, 230, 253, ${0.32 * (1 - rip / 10)})`;
       ctx.lineWidth = 1;
@@ -1530,7 +1886,7 @@ export function drawPixelStadium(
     }
   }
 
-  // #7: Persistent Turf Scuff & Slide Marks
+  // Persistent Turf Scuff & Slide Marks
   if (options?.scuffMarks && options.scuffMarks.length > 0) {
     for (const mk of options.scuffMarks) {
       ctx.save();
@@ -1560,7 +1916,6 @@ export function drawPixelStadium(
   ctx.strokeRect(g.pitchX, g.pitchY, g.pitchW, g.pitchH);
 
   const midX = g.pitchX + g.pitchW / 2;
-  const midY = g.pitchY + g.pitchH / 2;
   ctx.beginPath();
   ctx.moveTo(midX, g.pitchY);
   ctx.lineTo(midX, g.pitchY + g.pitchH);
@@ -1595,6 +1950,7 @@ export function drawPixelStadium(
   ctx.arc(g.pitchX + g.pitchW - 112, midY, 74, Math.PI - 0.68, Math.PI + 0.68);
   ctx.stroke();
 
+  // Multi-Segment Club-Colored Corner Flags!
   const corners = [
     [g.pitchX, g.pitchY, 0, Math.PI / 2],
     [g.pitchX + g.pitchW, g.pitchY, Math.PI / 2, Math.PI],
@@ -1606,15 +1962,68 @@ export function drawPixelStadium(
     ctx.arc(cx, cy, 18, a1, a2);
     ctx.stroke();
     ctx.fillStyle = '#E2E8F0';
-    ctx.fillRect(cx - 2, cy - 12, 3, 12);
-    const wave = Math.sin(timeSec * 6 + cx) * 2;
-    ctx.fillStyle = '#FACC15';
-    ctx.fillRect(cx + 1, cy - 12 + wave * 0.4, 8, 5);
+    ctx.fillRect(cx - 2, cy - 14, 3, 14);
+    for (let seg = 0; seg < 3; seg++) {
+      const wave = Math.round(Math.sin(timeSec * 8 + cx + seg * 0.9) * 1.6);
+      ctx.fillStyle = seg === 1 ? homeSecondary : homePrimary;
+      ctx.fillRect(cx + 1 + seg * 3, cy - 14 + wave, 3, 6);
+    }
   });
 
+  // Overhead Spidercam Cables & Gliding Aerial Camera Unit (Grand & Modern stadiums)
+  if ((arch === 'grand' || arch === 'modern') && quality === 'high') {
+    const spiderX = g.pitchX + g.pitchW * 0.5 + (trackX - midX) * 0.35;
+    const spiderY = g.pitchY + g.pitchH * 0.5 + (trackY - midY) * 0.35;
+    ctx.strokeStyle = 'rgba(203, 213, 225, 0.12)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(g.pitchX, g.pitchY);
+    ctx.lineTo(spiderX, spiderY);
+    ctx.moveTo(g.pitchX + g.pitchW, g.pitchY);
+    ctx.lineTo(spiderX, spiderY);
+    ctx.moveTo(g.pitchX, g.pitchY + g.pitchH);
+    ctx.lineTo(spiderX, spiderY);
+    ctx.moveTo(g.pitchX + g.pitchW, g.pitchY + g.pitchH);
+    ctx.lineTo(spiderX, spiderY);
+    ctx.stroke();
+    ctx.fillStyle = 'rgba(0,0,0,0.16)';
+    ctx.fillRect(Math.round(spiderX + 8), Math.round(spiderY + 14), 10, 6);
+    px(ctx, spiderX - 4, spiderY - 4, 8, 8, '#0F172A');
+    px(ctx, spiderX - 2, spiderY - 2, 4, 4, '#38BDF8');
+  }
+
+  // Windblown Pitch Leaves / Stadium Atmosphere Motes
+  if (options?.environmentalEffects !== false && quality !== 'low') {
+    for (let lf = 0; lf < 6; lf++) {
+      const lx = g.pitchX + ((lf * 213 + timeSec * 42) % g.pitchW);
+      const ly = g.pitchY + ((lf * 137 + Math.sin(timeSec * 2 + lf) * 28) % g.pitchH);
+      px(ctx, lx, ly, 3, 2, lightsOn ? 'rgba(254, 249, 195, 0.35)' : 'rgba(134, 239, 172, 0.45)');
+    }
+  }
+
   const goalTop = midY - g.goalH / 2;
-  drawGoalNet(ctx, g.pitchX - g.goalDepth, goalTop, g.goalDepth, g.goalH, 'left', netRippleLeft, timeSec);
-  drawGoalNet(ctx, g.pitchX + g.pitchW, goalTop, g.goalDepth, g.goalH, 'right', netRippleRight, timeSec);
+  drawGoalNet(
+    ctx,
+    g.pitchX - g.goalDepth,
+    goalTop,
+    g.goalDepth,
+    g.goalH,
+    'left',
+    netRippleLeft,
+    timeSec,
+    options?.netImpactLeftY
+  );
+  drawGoalNet(
+    ctx,
+    g.pitchX + g.pitchW,
+    goalTop,
+    g.goalDepth,
+    g.goalH,
+    'right',
+    netRippleRight,
+    timeSec,
+    options?.netImpactRightY
+  );
 }
 
 export function drawWeatherAndLightingOverlay(
@@ -1705,29 +2114,40 @@ function drawGoalNet(
   h: number,
   side: 'left' | 'right',
   ripple: number,
-  timeSec: number
+  timeSec: number,
+  impactY?: number
 ) {
-  const offset = ripple > 0 ? Math.sin(timeSec * 28) * ripple * 5 * (side === 'left' ? -1 : 1) : 0;
+  const dir = side === 'left' ? -1 : 1;
+  const baseOffset = ripple > 0 ? Math.sin(timeSec * 28) * ripple * 6 * dir : 0;
+  const iy = impactY ?? y + h / 2;
 
-  ctx.fillStyle = 'rgba(15, 23, 42, 0.35)';
-  ctx.fillRect(x + offset, y, w, h);
+  ctx.fillStyle = 'rgba(15, 23, 42, 0.36)';
+  ctx.fillRect(x + baseOffset * 0.5, y, w, h);
 
-  ctx.strokeStyle = 'rgba(226, 232, 240, 0.58)';
+  // 3D layered crossbar/depth roof shading & diagonal side netting
+  ctx.fillStyle = 'rgba(226, 232, 240, 0.14)';
+  ctx.fillRect(x, y, w, 6);
+  ctx.fillRect(x, y + h - 6, w, 6);
+
+  ctx.strokeStyle = 'rgba(226, 232, 240, 0.65)';
   ctx.lineWidth = 1;
   ctx.beginPath();
-  for (let nx = x; nx <= x + w; nx += 7) {
-    ctx.moveTo(nx + offset * 0.6, y);
-    ctx.lineTo(nx + offset * 0.6, y + h);
+  for (let nx = x; nx <= x + w; nx += 6) {
+    ctx.moveTo(nx + baseOffset * 0.55, y);
+    ctx.lineTo(nx + baseOffset * 0.55, y + h);
   }
-  for (let ny = y; ny <= y + h; ny += 7) {
-    ctx.moveTo(x + offset, ny);
-    ctx.lineTo(x + w + offset * 0.3, ny);
+  for (let ny = y; ny <= y + h; ny += 6) {
+    const distNorm = Math.max(0, 1 - Math.abs(ny - iy) / (h * 0.48));
+    const localBulge = baseOffset * (0.4 + distNorm * 0.9);
+    ctx.moveTo(x + (side === 'left' ? localBulge : 0), ny);
+    ctx.lineTo(x + w + (side === 'right' ? localBulge : 0), ny);
   }
   ctx.stroke();
 
+  // Outer frame & grounded posts
   ctx.strokeStyle = '#F8FAFC';
   ctx.lineWidth = 4;
-  ctx.strokeRect(x + offset * 0.5, y, w, h);
+  ctx.strokeRect(x + baseOffset * 0.4, y, w, h);
 
   const postX = side === 'left' ? x + w : x;
   ctx.fillStyle = '#FFFFFF';
@@ -1743,7 +2163,7 @@ export function drawPixelBall(
   spin: number
 ) {
   const shadowScale = Math.max(0.55, 1 - z / 90);
-  ctx.fillStyle = 'rgba(0,0,0,0.35)';
+  ctx.fillStyle = 'rgba(0,0,0,0.36)';
   ctx.fillRect(
     Math.round(x - 6 * shadowScale),
     Math.round(y + 3),
@@ -1752,7 +2172,7 @@ export function drawPixelBall(
   );
 
   const drawY = Math.round(y - z);
-  const r = Math.round(6 + Math.min(3, z * 0.04));
+  const r = Math.round(6 + Math.min(3.5, z * 0.045));
 
   ctx.fillStyle = '#F8FAFC';
   ctx.fillRect(Math.round(x - r), drawY - r, r * 2, r * 2);
@@ -1762,6 +2182,9 @@ export function drawPixelBall(
   ctx.fillRect(Math.round(x - 2 + pOff), drawY - 2, 4, 4);
   ctx.fillRect(Math.round(x - r), drawY - 1, 2, 3);
   ctx.fillRect(Math.round(x + r - 2), drawY - 1, 2, 3);
+  // Subtle crisp top-left ball sheen highlight
+  ctx.fillStyle = '#FFFFFF';
+  ctx.fillRect(Math.round(x - r + 1), drawY - r + 1, 2, 2);
 
   ctx.strokeStyle = '#1E293B';
   ctx.lineWidth = 1.5;
@@ -1774,8 +2197,10 @@ export function drawPixelBallTrail(
 ) {
   for (let i = 0; i < trail.length; i++) {
     const pt = trail[i];
-    const r = Math.max(2, Math.round(5 * pt.alpha));
-    ctx.fillStyle = `rgba(248, 250, 252, ${pt.alpha * 0.36})`;
+    const r = Math.max(2, Math.round((pt.isPower ? 6.5 : 5) * pt.alpha));
+    ctx.fillStyle = pt.isPower
+      ? `rgba(250, 204, 21, ${pt.alpha * 0.62})`
+      : `rgba(248, 250, 252, ${pt.alpha * 0.36})`;
     ctx.fillRect(Math.round(pt.x - r), Math.round(pt.y - pt.z - r), r * 2, r * 2);
   }
 }
@@ -1821,7 +2246,8 @@ export function drawPixelReferee(
   x: number,
   y: number,
   animPhase: number,
-  cardColor?: 'yellow' | 'red' | null
+  cardColor?: 'yellow' | 'red' | null,
+  advantageActive?: boolean
 ) {
   const stride = Math.sin(animPhase) * 2;
   ctx.save();
@@ -1838,13 +2264,23 @@ export function drawPixelReferee(
   px(ctx, -4, -15, 8, 7, '#E2B48F');
   px(ctx, -4, -17, 8, 3, '#1E293B');
 
-  // #16: Overhead pixel yellow / red card animation
+  // Overhead pixel yellow / red card animation
   if (cardColor) {
     px(ctx, 5, -23, 3, 14, '#E2B48F');
     px(ctx, 4, -30, 6, 8, cardColor === 'red' ? '#EF4444' : '#FACC15');
     ctx.strokeStyle = '#0F172A';
     ctx.lineWidth = 1;
     ctx.strokeRect(4, -30, 6, 8);
+  } else if (advantageActive) {
+    // Two-arm forward advantage signal + floating pixel 'V' badge
+    px(ctx, -9, -15, 3, 9, '#E2B48F');
+    px(ctx, 6, -15, 3, 9, '#E2B48F');
+    px(ctx, -7, -26, 14, 7, '#0F172A');
+    ctx.fillStyle = '#34D399';
+    ctx.font = 'bold 6px "JetBrains Mono", monospace';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('VANT', 0, -22);
   }
 
   ctx.restore();

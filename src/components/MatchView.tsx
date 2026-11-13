@@ -638,35 +638,62 @@ export const MatchView: React.FC<MatchViewProps> = ({
 
       {hud && (
         <div className="pointer-events-none absolute top-2.5 inset-x-3 z-20 flex items-start justify-between gap-2">
-          <div className={`pointer-events-auto flex items-center gap-2.5 border rounded-lg px-2.5 py-1.5 shadow-lg ${hudBg}`}>
-            <span
-              className="w-1.5 h-5 rounded-sm shrink-0"
-              style={{ backgroundColor: homeClub.kit.primary }}
-            />
-            <div className="flex items-center gap-1.5">
-              <ClubCrest club={homeClub} size={22} />
-              <span className="font-display font-bold text-xs text-white whitespace-nowrap">{homeClub.shortName}</span>
+          <div className="pointer-events-auto flex flex-col gap-1">
+            <div className={`flex items-center gap-2.5 border rounded-lg px-2.5 py-1.5 shadow-lg ${hudBg}`}>
+              <span
+                className="w-1.5 h-5 rounded-sm shrink-0"
+                style={{ backgroundColor: engineRef.current?.activeHomeKit.primary || homeClub.kit.primary }}
+              />
+              <div className="flex items-center gap-1.5">
+                <ClubCrest club={homeClub} size={22} />
+                <span className="font-display font-bold text-xs text-white whitespace-nowrap">{homeClub.shortName}</span>
+              </div>
+              <div className="font-mono-num text-base font-extrabold text-white px-2 py-0.5 rounded bg-slate-900 border border-slate-700 whitespace-nowrap">
+                {hud.homeScore} - {hud.awayScore}
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="font-display font-bold text-xs text-white whitespace-nowrap">{awayClub.shortName}</span>
+                <ClubCrest club={awayClub} size={22} />
+              </div>
+              <span
+                className="w-1.5 h-5 rounded-sm shrink-0"
+                style={{ backgroundColor: engineRef.current?.activeAwayKit.primary || awayClub.kit.primary }}
+              />
+              <div className="border-l border-slate-700 pl-2 font-mono-num text-xs font-bold text-emerald-400 whitespace-nowrap">
+                {hud.matchMinute}&apos;
+                {hud.addedTime > 0 ? `+${hud.addedTime}` : ''}
+              </div>
+              <div className="hidden sm:block border-l border-slate-700 pl-2 text-[11px] text-slate-300 font-mono-num whitespace-nowrap">
+                POSSE {hud.possessionHomePct}%
+              </div>
+              <div className="hidden lg:block border-l border-slate-700 pl-2 text-[11px] text-slate-300 font-mono-num whitespace-nowrap">
+                {env.weather} · {env.temperatureC}°C
+              </div>
             </div>
-            <div className="font-mono-num text-base font-extrabold text-white px-2 py-0.5 rounded bg-slate-900 border border-slate-700 whitespace-nowrap">
-              {hud.homeScore} - {hud.awayScore}
-            </div>
-            <div className="flex items-center gap-1.5">
-              <span className="font-display font-bold text-xs text-white whitespace-nowrap">{awayClub.shortName}</span>
-              <ClubCrest club={awayClub} size={22} />
-            </div>
-            <span
-              className="w-1.5 h-5 rounded-sm shrink-0"
-              style={{ backgroundColor: awayClub.kit.primary }}
-            />
-            <div className="border-l border-slate-700 pl-2 font-mono-num text-xs font-bold text-emerald-400 whitespace-nowrap">
-              {hud.matchMinute}&apos;
-              {hud.addedTime > 0 ? `+${hud.addedTime}` : ''}
-            </div>
-            <div className="hidden sm:block border-l border-slate-700 pl-2 text-[11px] text-slate-300 font-mono-num whitespace-nowrap">
-              POSSE {hud.possessionHomePct}%
-            </div>
-            <div className="hidden lg:block border-l border-slate-700 pl-2 text-[11px] text-slate-300 font-mono-num whitespace-nowrap">
-              {env.weather} · {env.temperatureC}°C
+
+            {/* Live Match Momentum Bar */}
+            <div className="flex items-center gap-1.5 px-1">
+              <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400">Ritmo</span>
+              <div className="flex-1 h-1.5 rounded-full overflow-hidden bg-slate-900/90 border border-slate-700/80 flex">
+                <div
+                  className="h-full transition-all duration-300"
+                  style={{
+                    width: `${Math.max(8, Math.min(92, 50 + hud.momentum * 0.5))}%`,
+                    backgroundColor: engineRef.current?.activeHomeKit.primary || homeClub.kit.primary,
+                  }}
+                />
+                <div
+                  className="h-full flex-1 transition-all duration-300"
+                  style={{
+                    backgroundColor: engineRef.current?.activeAwayKit.primary || awayClub.kit.primary,
+                  }}
+                />
+              </div>
+              {hud.advantageActive && (
+                <span className="px-1.5 py-0.5 rounded bg-amber-400 text-slate-950 font-display font-extrabold text-[9px] tracking-wide uppercase">
+                  Vantagem
+                </span>
+              )}
             </div>
           </div>
 
@@ -946,8 +973,10 @@ export const MatchView: React.FC<MatchViewProps> = ({
         <div className={`pointer-events-none absolute z-20 flex flex-col items-end ${btnGap}`}>
           {settings.showMatchHints && (
             <div className="hidden lg:block text-[11px] text-slate-300/85 bg-slate-950/65 px-2.5 py-1 rounded whitespace-nowrap">
-              {hud.userHasBall
-                ? 'PASSAR / toque no colega · Segure CHUTAR e mire'
+              {hud.userTeamHasSetPiece
+                ? 'Bola parada: mire com o analógico e toque PASSAR ou CHUTAR'
+                : hud.userHasBall
+                ? 'PASSAR / toque no colega · Segure CHUTAR (≥78% = Chute Forte)'
                 : 'Arraste à esquerda p/ mover · PEDIR BOLA · DESARMAR'}
             </div>
           )}
