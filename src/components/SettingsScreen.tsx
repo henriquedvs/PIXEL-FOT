@@ -1,5 +1,5 @@
 import React from 'react';
-import { ArrowLeft, RotateCcw, Sliders, Volume2 } from 'lucide-react';
+import { ArrowLeft, Maximize2, Minimize2, RotateCcw, Sliders, Volume2 } from 'lucide-react';
 import { soundEngine } from '../audio/soundEngine';
 import {
   AudioSettings,
@@ -10,6 +10,7 @@ import {
   LanguageCode,
   OrientationPref,
 } from '../types/game';
+import { useFullscreenState } from '../utils/fullscreen';
 import { DEFAULT_SETTINGS } from '../utils/storage';
 
 interface SettingsScreenProps {
@@ -37,6 +38,8 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
   onChange,
   onBack,
 }) => {
+  const [isFullscreen, toggleFullscreen] = useFullscreenState();
+
   const updateAudio = (patch: Partial<AudioSettings>) => {
     const next: GameSettings = {
       ...settings,
@@ -70,14 +73,34 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
           </h1>
         </div>
 
-        <button
-          type="button"
-          onClick={handleReset}
-          className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-semibold text-amber-300 transition-colors cursor-pointer whitespace-nowrap"
-        >
-          <RotateCcw size={14} />
-          Restaurar padrão
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              soundEngine.play('menu');
+              toggleFullscreen();
+            }}
+            className={`flex items-center gap-1.5 px-3 py-2 rounded-lg border text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap ${
+              isFullscreen
+                ? 'bg-emerald-500/15 border-emerald-500/60 text-emerald-300'
+                : 'bg-slate-800 hover:bg-slate-700 border-slate-700 text-slate-200'
+            }`}
+            aria-label={isFullscreen ? 'Sair da tela cheia' : 'Colocar em tela cheia'}
+            title={isFullscreen ? 'Sair da tela cheia' : 'Tela cheia'}
+          >
+            {isFullscreen ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
+            <span>{isFullscreen ? 'Sair Tela Cheia' : 'Tela Cheia'}</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={handleReset}
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-semibold text-amber-300 transition-colors cursor-pointer whitespace-nowrap"
+          >
+            <RotateCcw size={14} />
+            Restaurar padrão
+          </button>
+        </div>
       </header>
 
       <div className="flex-1 overflow-y-auto custom-scroll p-4 sm:p-6">

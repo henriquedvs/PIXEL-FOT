@@ -716,15 +716,18 @@ function drawAdvertisingBoards(
   const boardCount = 11;
   const boardW = Math.floor((g.pitchW - 24) / boardCount);
   const gap = 3;
-  const cycleIdx = Math.floor(timeSec / 7);
-  const transitionFrac = (timeSec % 7) > 6.5 ? ((timeSec % 7) - 6.5) / 0.5 : 0;
-  const isGoalFlash = goalExcitement > 0.2 && Math.floor(timeSec * 8) % 2 === 0;
+  const safeTime = Number.isFinite(timeSec) && timeSec > 0 ? timeSec : 0;
+  const len = AD_BRANDS.length;
+  const cycleIdx = Math.floor(safeTime / 7);
+  const modTime = safeTime % 7;
+  const transitionFrac = modTime > 6.5 ? (modTime - 6.5) / 0.5 : 0;
+  const isGoalFlash = goalExcitement > 0.2 && Math.floor(safeTime * 8) % 2 === 0;
 
   // Top & Bottom LED perimeter boards
   for (let i = 0; i < boardCount; i++) {
     const bx = g.pitchX + 12 + i * boardW;
     const bw = boardW - gap;
-    const brand = AD_BRANDS[(i + cycleIdx) % AD_BRANDS.length];
+    const brand = AD_BRANDS[(((i + cycleIdx) % len) + len) % len];
     const bg = isGoalFlash ? goalClubPrimary : brand.bg;
     const fg = isGoalFlash ? goalClubSecondary : brand.fg;
     const label = isGoalFlash ? 'GOOOOL!' : brand.name;
@@ -773,7 +776,7 @@ function drawAdvertisingBoards(
     const segH = Math.floor(zone.h / segs) - 3;
     for (let s = 0; s < segs; s++) {
       const sy = zone.y + s * (segH + 3);
-      const brand = AD_BRANDS[(s + zIdx * 3) % AD_BRANDS.length];
+      const brand = AD_BRANDS[(((s + zIdx * 3) % len) + len) % len];
       // Left endzone
       px(ctx, g.pitchX - 52, sy, 12, segH, '#0F172A');
       px(ctx, g.pitchX - 50, sy + 1, 8, segH - 2, brand.bg);

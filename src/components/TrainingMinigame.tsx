@@ -75,7 +75,7 @@ export const TrainingMinigame: React.FC<TrainingMinigameProps> = ({
     let last = performance.now();
 
     const loop = (now: number) => {
-      const dt = Math.min((now - last) / 1000, 0.05);
+      const dt = Math.max(0, Math.min((now - last) / 1000, 0.05));
       last = now;
       const st = stateRef.current;
       st.phase += dt * 7;

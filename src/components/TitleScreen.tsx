@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from 'react';
-import { Volume2, VolumeX, Play } from 'lucide-react';
+import { Maximize2, Minimize2, Play, Volume2, VolumeX } from 'lucide-react';
 import { soundEngine } from '../audio/soundEngine';
+import { useFullscreenState } from '../utils/fullscreen';
 import {
   drawPixelBall,
   drawPixelPlayerSprite,
@@ -23,6 +24,7 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
   onPlay,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const [isFullscreen, toggleFullscreen] = useFullscreenState();
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -49,7 +51,7 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
     window.addEventListener('resize', resize);
 
     const frame = (now: number) => {
-      const dt = Math.min((now - last) / 1000, 0.05);
+      const dt = Math.max(0, Math.min((now - last) / 1000, 0.05));
       last = now;
       t += dt;
 
@@ -155,18 +157,38 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
       />
       <div className="absolute inset-0 bg-gradient-to-t from-[#081018]/92 via-[#081018]/55 to-[#081018]/75" />
 
-      {/* Top right audio toggle */}
-      <button
-        type="button"
-        onClick={handleMusicClick}
-        className="absolute top-4 right-4 z-20 flex items-center gap-2 px-3.5 py-2 rounded-lg bg-slate-900/85 border border-slate-700/70 text-slate-200 hover:border-emerald-400/60 transition-colors cursor-pointer whitespace-nowrap"
-        aria-label="Alternar música de abertura"
-      >
-        {settings.audio.musicEnabled ? <Volume2 size={18} className="text-emerald-400" /> : <VolumeX size={18} className="text-slate-400" />}
-        <span className="text-xs font-medium">
-          {settings.audio.musicEnabled ? 'Música Ativa' : 'Música Muda'}
-        </span>
-      </button>
+      {/* Top right audio & fullscreen controls */}
+      <div className="absolute top-4 right-4 z-20 flex items-center gap-2">
+        <button
+          type="button"
+          onClick={() => {
+            soundEngine.unlock();
+            soundEngine.play('menu');
+            toggleFullscreen();
+          }}
+          className="flex items-center justify-center p-2 rounded-lg bg-slate-900/85 border border-slate-700/70 text-slate-200 hover:border-emerald-400/60 transition-colors cursor-pointer"
+          aria-label={isFullscreen ? 'Sair da tela cheia' : 'Colocar em tela cheia'}
+          title={isFullscreen ? 'Sair da tela cheia' : 'Tela cheia'}
+        >
+          {isFullscreen ? (
+            <Minimize2 size={17} className="text-emerald-400" />
+          ) : (
+            <Maximize2 size={17} className="text-slate-300" />
+          )}
+        </button>
+
+        <button
+          type="button"
+          onClick={handleMusicClick}
+          className="flex items-center gap-2 px-3.5 py-2 rounded-lg bg-slate-900/85 border border-slate-700/70 text-slate-200 hover:border-emerald-400/60 transition-colors cursor-pointer whitespace-nowrap"
+          aria-label="Alternar música de abertura"
+        >
+          {settings.audio.musicEnabled ? <Volume2 size={18} className="text-emerald-400" /> : <VolumeX size={18} className="text-slate-400" />}
+          <span className="text-xs font-medium">
+            {settings.audio.musicEnabled ? 'Música Ativa' : 'Música Muda'}
+          </span>
+        </button>
+      </div>
 
       {/* Center Lockup */}
       <div className="relative z-10 flex flex-col items-center text-center px-6 max-w-xl animate-fadeIn">

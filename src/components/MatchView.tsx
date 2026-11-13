@@ -210,7 +210,7 @@ export const MatchView: React.FC<MatchViewProps> = ({
     let hudTimer = 0;
 
     const loop = (now: number) => {
-      const dt = Math.min((now - last) / 1000, 0.05);
+      const dt = Math.max(0, Math.min((now - last) / 1000, 0.05));
       last = now;
 
       const eng = engineRef.current;
