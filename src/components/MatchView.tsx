@@ -1,11 +1,17 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Pause, Play, Settings, Trophy } from 'lucide-react';
+import { Eye, Pause, Play, RefreshCw, Settings, Shield, Trophy, ZoomIn } from 'lucide-react';
 import { soundEngine } from '../audio/soundEngine';
 import { getClubById } from '../data/clubs';
+import { getPositionMeta } from '../data/positions';
 import { generateMatchEnvironment } from '../data/stadiums';
-import { MatchEngine, MatchHudSnapshot } from '../engine/matchEngine';
+import {
+  CameraZoomPreset,
+  MatchEngine,
+  MatchHudSnapshot,
+  TeamTacticId,
+} from '../engine/matchEngine';
 import { PITCH_GEO } from '../engine/pixelRenderer';
-import { GameSettings, MatchStatLine, PlayerCareer, WeatherCondition } from '../types/game';
+import { ClubKit, GameSettings, MatchStatLine, PlayerCareer, WeatherCondition } from '../types/game';
 import { ClubCrest } from './ClubCrest';
 import { PreMatchPresentation } from './PreMatchPresentation';
 
@@ -87,6 +93,11 @@ export const MatchView: React.FC<MatchViewProps> = ({
 
   const [hud, setHud] = useState<MatchHudSnapshot | null>(null);
   const [pauseModal, setPauseModal] = useState(false);
+  const [showRadar, setShowRadar] = useState(true);
+  const [kitOverrides, setKitOverrides] = useState<{
+    homeKitOverride: ClubKit;
+    awayKitOverride: ClubKit;
+  } | null>(null);
   const [joyVisual, setJoyVisual] = useState<{
     active: boolean;
     ox: number;
@@ -137,7 +148,14 @@ export const MatchView: React.FC<MatchViewProps> = ({
 
   useEffect(() => {
     if (!introDone) return;
-    const eng = new MatchEngine(career, homeClub, awayClub, settings, env);
+    const eng = new MatchEngine(
+      career,
+      homeClub,
+      awayClub,
+      settings,
+      env,
+      kitOverrides || undefined
+    );
     engineRef.current = eng;
     setHud(eng.getHudSnapshot());
     soundEngine.startMatchAudio();
@@ -180,6 +198,16 @@ export const MatchView: React.FC<MatchViewProps> = ({
         eng.startShotAim(goalX, PITCH_GEO.pitchY + PITCH_GEO.pitchH / 2);
       } else if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') {
         eng.sprintHeld = true;
+      } else if (e.code === 'Digit1') {
+        eng.setTeamTactic('DEFENSIVO');
+      } else if (e.code === 'Digit2') {
+        eng.setTeamTactic('EQUILIBRADO');
+      } else if (e.code === 'Digit3') {
+        eng.setTeamTactic('OFENSIVO');
+      } else if (e.code === 'Digit4') {
+        eng.setTeamTactic('PRESSAO_ALTA');
+      } else if (e.code === 'KeyZ') {
+        eng.cycleZoomPreset();
       }
     };
     const onKeyUp = (e: KeyboardEvent) => {
@@ -265,7 +293,10 @@ export const MatchView: React.FC<MatchViewProps> = ({
         homeClub={homeClub}
         awayClub={awayClub}
         env={env}
-        onStartMatch={() => setIntroDone(true)}
+        onStartMatch={(kits) => {
+          if (kits) setKitOverrides(kits);
+          setIntroDone(true);
+        }}
       />
     );
   }
@@ -645,7 +676,64 @@ export const MatchView: React.FC<MatchViewProps> = ({
             </div>
           )}
 
-          <div className="pointer-events-auto flex items-center gap-2">
+          <div className="pointer-events-auto flex items-center gap-1.5">
+            {/* Live Team Tactic Quick Toggle */}
+            <button
+              type="button"
+              onClick={() => {
+                const eng = engineRef.current;
+                if (!eng) return;
+                const order: TeamTacticId[] = ['DEFENSIVO', 'EQUILIBRADO', 'OFENSIVO', 'PRESSAO_ALTA'];
+                const next = order[(order.indexOf(eng.userTactic) + 1) % order.length];
+                eng.setTeamTactic(next);
+                setHud(eng.getHudSnapshot());
+              }}
+              className={`px-2.5 py-2 rounded-lg border text-[10px] font-bold text-slate-200 hover:border-emerald-400 cursor-pointer hidden md:flex items-center gap-1 whitespace-nowrap ${hudBg}`}
+              title="Alterar Tática da Equipe (Teclas 1-4)"
+            >
+              <Shield size={13} className="text-emerald-400" />
+              {hud.tactic === 'DEFENSIVO'
+                ? 'DEF'
+                : hud.tactic === 'OFENSIVO'
+                ? 'OFN'
+                : hud.tactic === 'PRESSAO_ALTA'
+                ? 'PRS'
+                : 'EQL'}
+            </button>
+
+            {/* Camera Zoom Cycle */}
+            <button
+              type="button"
+              onClick={() => {
+                const eng = engineRef.current;
+                if (!eng) return;
+                eng.cycleZoomPreset();
+                setHud(eng.getHudSnapshot());
+              }}
+              className={`p-2 rounded-lg border text-slate-200 hover:border-emerald-400 cursor-pointer hidden sm:flex items-center gap-1 text-[10px] font-bold ${hudBg}`}
+              title="Zoom da Câmera (Tecla Z)"
+            >
+              <ZoomIn size={13} className="text-sky-400" />
+              <span className="hidden lg:inline">
+                {hud.zoomPreset === 'close' ? 'Próxima' : hud.zoomPreset === 'wide' ? 'Ampla' : 'Padrão'}
+              </span>
+            </button>
+
+            {/* Minimap Radar Toggle */}
+            <button
+              type="button"
+              onClick={() => {
+                soundEngine.play('menu');
+                setShowRadar((r) => !r);
+              }}
+              className={`p-2 rounded-lg border cursor-pointer hidden sm:flex items-center gap-1 text-[10px] font-bold ${
+                showRadar ? 'text-emerald-300' : 'text-slate-400'
+              } ${hudBg}`}
+              title="Mostrar/Ocultar Radar Tático"
+            >
+              <Eye size={13} />
+            </button>
+
             <div className={`border rounded-lg px-2.5 py-1.5 flex items-center gap-2 ${hudBg}`}>
               <div className="text-right">
                 <div className="text-[11px] font-bold text-white leading-none whitespace-nowrap">
@@ -677,6 +765,49 @@ export const MatchView: React.FC<MatchViewProps> = ({
         </div>
       )}
 
+      {/* Live Tactical Radar / Minimap */}
+      {showRadar &&
+        hud &&
+        (hud.phase === 'PLAYING' || hud.phase === 'KICKOFF' || hud.phase === 'SET_PIECE') && (
+          <div className="pointer-events-none absolute bottom-3 left-1/2 -translate-x-1/2 z-15 hidden sm:block">
+            <svg
+              viewBox="0 0 140 82"
+              className="w-[146px] h-[86px] rounded-lg border border-slate-600/80 bg-[#0A2F1C]/85 shadow-lg"
+            >
+              <rect x="4" y="4" width="132" height="74" fill="none" stroke="rgba(248,250,252,0.45)" strokeWidth="1" />
+              <line x1="70" y1="4" x2="70" y2="78" stroke="rgba(248,250,252,0.35)" strokeWidth="1" />
+              <circle cx="70" cy="41" r="10" fill="none" stroke="rgba(248,250,252,0.35)" strokeWidth="1" />
+              <rect x="4" y="21" width="16" height="40" fill="none" stroke="rgba(248,250,252,0.35)" strokeWidth="1" />
+              <rect x="120" y="21" width="16" height="40" fill="none" stroke="rgba(248,250,252,0.35)" strokeWidth="1" />
+              {hud.radar.players.map((rp, idx) => (
+                <circle
+                  key={idx}
+                  cx={4 + rp.nx * 132}
+                  cy={4 + rp.ny * 74}
+                  r={rp.isUser ? 3.2 : 2.1}
+                  fill={
+                    rp.isUser
+                      ? '#34D399'
+                      : rp.team === 'home'
+                      ? engineRef.current?.activeHomeKit.primary || homeClub.kit.primary
+                      : engineRef.current?.activeAwayKit.primary || awayClub.kit.primary
+                  }
+                  stroke={rp.isUser ? '#FFFFFF' : rp.isGk ? '#FACC15' : '#0F172A'}
+                  strokeWidth={rp.isUser ? '1.1' : '0.6'}
+                />
+              ))}
+              <circle
+                cx={4 + hud.radar.ballX * 132}
+                cy={4 + hud.radar.ballY * 74}
+                r="2.4"
+                fill="#FFFFFF"
+                stroke="#0F172A"
+                strokeWidth="0.8"
+              />
+            </svg>
+          </div>
+        )}
+
       {hud?.isAimingShot && (
         <div className="pointer-events-none absolute bottom-32 right-6 z-20 bg-[#0B121D]/90 border border-amber-400/70 rounded-lg p-2 w-32">
           <div className="text-[10px] font-bold text-amber-300 flex justify-between mb-1">
@@ -693,16 +824,125 @@ export const MatchView: React.FC<MatchViewProps> = ({
       )}
 
       {hud?.phase === 'GOAL_CELEBRATION' && (
+        <div className="absolute bottom-6 right-6 z-25 flex items-center gap-2">
+          {hud.hasReplayAvailable && (
+            <button
+              type="button"
+              onClick={() => engineRef.current?.startGoalReplayNow()}
+              className="px-4 py-2.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-display font-extrabold text-xs shadow-lg cursor-pointer"
+            >
+              Ver Replay
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => engineRef.current?.skipCelebration()}
+            className="px-4 py-2.5 rounded-xl bg-slate-900/90 hover:bg-slate-800 border border-amber-400/70 text-amber-200 font-display font-bold text-xs shadow-lg cursor-pointer"
+          >
+            Pular Comemoração ›
+          </button>
+        </div>
+      )}
+
+      {hud?.phase === 'GOAL_REPLAY' && (
         <button
           type="button"
           onClick={() => engineRef.current?.skipCelebration()}
           className="absolute bottom-6 right-6 z-25 px-4 py-2.5 rounded-xl bg-slate-900/90 hover:bg-slate-800 border border-amber-400/70 text-amber-200 font-display font-bold text-xs shadow-lg cursor-pointer"
         >
-          Pular Comemoração ›
+          Pular Replay ›
         </button>
       )}
 
-      {hud && hud.phase !== 'HALFTIME' && hud.phase !== 'FULLTIME' && hud.phase !== 'GOAL_CELEBRATION' && (
+      {/* Interactive Knockout Penalty Shootout HUD */}
+      {hud?.phase === 'PENALTY_SHOOTOUT' && hud.penaltyShootout && (
+        <div className="absolute inset-x-0 bottom-5 z-30 flex flex-col items-center gap-3 px-4">
+          <div className="bg-[#0B121D]/95 border border-amber-400/60 rounded-2xl p-4 max-w-md w-full space-y-3 shadow-2xl">
+            <div className="flex items-center justify-between text-xs">
+              <span className="font-bold text-amber-300 uppercase">Disputa de Pênaltis</span>
+              <span className="font-mono-num font-bold text-white">
+                {homeClub.shortName} {hud.penaltyShootout.homeScore} x {hud.penaltyShootout.awayScore}{' '}
+                {awayClub.shortName}
+              </span>
+            </div>
+            <div className="flex items-center justify-between gap-4 text-[11px] bg-slate-900/80 px-3 py-2 rounded-lg">
+              <div className="flex items-center gap-1.5">
+                <span className="font-bold text-slate-300">{homeClub.shortName}</span>
+                {Array.from({ length: Math.max(5, hud.penaltyShootout.homeKicks.length) }).map((_, i) => {
+                  const res = hud.penaltyShootout?.homeKicks[i];
+                  return (
+                    <span
+                      key={i}
+                      className={`w-3 h-3 rounded-full border ${
+                        res === 'G'
+                          ? 'bg-emerald-400 border-emerald-200'
+                          : res === 'M'
+                          ? 'bg-red-500 border-red-300'
+                          : 'bg-slate-800 border-slate-600'
+                      }`}
+                    />
+                  );
+                })}
+              </div>
+              <div className="flex items-center gap-1.5">
+                {Array.from({ length: Math.max(5, hud.penaltyShootout.awayKicks.length) }).map((_, i) => {
+                  const res = hud.penaltyShootout?.awayKicks[i];
+                  return (
+                    <span
+                      key={i}
+                      className={`w-3 h-3 rounded-full border ${
+                        res === 'G'
+                          ? 'bg-emerald-400 border-emerald-200'
+                          : res === 'M'
+                          ? 'bg-red-500 border-red-300'
+                          : 'bg-slate-800 border-slate-600'
+                      }`}
+                    />
+                  );
+                })}
+                <span className="font-bold text-slate-300">{awayClub.shortName}</span>
+              </div>
+            </div>
+
+            {hud.penaltyShootout.step === 'WAIT_USER' ? (
+              <div className="space-y-2">
+                <div className="text-center text-xs font-semibold text-white">
+                  {hud.penaltyShootout.userRole === 'KICKER'
+                    ? `Cobrança de ${hud.penaltyShootout.kickerName} — Escolha o canto:`
+                    : 'Defenda o pênalti — Escolha onde o goleiro vai pular:'}
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                  {(
+                    [
+                      { dir: 'left', label: 'Esquerda' },
+                      { dir: 'center', label: 'Centro' },
+                      { dir: 'right', label: 'Direita' },
+                    ] as const
+                  ).map((opt) => (
+                    <button
+                      key={opt.dir}
+                      type="button"
+                      onClick={() => engineRef.current?.submitPenaltyChoice(opt.dir)}
+                      className="py-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-display font-extrabold text-xs cursor-pointer"
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div className="text-center text-xs text-slate-300 py-1">Cobrança em andamento...</div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {hud &&
+        hud.phase !== 'HALFTIME' &&
+        hud.phase !== 'FULLTIME' &&
+        hud.phase !== 'GOAL_CELEBRATION' &&
+        hud.phase !== 'GOAL_REPLAY' &&
+        hud.phase !== 'PENALTY_SHOOTOUT' && (
         <div className={`pointer-events-none absolute z-20 flex flex-col items-end ${btnGap}`}>
           {settings.showMatchHints && (
             <div className="hidden lg:block text-[11px] text-slate-300/85 bg-slate-950/65 px-2.5 py-1 rounded whitespace-nowrap">
@@ -866,8 +1106,13 @@ export const MatchView: React.FC<MatchViewProps> = ({
                 <ClubCrest club={homeClub} size={36} />
                 <span className="font-display font-bold text-base text-white">{homeClub.shortName}</span>
               </div>
-              <div className="font-mono-num text-3xl font-extrabold text-white">
+              <div className="font-mono-num text-3xl font-extrabold text-white text-center">
                 {hud.homeScore} - {hud.awayScore}
+                {(hud.penHomeScore > 0 || hud.penAwayScore > 0) && (
+                  <div className="text-xs text-amber-300 font-bold mt-0.5">
+                    Pênaltis: {hud.penHomeScore} - {hud.penAwayScore}
+                  </div>
+                )}
               </div>
               <div className="flex items-center gap-2">
                 <span className="font-display font-bold text-base text-white">{awayClub.shortName}</span>
@@ -895,40 +1140,159 @@ export const MatchView: React.FC<MatchViewProps> = ({
         </div>
       )}
 
-      {pauseModal && (
-        <div className="absolute inset-0 z-40 bg-slate-950/80 flex items-center justify-center p-4">
-          <div className="bg-[#111B2B] border border-slate-700 rounded-2xl p-5 max-w-sm w-full space-y-3">
-            <h2 className="font-display text-xl font-bold text-white text-center">
-              Partida Pausada
-            </h2>
-            <button
-              type="button"
-              onClick={togglePause}
-              className="w-full py-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-display font-bold text-sm cursor-pointer"
-            >
-              Continuar Partida
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                soundEngine.play('menu');
-                onOpenSettings();
-              }}
-              className="w-full py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold text-sm flex items-center justify-center gap-2 cursor-pointer"
-            >
-              <Settings size={15} />
-              Configurações e Controles
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                soundEngine.play('menu');
-                onAbandonMatch();
-              }}
-              className="w-full py-2.5 rounded-xl bg-red-500/15 hover:bg-red-500/25 border border-red-500/40 text-red-300 font-semibold text-sm cursor-pointer"
-            >
-              Sair da Partida
-            </button>
+      {pauseModal && hud && (
+        <div className="absolute inset-0 z-40 bg-slate-950/85 flex items-center justify-center p-3 overflow-y-auto">
+          <div className="bg-[#111B2B] border border-slate-700 rounded-2xl p-4 sm:p-5 max-w-3xl w-full grid grid-cols-1 md:grid-cols-12 gap-4">
+            <div className="md:col-span-5 space-y-3">
+              <h2 className="font-display text-xl font-bold text-white">Partida Pausada</h2>
+
+              {/* Live Team Tactics Selector */}
+              <div className="space-y-1.5">
+                <div className="text-[11px] font-bold text-slate-400">Tática da Equipe</div>
+                <div className="grid grid-cols-2 gap-1.5">
+                  {(
+                    [
+                      { id: 'DEFENSIVO', label: 'Defensivo' },
+                      { id: 'EQUILIBRADO', label: 'Equilibrado' },
+                      { id: 'OFENSIVO', label: 'Ofensivo' },
+                      { id: 'PRESSAO_ALTA', label: 'Pressão Alta' },
+                    ] as { id: TeamTacticId; label: string }[]
+                  ).map((t) => (
+                    <button
+                      key={t.id}
+                      type="button"
+                      onClick={() => {
+                        const eng = engineRef.current;
+                        if (!eng) return;
+                        eng.setTeamTactic(t.id);
+                        setHud(eng.getHudSnapshot());
+                      }}
+                      className={`py-2 px-2.5 rounded-lg border text-xs font-semibold cursor-pointer ${
+                        hud.tactic === t.id
+                          ? 'bg-emerald-500/20 border-emerald-400 text-emerald-300'
+                          : 'bg-slate-900 border-slate-700 text-slate-300'
+                      }`}
+                    >
+                      {t.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Camera Zoom Preset */}
+              <div className="space-y-1.5">
+                <div className="text-[11px] font-bold text-slate-400">Zoom da Câmera</div>
+                <div className="grid grid-cols-3 gap-1.5">
+                  {(
+                    [
+                      { id: 'close', label: 'Próxima' },
+                      { id: 'normal', label: 'Padrão' },
+                      { id: 'wide', label: 'Ampla' },
+                    ] as { id: CameraZoomPreset; label: string }[]
+                  ).map((z) => (
+                    <button
+                      key={z.id}
+                      type="button"
+                      onClick={() => {
+                        const eng = engineRef.current;
+                        if (!eng) return;
+                        eng.setZoomPreset(z.id);
+                        setHud(eng.getHudSnapshot());
+                      }}
+                      className={`py-1.5 rounded-lg border text-xs font-semibold cursor-pointer ${
+                        hud.zoomPreset === z.id
+                          ? 'bg-sky-500/20 border-sky-400 text-sky-300'
+                          : 'bg-slate-900 border-slate-700 text-slate-300'
+                      }`}
+                    >
+                      {z.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Tactical Bench Substitution */}
+              <button
+                type="button"
+                disabled={hud.benchCountUser === 0 || hud.subsUsedUser >= 5}
+                onClick={() => {
+                  const eng = engineRef.current;
+                  if (!eng) return;
+                  eng.performSubstitution(eng.userTeam);
+                  setHud(eng.getHudSnapshot());
+                }}
+                className="w-full py-2.5 rounded-xl bg-sky-500/20 hover:bg-sky-500/30 disabled:opacity-40 border border-sky-400/50 text-sky-200 font-semibold text-xs flex items-center justify-center gap-2 cursor-pointer"
+              >
+                <RefreshCw size={14} />
+                Substituir Cansado ({5 - hud.subsUsedUser} rest.)
+              </button>
+
+              <button
+                type="button"
+                onClick={togglePause}
+                className="w-full py-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-display font-bold text-sm cursor-pointer"
+              >
+                Continuar Partida
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  soundEngine.play('menu');
+                  onOpenSettings();
+                }}
+                className="w-full py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold text-sm flex items-center justify-center gap-2 cursor-pointer"
+              >
+                <Settings size={15} />
+                Configurações e Controles
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  soundEngine.play('menu');
+                  onAbandonMatch();
+                }}
+                className="w-full py-2.5 rounded-xl bg-red-500/15 hover:bg-red-500/25 border border-red-500/40 text-red-300 font-semibold text-sm cursor-pointer"
+              >
+                Sair da Partida
+              </button>
+            </div>
+
+            {/* Live Match Telemetry & Starting XI Stamina/Ratings */}
+            <div className="md:col-span-7 space-y-3 border-t md:border-t-0 md:border-l border-slate-800 pt-3 md:pt-0 md:pl-4">
+              <div className="text-xs font-bold text-slate-300">Estatísticas ao Vivo</div>
+              <div className="grid grid-cols-2 gap-1.5 text-xs">
+                <StatCompare label="Posse" left={`${hud.possessionHomePct}%`} right={`${100 - hud.possessionHomePct}%`} />
+                <StatCompare label="Chutes" left={hud.teamShotsHome} right={hud.teamShotsAway} />
+                <StatCompare label="Passes" left={hud.teamPassesHome} right={hud.teamPassesAway} />
+                <StatCompare label="Escanteios" left={hud.teamCornersHome} right={hud.teamCornersAway} />
+                <StatCompare label="Impedim." left={hud.teamOffsidesHome} right={hud.teamOffsidesAway} />
+                <StatCompare label="Faltas" left={hud.teamFoulsHome} right={hud.teamFoulsAway} />
+              </div>
+
+              <div className="text-xs font-bold text-slate-300">Notas & Energia (11 em Campo)</div>
+              <div className="max-h-52 overflow-y-auto custom-scroll space-y-1 pr-1">
+                {hud.userLineupRatings.map((pl) => (
+                  <div
+                    key={pl.id}
+                    className={`flex items-center justify-between px-2.5 py-1.5 rounded-lg border text-[11px] ${
+                      pl.isUser
+                        ? 'bg-emerald-500/15 border-emerald-500/50 text-white'
+                        : 'bg-slate-900/70 border-slate-800 text-slate-200'
+                    }`}
+                  >
+                    <span className="truncate font-medium">
+                      #{pl.number} {pl.name} · {getPositionMeta(pl.position).code}
+                    </span>
+                    <div className="flex items-center gap-2.5 shrink-0 font-mono-num">
+                      <span className={pl.stamina < 35 ? 'text-amber-400' : 'text-emerald-400'}>
+                        {pl.stamina}%
+                      </span>
+                      <span className="font-bold text-amber-300">{pl.rating.toFixed(1)}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
       )}

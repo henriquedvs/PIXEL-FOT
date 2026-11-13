@@ -19,6 +19,7 @@ export interface PixelPlayerVisual {
   kit: ClubKit;
   isGoalkeeper: boolean;
   isUserControlled: boolean;
+  isCaptain?: boolean;
   facingAngle: number;
   animPhase: number;
   isSprinting: boolean;
@@ -27,6 +28,22 @@ export interface PixelPlayerVisual {
   action?: PlayerAnimAction;
   zOffset?: number;
   viewAngle?: 'front' | 'back' | 'side';
+}
+
+export interface TurfScuffMark {
+  x: number;
+  y: number;
+  angle: number;
+  length: number;
+  alpha: number;
+  kind: 'slide' | 'scuff';
+}
+
+export interface BallTrailPoint {
+  x: number;
+  y: number;
+  z: number;
+  alpha: number;
 }
 
 function px(
@@ -124,6 +141,19 @@ export function drawPixelPlayerSprite(
     ctx.beginPath();
     ctx.ellipse(0, 6 * s, 7.8 * s, 4.2 * s, 0, 0, Math.PI * 2);
     ctx.stroke();
+
+    // #11: Crisp directional aim triangle under controlled player's feet
+    const dirX = Math.cos(visual.facingAngle) * 10.5 * s;
+    const dirY = Math.sin(visual.facingAngle) * 5.8 * s + 6 * s;
+    ctx.fillStyle = visual.hasBall ? '#FACC15' : '#34D399';
+    ctx.fillRect(Math.round(dirX - 2), Math.round(dirY - 2), 4, 4);
+  }
+
+  // #17: Skill dribble sparkle boots glow
+  if (mode === 'match' && visual.isDribbling) {
+    const spOff = Math.sin(animPhase * 4) * 3 * s;
+    px(ctx, -6 * s + spOff, 4 * s, 2 * s, 2 * s, '#FACC15');
+    px(ctx, 4 * s - spOff, 3 * s, 2 * s, 2 * s, '#38BDF8');
   }
 
   ctx.translate(0, Math.round(-jumpLift));
@@ -268,8 +298,8 @@ export function drawPixelPlayerSprite(
     px(ctx, torsoX - 1.5 * s, leftArmY, 1.5 * s, sleeveH * s, shirtMain);
     px(ctx, torsoX + torsoW, rightArmY, 1.5 * s, sleeveH * s, shirtMain);
 
-    if (gear.accessory === 'Bracadeira') {
-      px(ctx, torsoX - 1.5 * s, leftArmY + 1.4 * s, 1.5 * s, 0.8 * s, '#FACC15');
+    if (gear.accessory === 'Bracadeira' || visual.isCaptain) {
+      px(ctx, torsoX - 1.5 * s, leftArmY + 1.4 * s, 1.5 * s, 0.85 * s, '#FACC15');
     } else if (gear.accessory === 'Munhequeira') {
       px(ctx, torsoX - 1.5 * s, leftArmY + 2.8 * s, 1.5 * s, 0.8 * s, '#F8FAFC');
       px(ctx, torsoX + torsoW, rightArmY + 2.8 * s, 1.5 * s, 0.8 * s, '#F8FAFC');
@@ -279,8 +309,18 @@ export function drawPixelPlayerSprite(
     }
   }
 
-  // Preview Jersey Name & Number (Back view prints shirtName + large number; Front shows badge number)
-  if (mode === 'preview') {
+  // #10: Crisp jersey number visible on sprites during match + Preview Name/Number
+  if (mode === 'match') {
+    const numCol =
+      shirtMain.toUpperCase() === '#FFFFFF' || shirtMain.toUpperCase() === '#F8FAFC'
+        ? '#0F172A'
+        : '#FFFFFF';
+    ctx.fillStyle = numCol;
+    ctx.font = `bold ${Math.max(7, Math.round(1.9 * s))}px "JetBrains Mono", monospace`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(String(gear.jerseyNumber), 0, Math.round(-2.1 * s));
+  } else if (mode === 'preview') {
     if (isBackView) {
       const backName = (gear.shirtName || 'CRAQUE').toUpperCase().slice(0, 10);
       ctx.fillStyle = '#0B121D';
@@ -1045,6 +1085,9 @@ export function drawPixelStadium(
     env?: MatchEnvironment;
     environmentalEffects?: boolean;
     effectsIntensity?: number;
+    cameraFlash?: number;
+    fourthOfficialText?: string;
+    scuffMarks?: TurfScuffMark[];
   }
 ) {
   const g = PITCH_GEO;
@@ -1118,10 +1161,62 @@ export function drawPixelStadium(
     px(ctx, 152, 130, g.worldW - 304, g.worldH - 260, '#111A26');
   }
 
-  // Perimeter security fence / wall
+  // Perimeter security fence / concrete wall + #14 Stadium access gates
   ctx.strokeStyle = '#64748B';
   ctx.lineWidth = 3;
   ctx.strokeRect(150, 128, g.worldW - 300, g.worldH - 256);
+  // Concrete corner posts & side access gates
+  [210, g.worldW - 224].forEach((gx) => {
+    px(ctx, gx, 125, 14, 7, '#94A3B8');
+    px(ctx, gx, g.worldH - 132, 14, 7, '#94A3B8');
+  });
+
+  // #5: Medical tent & stretcher near tunnel
+  px(ctx, g.worldW / 2 + 64, g.worldH - 130, 38, 20, '#F8FAFC');
+  px(ctx, g.worldW / 2 + 80, g.worldH - 126, 6, 12, '#EF4444');
+  px(ctx, g.worldW / 2 + 77, g.worldH - 123, 12, 6, '#EF4444');
+
+  // #5: Ball-stop protective catcher nets behind both goals
+  const midNetY = g.pitchY + g.pitchH / 2;
+  ctx.strokeStyle = 'rgba(148, 163, 184, 0.25)';
+  ctx.lineWidth = 1;
+  [g.pitchX - 66, g.pitchX + g.pitchW + 66].forEach((nx) => {
+    ctx.beginPath();
+    ctx.moveTo(nx, midNetY - 125);
+    ctx.lineTo(nx, midNetY + 125);
+    ctx.stroke();
+  });
+
+  // #3: Ball boys (Gandulas) in bibs around perimeter
+  const ballBoys = [
+    { x: g.pitchX + 120, y: g.pitchY - 30 },
+    { x: g.pitchX + g.pitchW - 120, y: g.pitchY - 30 },
+    { x: g.pitchX + 120, y: g.pitchY + g.pitchH + 26 },
+    { x: g.pitchX + g.pitchW - 120, y: g.pitchY + g.pitchH + 26 },
+  ];
+  ballBoys.forEach((bb, idx) => {
+    px(ctx, bb.x - 3, bb.y - 3, 7, 6, '#F59E0B');
+    px(ctx, bb.x - 2, bb.y - 7, 4, 4, SKIN_TONES[idx % SKIN_TONES.length]);
+    px(ctx, bb.x + 5, bb.y, 4, 4, '#FFFFFF');
+  });
+
+  // #4: Sideline Photographers behind both goals + Camera Flash bursts
+  const flash = options?.cameraFlash ?? 0;
+  const photographers = [
+    { x: g.pitchX - 58, y: midNetY - 96 },
+    { x: g.pitchX - 58, y: midNetY + 90 },
+    { x: g.pitchX + g.pitchW + 52, y: midNetY - 96 },
+    { x: g.pitchX + g.pitchW + 52, y: midNetY + 90 },
+  ];
+  photographers.forEach((ph, idx) => {
+    px(ctx, ph.x - 4, ph.y - 4, 8, 7, '#0F172A');
+    px(ctx, ph.x - 2, ph.y - 8, 5, 4, SKIN_TONES[(idx + 1) % SKIN_TONES.length]);
+    px(ctx, ph.x + (ph.x < g.worldW / 2 ? 3 : -6), ph.y - 4, 4, 3, '#475569');
+    if (flash > 0.15 && Math.floor(timeSec * 18 + idx) % 3 === 0) {
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.92)';
+      ctx.fillRect(ph.x - 6, ph.y - 10, 13, 13);
+    }
+  });
 
   // Sector Signage & Club Banners (Faixas)
   const sectorNames = [
@@ -1179,6 +1274,20 @@ export function drawPixelStadium(
       mood === 'goal_away',
       timeSec
     );
+  }
+
+  // #2: 4th Official with glowing substitution / added-time board
+  const fourthX = g.pitchX + g.pitchW / 2;
+  const fourthY = g.pitchY - 34;
+  px(ctx, fourthX - 4, fourthY - 4, 8, 8, '#0F172A');
+  px(ctx, fourthX - 2, fourthY - 8, 5, 4, '#E0AC69');
+  if (options?.fourthOfficialText) {
+    px(ctx, fourthX + 6, fourthY - 12, 22, 11, '#020617');
+    ctx.fillStyle = '#34D399';
+    ctx.font = 'bold 7px "JetBrains Mono", monospace';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(options.fourthOfficialText, fourthX + 17, fourthY - 6);
   }
 
   // 4. Live Jumbotrons / Telões
@@ -1324,7 +1433,7 @@ export function drawPixelStadium(
     );
   }
 
-  // 9. Flares / Sinalizadores on goals or opening mosaic
+  // 9. Flares / Sinalizadores on goals or opening mosaic + #14 rising colored smoke
   if ((options?.showMosaic || goalExcitement > 0.2) && options?.environmentalEffects !== false) {
     const flareSpots = [190, 490, 1110, 1410];
     flareSpots.forEach((fx, idx) => {
@@ -1334,6 +1443,13 @@ export function drawPixelStadium(
       ctx.fillRect(fx - flicker, fy - flicker, flicker * 2, flicker * 2);
       ctx.fillStyle = '#FEF08A';
       ctx.fillRect(fx - 2, fy - 2, 5, 5);
+      // Rising colored pixel smoke plumes
+      for (let sm = 1; sm <= 3; sm++) {
+        const driftX = Math.sin(timeSec * 3 + idx + sm) * 6;
+        const riseY = fy - sm * 10 - ((timeSec * 14 + idx * 7) % 14);
+        ctx.fillStyle = sm === 1 ? 'rgba(248,250,252,0.28)' : 'rgba(203,213,225,0.18)';
+        ctx.fillRect(Math.round(fx - 4 + driftX), Math.round(riseY), 9 + sm * 2, 7);
+      }
     });
   }
 
@@ -1393,7 +1509,7 @@ export function drawPixelStadium(
     ctx.fillRect(Math.round(g.pitchX + i * sw), g.pitchY, Math.ceil(sw), g.pitchH);
   }
 
-  // Wet Turf Puddles & Floodlight Reflections in Rain
+  // Wet Turf Puddles & Animated Rain Ripples + Floodlight Reflections
   if (isRain && options?.env) {
     const puddleCount = options.env.weather === 'Chuva forte' ? 11 : 5;
     for (let i = 0; i < puddleCount; i++) {
@@ -1402,10 +1518,30 @@ export function drawPixelStadium(
       ctx.fillStyle = 'rgba(125, 211, 252, 0.16)';
       ctx.fillRect(pxPos, pyPos, 30, 12);
       ctx.fillRect(pxPos + 6, pyPos - 3, 18, 18);
+      // Animated raindrop ripple rings
+      const rip = ((timeSec * 1.8 + i * 0.37) % 1) * 10;
+      ctx.strokeStyle = `rgba(186, 230, 253, ${0.32 * (1 - rip / 10)})`;
+      ctx.lineWidth = 1;
+      ctx.strokeRect(Math.round(pxPos + 15 - rip), Math.round(pyPos + 6 - rip * 0.5), Math.round(rip * 2), Math.round(rip));
       if (lightsOn) {
         ctx.fillStyle = 'rgba(254, 240, 138, 0.22)';
         ctx.fillRect(pxPos + 8 + Math.round(Math.sin(timeSec * 5 + i) * 2), pyPos + 2, 10, 4);
       }
+    }
+  }
+
+  // #7: Persistent Turf Scuff & Slide Marks
+  if (options?.scuffMarks && options.scuffMarks.length > 0) {
+    for (const mk of options.scuffMarks) {
+      ctx.save();
+      ctx.translate(Math.round(mk.x), Math.round(mk.y));
+      ctx.rotate(mk.angle);
+      ctx.fillStyle =
+        mk.kind === 'slide'
+          ? `rgba(20, 83, 45, ${mk.alpha * 0.58})`
+          : `rgba(120, 53, 15, ${mk.alpha * 0.45})`;
+      ctx.fillRect(0, -2, mk.length, 4);
+      ctx.restore();
     }
   }
 
@@ -1632,11 +1768,60 @@ export function drawPixelBall(
   ctx.strokeRect(Math.round(x - r), drawY - r, r * 2, r * 2);
 }
 
+export function drawPixelBallTrail(
+  ctx: CanvasRenderingContext2D,
+  trail: BallTrailPoint[]
+) {
+  for (let i = 0; i < trail.length; i++) {
+    const pt = trail[i];
+    const r = Math.max(2, Math.round(5 * pt.alpha));
+    ctx.fillStyle = `rgba(248, 250, 252, ${pt.alpha * 0.36})`;
+    ctx.fillRect(Math.round(pt.x - r), Math.round(pt.y - pt.z - r), r * 2, r * 2);
+  }
+}
+
+export function drawPixelLinesman(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  animPhase: number,
+  flagRaised: boolean,
+  isTop: boolean
+) {
+  const stride = Math.sin(animPhase) * 1.5;
+  ctx.save();
+  ctx.translate(Math.round(x), Math.round(y));
+
+  ctx.fillStyle = 'rgba(0,0,0,0.28)';
+  ctx.fillRect(-6, 8, 12, 3);
+
+  px(ctx, -3, 2 + stride * 0.5, 2, 5, '#111827');
+  px(ctx, 1, 2 - stride * 0.5, 2, 5, '#111827');
+  px(ctx, -4, -1, 8, 3, '#0F172A');
+  px(ctx, -5, -7, 10, 6, '#38BDF8');
+  px(ctx, -3, -13, 6, 6, '#E2B48F');
+  px(ctx, -3, -15, 6, 2, '#1E293B');
+
+  // Assistant referee flag
+  if (flagRaised) {
+    px(ctx, 5, -18, 2, 12, '#F8FAFC');
+    px(ctx, 7, -18, 7, 5, '#FACC15');
+    px(ctx, 7, -15, 4, 2, '#EF4444');
+  } else {
+    const dirY = isTop ? -4 : 0;
+    px(ctx, 5, dirY, 2, 7, '#F8FAFC');
+    px(ctx, 7, dirY + 3, 5, 4, '#FACC15');
+  }
+
+  ctx.restore();
+}
+
 export function drawPixelReferee(
   ctx: CanvasRenderingContext2D,
   x: number,
   y: number,
-  animPhase: number
+  animPhase: number,
+  cardColor?: 'yellow' | 'red' | null
 ) {
   const stride = Math.sin(animPhase) * 2;
   ctx.save();
@@ -1653,5 +1838,44 @@ export function drawPixelReferee(
   px(ctx, -4, -15, 8, 7, '#E2B48F');
   px(ctx, -4, -17, 8, 3, '#1E293B');
 
+  // #16: Overhead pixel yellow / red card animation
+  if (cardColor) {
+    px(ctx, 5, -23, 3, 14, '#E2B48F');
+    px(ctx, 4, -30, 6, 8, cardColor === 'red' ? '#EF4444' : '#FACC15');
+    ctx.strokeStyle = '#0F172A';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(4, -30, 6, 8);
+  }
+
   ctx.restore();
 }
+
+export function drawReplayOverlay(
+  ctx: CanvasRenderingContext2D,
+  canvasW: number,
+  canvasH: number,
+  timeSec: number,
+  scorerName: string
+) {
+  // Subtle CRT scanline broadcast frame during instant goal replay
+  ctx.fillStyle = 'rgba(15, 23, 42, 0.14)';
+  for (let y = 0; y < canvasH; y += 6) {
+    ctx.fillRect(0, y, canvasW, 1);
+  }
+  ctx.strokeStyle = 'rgba(250, 204, 21, 0.45)';
+  ctx.lineWidth = 4;
+  ctx.strokeRect(8, 8, canvasW - 16, canvasH - 16);
+
+  if (Math.floor(timeSec * 3) % 2 === 0) {
+    ctx.fillStyle = '#EF4444';
+    ctx.fillRect(24, 72, 10, 10);
+  }
+  ctx.fillStyle = 'rgba(11, 18, 29, 0.9)';
+  ctx.fillRect(38, 66, 178, 22);
+  ctx.fillStyle = '#FACC15';
+  ctx.font = 'bold 11px "JetBrains Mono", monospace';
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(`REPLAY · ${scorerName.slice(0, 14).toUpperCase()}`, 44, 77);
+}
+

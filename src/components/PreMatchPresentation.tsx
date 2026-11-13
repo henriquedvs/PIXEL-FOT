@@ -14,13 +14,17 @@ import {
 import { soundEngine } from '../audio/soundEngine';
 import { getPositionMeta } from '../data/positions';
 import {
+  KitSlotChoice,
+  resolveKitSelection,
+} from '../engine/matchEngine';
+import {
   drawPixelPlayerSprite,
   drawPixelStadium,
   drawWeatherAndLightingOverlay,
   generateCrowd,
   PITCH_GEO,
 } from '../engine/pixelRenderer';
-import { Club, MatchEnvironment, PlayerCareer } from '../types/game';
+import { Club, ClubKit, MatchEnvironment, PlayerCareer } from '../types/game';
 import { ClubCrest } from './ClubCrest';
 import { PixelPortrait } from './PixelPortrait';
 
@@ -29,7 +33,7 @@ interface PreMatchPresentationProps {
   homeClub: Club;
   awayClub: Club;
   env: MatchEnvironment;
-  onStartMatch: () => void;
+  onStartMatch: (kits?: { homeKitOverride: ClubKit; awayKitOverride: ClubKit }) => void;
 }
 
 type IntroStep = 'STADIUM' | 'LINEUPS' | 'ENTRANCE';
@@ -50,7 +54,11 @@ export const PreMatchPresentation: React.FC<PreMatchPresentationProps> = ({
 }) => {
   const [step, setStep] = useState<IntroStep>('STADIUM');
   const [shotIdx, setShotIdx] = useState(0);
+  const [kitChoice, setKitChoice] = useState<KitSlotChoice>('home');
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+
+  const userTeam: 'home' | 'away' = career.clubId === homeClub.id ? 'home' : 'away';
+  const resolvedKits = resolveKitSelection(homeClub, awayClub, userTeam, kitChoice);
 
   const isSpecialMatch =
     env.competitionName.includes('Final') ||
@@ -76,12 +84,12 @@ export const PreMatchPresentation: React.FC<PreMatchPresentationProps> = ({
     if (!ctx) return;
 
     const crowd = generateCrowd(
-      homeClub.kit.primary,
-      homeClub.kit.secondary,
-      awayClub.kit.primary,
+      resolvedKits.homeKit.primary,
+      resolvedKits.homeKit.secondary,
+      resolvedKits.awayKit.primary,
       'high',
       {
-        awaySecondary: awayClub.kit.secondary,
+        awaySecondary: resolvedKits.awayKit.secondary,
         capacity: env.stadium.capacity,
         importance: isSpecialMatch ? 0.98 : 0.78,
       }
@@ -150,8 +158,8 @@ export const PreMatchPresentation: React.FC<PreMatchPresentationProps> = ({
 
       drawPixelStadium(ctx, crowd, t, step === 'ENTRANCE' ? 0.65 : 0.4, 0, 0, 'high', {
         stadium: env.stadium,
-        homeKit: homeClub.kit,
-        awayKit: awayClub.kit,
+        homeKit: resolvedKits.homeKit,
+        awayKit: resolvedKits.awayKit,
         homeShort: homeClub.shortName,
         awayShort: awayClub.shortName,
         homeScore: 0,
@@ -210,7 +218,7 @@ export const PreMatchPresentation: React.FC<PreMatchPresentationProps> = ({
                 ...career.gear,
                 jerseyNumber: isHomeUser ? career.gear.jerseyNumber : hm?.number ?? i + 1,
               },
-              kit: homeClub.kit,
+              kit: resolvedKits.homeKit,
               isGoalkeeper: i === 0,
               isUserControlled: isHomeUser,
               facingAngle: -Math.PI / 2,
@@ -246,7 +254,7 @@ export const PreMatchPresentation: React.FC<PreMatchPresentationProps> = ({
                 ...career.gear,
                 jerseyNumber: isAwayUser ? career.gear.jerseyNumber : am?.number ?? i + 1,
               },
-              kit: awayClub.kit,
+              kit: resolvedKits.awayKit,
               isGoalkeeper: i === 0,
               isUserControlled: isAwayUser,
               facingAngle: -Math.PI / 2,
@@ -299,7 +307,10 @@ export const PreMatchPresentation: React.FC<PreMatchPresentationProps> = ({
           type="button"
           onClick={() => {
             soundEngine.play('whistle');
-            onStartMatch();
+            onStartMatch({
+              homeKitOverride: resolvedKits.homeKit,
+              awayKitOverride: resolvedKits.awayKit,
+            });
           }}
           className="px-3.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-200 cursor-pointer whitespace-nowrap"
         >
@@ -401,10 +412,49 @@ export const PreMatchPresentation: React.FC<PreMatchPresentationProps> = ({
         </div>
       )}
 
-      {/* STEP 2: STARTING XI LINEUPS WITH TACTICAL PITCH BOARD, PIXEL PORTRAITS & COACHES */}
+      {/* STEP 2: STARTING XI LINEUPS WITH TACTICAL PITCH BOARD, KIT SELECTOR & COACHES */}
       {step === 'LINEUPS' && (
         <div className="flex-1 overflow-y-auto custom-scroll p-4">
           <div className="max-w-6xl mx-auto space-y-4">
+            {/* Kit Selector & Auto Color Clash Prevention */}
+            <div className="bg-[#111B2B] border border-slate-800 rounded-xl p-3 flex flex-wrap items-center justify-between gap-3">
+              <div className="text-xs text-slate-300">
+                <span className="font-bold text-white">Uniforme do seu time:</span>{' '}
+                {resolvedKits.clashResolved && (
+                  <span className="text-emerald-400">· Adversário ajustado para evitar choque de cores</span>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                {(['home', 'away', 'third'] as KitSlotChoice[]).map((slot, idx) => {
+                  const uClub = userTeam === 'home' ? homeClub : awayClub;
+                  const kit =
+                    slot === 'away' ? uClub.awayKit : slot === 'third' ? uClub.thirdKit : uClub.kit;
+                  if (!kit) return null;
+                  const label = idx === 0 ? 'Uniforme 1' : idx === 1 ? 'Uniforme 2' : 'Uniforme 3';
+                  return (
+                    <button
+                      key={slot}
+                      type="button"
+                      onClick={() => {
+                        soundEngine.play('menu');
+                        setKitChoice(slot);
+                      }}
+                      className={`px-3 py-1.5 rounded-lg border text-xs font-semibold flex items-center gap-2 cursor-pointer ${
+                        kitChoice === slot
+                          ? 'bg-emerald-500/20 border-emerald-400 text-emerald-300'
+                          : 'bg-slate-900 border-slate-700 text-slate-300 hover:border-slate-500'
+                      }`}
+                    >
+                      <span
+                        className="w-3.5 h-3.5 rounded-sm border border-white/40 inline-block"
+                        style={{ backgroundColor: kit.primary }}
+                      />
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {[
                 { club: homeClub, label: 'Mandante' },
@@ -646,7 +696,10 @@ export const PreMatchPresentation: React.FC<PreMatchPresentationProps> = ({
               type="button"
               onClick={() => {
                 soundEngine.play('whistle');
-                onStartMatch();
+                onStartMatch({
+                  homeKitOverride: resolvedKits.homeKit,
+                  awayKitOverride: resolvedKits.awayKit,
+                });
               }}
               className="px-7 py-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-display font-extrabold text-sm flex items-center gap-2 cursor-pointer whitespace-nowrap"
             >
