@@ -45,6 +45,7 @@ import {
 import { PixelPortrait } from './PixelPortrait';
 import { SeasonCalendarView } from './SeasonCalendarView';
 import { TrainingMinigame } from './TrainingMinigame';
+import './CareerHub.css';
 
 interface CareerHubProps {
   career: PlayerCareer;
@@ -187,417 +188,130 @@ export const CareerHub: React.FC<CareerHubProps> = ({
   const completedObjectivesCount = (career.objectives || []).filter((o) => o.completed).length;
 
   return (
-    <div className="w-full h-[100dvh] bg-[#0B121D] text-slate-100 flex flex-col overflow-hidden animate-fadeIn">
-      {/* Top Bar */}
-      <header className="px-4 py-2.5 border-b border-slate-800 bg-[#0D1624] flex items-center justify-between gap-3 shrink-0">
-        <div className="flex items-center gap-3 min-w-0">
-          <PixelPortrait
-            skinColor={career.appearance.skinColor}
-            hairColor={career.appearance.hairColor}
-            hairStyle={career.appearance.hairStyle}
-            shirtPrimary={club.kit.primary}
-            shirtSecondary={club.kit.secondary}
-            size={36}
-          />
-          <ClubCrest club={club} size={34} className="shrink-0" />
-          <div className="min-w-0">
-            <div className="font-display font-bold text-sm sm:text-base text-white truncate">
-              {career.personal.nickname || career.personal.firstName} · #{career.gear.jerseyNumber}
-            </div>
-            <div className="text-[11px] text-slate-400 truncate">
-              {club.name} · {posMeta.code} · OVR {career.ovr} · Fadiga {career.fatigue}%
-            </div>
+    <div className="career-hub-shell animate-fadeIn">
+      <header className="career-topbar">
+        <div className="career-club-identity">
+          <ClubCrest club={club} size={32} />
+          <div className="career-club-copy">
+            <strong>{club.shortName || club.name}</strong>
+            <span>{club.name} <i /> {career.contract.role}</span>
           </div>
         </div>
-
-        <div className="flex items-center gap-2 shrink-0">
-          {currentDay && (
-            <span className="hidden md:inline-block text-xs font-mono-num text-emerald-400 bg-slate-900 border border-slate-800 px-2.5 py-1 rounded-lg">
-              {currentDay.weekday} {currentDay.dateLabel} · {currentDay.title}
-            </span>
-          )}
-          <button
-            type="button"
-            onClick={() => {
-              clickSfx();
-              onOpenSettings();
-            }}
-            className="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 cursor-pointer"
-            aria-label="Configurações"
-          >
-            <Settings size={16} />
+        <div className="career-date-chip">
+          <Calendar size={15} />
+          <span>{currentDay ? `${currentDay.dateLabel} · ${career.season}` : `TEMPORADA ${career.season}`}</span>
+        </div>
+        <div className="career-top-actions">
+          <button type="button" className="career-icon-button" onClick={() => { clickSfx(); onOpenSettings(); }} aria-label="Configurações" title="Configurações">
+            <Settings size={17} />
           </button>
-          <button
-            type="button"
-            onClick={() => {
-              clickSfx();
-              onBackToMenu();
-            }}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-medium text-slate-200 cursor-pointer whitespace-nowrap"
-          >
-            <Home size={14} />
-            Menu
+          <button type="button" className="career-menu-button" onClick={() => { clickSfx(); onBackToMenu(); }}>
+            <Home size={15} /> <span>Menu</span>
           </button>
         </div>
       </header>
 
-      {/* Navigation Tabs */}
-      <nav className="px-3 py-2 border-b border-slate-800 bg-[#0E1623] flex items-center gap-1.5 overflow-x-auto shrink-0">
-        {(
-          [
-            { id: 'CENTRAL', label: 'Central da Carreira', icon: LayoutDashboard },
-            { id: 'CALENDARIO', label: 'Calendário', icon: Calendar },
-            { id: 'TREINO', label: `Treinos (${career.trainingPoints})`, icon: Dumbbell },
-            { id: 'COMPETICOES', label: 'Competições', icon: Trophy },
-            { id: 'NOTICIAS', label: `Notícias (${(career.news || []).length})`, icon: Newspaper },
-            {
-              id: 'OBJETIVOS',
-              label: `Objetivos (${completedObjectivesCount}/${(career.objectives || []).length})`,
-              icon: Target,
-            },
-            { id: 'ESTATS', label: 'Perfil & Estats', icon: BarChart3 },
-            { id: 'CONTRATO', label: `Contrato (${career.offers.length})`, icon: Briefcase },
-          ] as const
-        ).map((t) => {
-          const Icon = t.icon;
-          const active = tab === t.id;
-          return (
-            <button
-              key={t.id}
-              type="button"
-              onClick={() => {
-                clickSfx();
-                setTab(t.id);
-              }}
-              className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap shrink-0 ${
-                active
-                  ? 'bg-emerald-500 text-slate-950'
-                  : 'bg-slate-800/75 text-slate-300 hover:bg-slate-800'
-              }`}
-            >
-              <Icon size={14} />
-              {t.label}
-            </button>
-          );
-        })}
-      </nav>
+      <main className="career-main custom-scroll">
 
-      {/* Main Content */}
-      <main className="flex-1 overflow-y-auto custom-scroll">
         {tab === 'CENTRAL' && (
-          <div className="max-w-6xl mx-auto p-4 grid grid-cols-1 lg:grid-cols-12 gap-4">
-            {/* Left Column: Player Identity Card + Auto Highlights + Next Match */}
-            <div className="lg:col-span-7 space-y-4">
-              {/* Player Card */}
-              <section className="bg-[#111B2B] border border-slate-800 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <div className="flex items-center gap-3.5 min-w-0">
+          <div className="career-overview">
+            <section className="career-panel career-player-panel">
+              <div className="career-panel-kicker">TEMPORADA {career.season} <span>·</span> {career.contract.role.toUpperCase()}</div>
+              <div className="career-player-heading">
+                <div className="career-player-avatar">
                   <PixelPortrait
                     skinColor={career.appearance.skinColor}
                     hairColor={career.appearance.hairColor}
                     hairStyle={career.appearance.hairStyle}
                     shirtPrimary={club.kit.primary}
                     shirtSecondary={club.kit.secondary}
-                    size={56}
+                    size={74}
                   />
-                  <div className="min-w-0">
-                    <div className="text-[11px] font-bold uppercase text-emerald-400">
-                      Temp. {career.season} · {career.contract.role} · #{career.gear.jerseyNumber}
-                    </div>
-                    <h1 className="font-display font-extrabold text-lg text-white truncate">
-                      {career.personal.nickname || `${career.personal.firstName} ${career.personal.lastName}`}
-                    </h1>
-                    <div className="text-xs text-slate-400 truncate">
-                      {age} anos · {career.personal.nationality} · {posMeta.name} · {club.name}
-                    </div>
-                  </div>
                 </div>
-
-                <div className="grid grid-cols-4 gap-2 shrink-0">
-                  <MiniMeter label="OVR" value={career.ovr} unit="" highlight />
-                  <MiniMeter label="Série A" value={leaguePos || 1} unit="º" />
-                  <MiniMeter label="Gols" value={career.seasonStats.goals} unit="" />
-                  <MiniMeter label="Assist." value={career.seasonStats.assists} unit="" />
+                <div className="career-player-nameblock">
+                  <h1>{career.personal.nickname || `${career.personal.firstName} ${career.personal.lastName}`}</h1>
+                  <p>#{career.gear.jerseyNumber} <span>·</span> {posMeta.name}</p>
+                  <small>{age} anos <span>·</span> {career.personal.nationality}</small>
                 </div>
-              </section>
+              </div>
+              <div className="career-player-rating-row">
+                <div className="career-overall"><small>OVR</small><strong>{career.ovr}</strong></div>
+                <div className="career-stat"><small>GOLS</small><strong>{career.seasonStats.goals}</strong></div>
+                <div className="career-stat"><small>ASSIST.</small><strong>{career.seasonStats.assists}</strong></div>
+              </div>
+              <div className="career-club-row"><ClubCrest club={club} size={21} /><span>{club.name}</span><b>{leaguePos || 1}º na Série A</b></div>
+              <div className="career-fatigue-row"><span>FADIGA</span><div><i style={{ width: `${Math.max(0, Math.min(100, career.fatigue))}%` }} /></div><b>{career.fatigue}%</b></div>
+            </section>
 
-              {/* Auto Highlights Feed */}
-              <section className="bg-[#111B2B] border border-emerald-500/30 rounded-xl p-4 space-y-2">
-                <h2 className="font-display font-bold text-sm text-white flex items-center gap-2">
-                  <PixelTrophyIcon size={16} />
-                  Destaques da Semana
-                </h2>
-                <ul className="space-y-1.5">
-                  {highlights.map((h, i) => (
-                    <li
-                      key={i}
-                      className="text-xs text-slate-200 bg-slate-900/75 border border-slate-800/90 rounded-lg px-3 py-2 flex items-center gap-2"
-                    >
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0" />
-                      <span>{h}</span>
-                    </li>
-                  ))}
-                </ul>
-              </section>
-
-              {/* Next Match Card + Calendar Controls */}
-              <section className="bg-[#111B2B] border border-slate-800 rounded-2xl p-4 space-y-3">
-                <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
-                  <span className="font-bold text-emerald-400">
-                    {nextEnv.competitionName} · {nextFixture.dateLabel}
-                  </span>
-                  <span className="text-slate-400">
-                    {nextEnv.weather} · {nextEnv.temperatureC}°C · {nextEnv.kickoffTime}
-                  </span>
-                </div>
-
-                <div className="flex items-center justify-between gap-2 bg-slate-900/80 border border-slate-800 rounded-xl p-4">
-                  <div className="flex flex-col items-center text-center w-2/5">
-                    <ClubCrest club={homeClub} size={50} />
-                    <div className="font-display font-bold text-sm text-white mt-1.5 truncate w-full">
-                      {homeClub.name}
-                    </div>
-                    <div className="text-[10px] text-slate-400">Mandante</div>
-                  </div>
-
-                  <div className="text-center">
-                    <div className="font-display font-extrabold text-xl text-slate-500">VS</div>
-                    <div className="text-[10px] text-slate-400 mt-1">{stadium.name}</div>
-                  </div>
-
-                  <div className="flex flex-col items-center text-center w-2/5">
-                    <ClubCrest club={awayClub} size={50} />
-                    <div className="font-display font-bold text-sm text-white mt-1.5 truncate w-full">
-                      {awayClub.name}
-                    </div>
-                    <div className="text-[10px] text-slate-400">Visitante</div>
-                  </div>
-                </div>
-
-                {career.injuryMatchesRemaining > 0 && (
-                  <div className="p-3 rounded-lg bg-amber-500/15 border border-amber-500/40 text-xs text-amber-200 flex items-center gap-2">
-                    <Activity size={16} className="shrink-0 text-amber-400" />
-                    <span>
-                      Departamento Médico: {career.injuryType} ({career.injuryMatchesRemaining} jogo restante)
-                    </span>
-                  </div>
-                )}
-
+            <section className="career-panel career-match-panel">
+              <div className="career-panel-heading">
+                <div><span className="career-eyebrow">{nextEnv.competitionName} · {nextFixture.dateLabel}</span><h2>PRÓXIMO JOGO</h2></div>
+                <span className="career-weather">{nextEnv.weather} · {nextEnv.temperatureC}°</span>
+              </div>
+              <div className="career-fixture">
+                <div className="career-team"><ClubCrest club={homeClub} size={43} /><strong>{homeClub.shortName || homeClub.name}</strong><small>{homeClub.name}</small></div>
+                <div className="career-versus">VS<span>{stadium.name}</span></div>
+                <div className="career-team"><ClubCrest club={awayClub} size={43} /><strong>{awayClub.shortName || awayClub.name}</strong><small>{awayClub.name}</small></div>
+              </div>
+              <div className="career-match-meta"><PixelStadiumIcon size={17} /><span>{stadium.city || homeClub.city} <i /> {nextEnv.kickoffTime}</span></div>
+              {career.injuryMatchesRemaining > 0 && (
+                <div className="career-injury-note"><Activity size={14} /> Departamento Médico: {career.injuryType} · {career.injuryMatchesRemaining} jogo(s)</div>
+              )}
+              <div className="career-match-actions">
                 {career.injuryMatchesRemaining > 0 ? (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      clickSfx();
-                      onSimulateInjurySkip(nextFixture.homeClubId, nextFixture.awayClubId);
-                    }}
-                    className="w-full py-3.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-display font-extrabold text-sm flex items-center justify-center gap-2 cursor-pointer"
-                  >
-                    Recuperar-se e Avançar Rodada
-                    <ChevronRight size={18} />
-                  </button>
+                  <button type="button" className="career-action-primary is-warning" onClick={() => { clickSfx(); onSimulateInjurySkip(nextFixture.homeClubId, nextFixture.awayClubId); }}>RECUPERAR E AVANÇAR <ChevronRight size={16} /></button>
                 ) : isTodayMatchDay ? (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      soundEngine.play('whistle');
-                      onPlayMatch(
-                        nextFixture.homeClubId,
-                        nextFixture.awayClubId,
-                        nextEnv.competitionName,
-                        nextFixture.fixtureId
-                      );
-                    }}
-                    className="w-full py-3.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-display font-extrabold text-base flex items-center justify-center gap-2 shadow-lg cursor-pointer"
-                  >
-                    <Play size={18} fill="currentColor" />
-                    Ir para o Estádio (Partida 11v11)
-                  </button>
+                  <button type="button" className="career-action-primary" onClick={() => { soundEngine.play('whistle'); onPlayMatch(nextFixture.homeClubId, nextFixture.awayClubId, nextEnv.competitionName, nextFixture.fixtureId); }}><Play size={15} fill="currentColor" /> JOGAR PARTIDA</button>
                 ) : (
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        clickSfx();
-                        onAdvanceDay();
-                      }}
-                      className="py-3 px-3 rounded-xl bg-sky-500 hover:bg-sky-400 text-slate-950 font-display font-bold text-xs flex items-center justify-center gap-1.5 cursor-pointer"
-                    >
-                      <FastForward size={14} />
-                      Avançar 1 Dia
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        clickSfx();
-                        onAdvanceToNextMatch();
-                      }}
-                      className="py-3 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white font-display font-bold text-xs flex items-center justify-center gap-1.5 cursor-pointer"
-                    >
-                      <SkipForward size={14} />
-                      Ir até Dia do Jogo
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        soundEngine.play('whistle');
-                        onPlayMatch(
-                          nextFixture.homeClubId,
-                          nextFixture.awayClubId,
-                          nextEnv.competitionName,
-                          nextFixture.fixtureId
-                        );
-                      }}
-                      className="py-3 px-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-display font-extrabold text-xs flex items-center justify-center gap-1.5 cursor-pointer"
-                    >
-                      <Play size={14} fill="currentColor" />
-                      Jogar Agora
-                    </button>
-                  </div>
+                  <>
+                    <button type="button" className="career-action-primary" onClick={() => { soundEngine.play('whistle'); onPlayMatch(nextFixture.homeClubId, nextFixture.awayClubId, nextEnv.competitionName, nextFixture.fixtureId); }}><Play size={15} fill="currentColor" /> JOGAR PARTIDA</button>
+                    <button type="button" className="career-action-secondary" onClick={() => { clickSfx(); onAdvanceDay(); }}><FastForward size={15} /> AVANÇAR DIA</button>
+                    <button type="button" className="career-action-tertiary" onClick={() => { clickSfx(); onAdvanceToNextMatch(); }}><SkipForward size={14} /> DIA DO JOGO</button>
+                  </>
                 )}
-              </section>
-            </div>
+              </div>
+            </section>
 
-            {/* Right Column: Quick Standings + Recent Results + Objectives + News */}
-            <div className="lg:col-span-5 space-y-4">
-              {/* Quick Standings */}
-              <section className="bg-[#111B2B] border border-slate-800 rounded-xl p-4">
-                <div className="flex items-center justify-between mb-2">
-                  <h2 className="font-display font-bold text-sm text-white">
-                    Brasileirão Série A · Rodada {career.round}
-                  </h2>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      clickSfx();
-                      setTab('COMPETICOES');
-                    }}
-                    className="text-[11px] font-semibold text-emerald-400 hover:underline cursor-pointer"
-                  >
-                    Ver completa
-                  </button>
-                </div>
-                <table className="w-full text-xs text-left">
-                  <thead className="text-[10px] text-slate-400 border-b border-slate-800">
-                    <tr>
-                      <th className="py-1 pr-2">#</th>
-                      <th className="py-1">Clube</th>
-                      <th className="py-1 text-center">J</th>
-                      <th className="py-1 text-center">SG</th>
-                      <th className="py-1 text-right">PTS</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-800/70">
-                    {quickTableRows.map((row) => {
-                      const rank = career.standings.findIndex((s) => s.clubId === row.clubId) + 1;
-                      const c = getClubById(row.clubId);
-                      const isMine = row.clubId === career.clubId;
-                      return (
-                        <tr
-                          key={row.clubId}
-                          className={isMine ? 'bg-emerald-500/15 text-emerald-300 font-semibold' : 'text-slate-300'}
-                        >
-                          <td className="py-1.5 pr-2 font-mono-num">{rank}</td>
-                          <td className="py-1.5 flex items-center gap-2">
-                            <ClubCrest club={c} size={17} />
-                            <span className="truncate max-w-[140px]">{c.name}</span>
-                          </td>
-                          <td className="py-1.5 text-center font-mono-num">{row.played}</td>
-                          <td className="py-1.5 text-center font-mono-num">{row.gf - row.ga}</td>
-                          <td className="py-1.5 text-right font-mono-num font-bold text-white">{row.points}</td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </section>
+            <section className="career-panel career-standings-panel">
+              <div className="career-standings-heading"><div><Trophy size={17} /><h2>CLASSIFICAÇÃO</h2></div><button type="button" onClick={() => { clickSfx(); setTab('COMPETICOES'); }}>SÉRIE A <ChevronRight size={13} /></button></div>
+              <div className="career-table-head"><span>#</span><span>CLUBE</span><span>J</span><span>SG</span><span>PTS</span></div>
+              <div className="career-table-body">
+                {quickTableRows.map((row) => {
+                  const rank = career.standings.findIndex((s) => s.clubId === row.clubId) + 1;
+                  const rowClub = getClubById(row.clubId);
+                  const isMine = row.clubId === career.clubId;
+                  return <div key={row.clubId} className={`career-table-row${isMine ? ' is-current' : ''}`}><span>{rank}</span><span className="career-table-team"><ClubCrest club={rowClub} size={18} /><b>{rowClub.shortName || rowClub.name}</b></span><span>{row.played}</span><span>{row.gf - row.ga}</span><strong>{row.points}</strong></div>;
+                })}
+              </div>
+              <button type="button" className="career-full-table" onClick={() => { clickSfx(); setTab('COMPETICOES'); }}>VER TABELA COMPLETA <ChevronRight size={14} /></button>
+            </section>
 
-              {/* Season Objectives Summary */}
-              <section className="bg-[#111B2B] border border-slate-800 rounded-xl p-4 space-y-2.5">
-                <div className="flex items-center justify-between">
-                  <h2 className="font-display font-bold text-sm text-white flex items-center gap-2">
-                    <PixelTargetIcon size={16} />
-                    Objetivos da Temporada
-                  </h2>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      clickSfx();
-                      setTab('OBJETIVOS');
-                    }}
-                    className="text-[11px] font-semibold text-emerald-400 hover:underline cursor-pointer"
-                  >
-                    Todos ({completedObjectivesCount}/{(career.objectives || []).length})
-                  </button>
-                </div>
-                <div className="space-y-2">
-                  {(career.objectives || []).slice(0, 3).map((obj) => {
-                    const pct =
-                      obj.kind === 'LEAGUE_POS'
-                        ? obj.current <= obj.target
-                          ? 100
-                          : Math.max(10, Math.round((obj.target / Math.max(1, obj.current)) * 100))
-                        : Math.min(100, Math.round((obj.current / Math.max(1, obj.target)) * 100));
-                    return (
-                      <div key={obj.id} className="p-2.5 rounded-lg bg-slate-900/75 border border-slate-800 space-y-1">
-                        <div className="flex items-center justify-between text-xs">
-                          <span className="font-semibold text-white truncate">{obj.title}</span>
-                          <span className="font-mono-num text-[11px] text-emerald-400 shrink-0 pl-2">
-                            {obj.completed
-                              ? 'Concluído'
-                              : obj.kind === 'LEAGUE_POS'
-                              ? `${obj.current}º / Top ${obj.target}`
-                              : `${obj.current}/${obj.target}`}
-                          </span>
-                        </div>
-                        <div className="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
-                          <div
-                            className={`h-full rounded-full ${obj.completed ? 'bg-amber-400' : 'bg-emerald-500'}`}
-                            style={{ width: `${pct}%` }}
-                          />
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </section>
-
-              {/* Recent News + Latest Results */}
-              <section className="bg-[#111B2B] border border-slate-800 rounded-xl p-4 space-y-2.5">
-                <div className="flex items-center justify-between">
-                  <h2 className="font-display font-bold text-sm text-white flex items-center gap-2">
-                    <PixelNewspaperIcon size={16} />
-                    Notícias Recentes
-                  </h2>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      clickSfx();
-                      setTab('NOTICIAS');
-                    }}
-                    className="text-[11px] font-semibold text-emerald-400 hover:underline cursor-pointer"
-                  >
-                    Abrir Portal
-                  </button>
-                </div>
-                <div className="space-y-2">
-                  {(career.news || []).slice(0, 3).map((n) => (
-                    <div
-                      key={n.id}
-                      className="p-2.5 rounded-lg bg-slate-900/75 border border-slate-800 flex items-start gap-2.5"
-                    >
-                      <ClubCrest club={getClubById(n.clubId || career.clubId)} size={26} className="shrink-0 mt-0.5" />
-                      <div className="min-w-0">
-                        <div className="text-[10px] font-bold text-emerald-400 uppercase font-mono-num">
-                          {n.category} · {n.dateLabel}
-                        </div>
-                        <div className="text-xs font-semibold text-white leading-snug line-clamp-2">
-                          {n.headline}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </section>
-            </div>
+            <section className="career-activity-strip">
+              <article className="career-activity-panel">
+                <button type="button" className="career-activity-title" onClick={() => { clickSfx(); setTab('NOTICIAS'); }}>
+                  <span><PixelTrophyIcon size={15} /> DESTAQUES DA SEMANA</span><ChevronRight size={14} />
+                </button>
+                <ul>{highlights.map((highlight, index) => <li key={`${index}-${highlight}`}><i />{highlight}</li>)}</ul>
+              </article>
+              <article className="career-activity-panel">
+                <button type="button" className="career-activity-title" onClick={() => { clickSfx(); setTab('OBJETIVOS'); }}>
+                  <span><PixelTargetIcon size={15} /> OBJETIVOS DA TEMPORADA</span><small>{completedObjectivesCount}/{(career.objectives || []).length}</small>
+                </button>
+                {(career.objectives || []).slice(0, 3).map((objective) => {
+                  const progress = objective.kind === 'LEAGUE_POS'
+                    ? objective.current <= objective.target ? 100 : Math.max(10, Math.round((objective.target / Math.max(1, objective.current)) * 100))
+                    : Math.min(100, Math.round((objective.current / Math.max(1, objective.target)) * 100));
+                  return <div className="career-objective-mini" key={objective.id}><div><span>{objective.title}</span><b>{objective.completed ? 'OK' : objective.kind === 'LEAGUE_POS' ? `${objective.current}º / Top ${objective.target}` : `${objective.current}/${objective.target}`}</b></div><i><em style={{ width: `${progress}%` }} /></i></div>;
+                })}
+              </article>
+              <article className="career-activity-panel">
+                <button type="button" className="career-activity-title" onClick={() => { clickSfx(); setTab('NOTICIAS'); }}>
+                  <span><PixelNewspaperIcon size={15} /> NOTÍCIAS RECENTES</span><ChevronRight size={14} />
+                </button>
+                {(career.news || []).slice(0, 3).map((item) => <button type="button" className="career-news-mini" key={item.id} onClick={() => { clickSfx(); setTab('NOTICIAS'); }}><small>{item.category} · {item.dateLabel}</small><span>{item.headline}</span></button>)}
+                {(career.news || []).length === 0 && <p className="career-empty-mini">As notícias da temporada aparecerão aqui.</p>}
+              </article>
+            </section>
           </div>
         )}
 
@@ -1112,6 +826,23 @@ export const CareerHub: React.FC<CareerHubProps> = ({
           </div>
         )}
       </main>
+
+      <nav className="career-bottom-nav" aria-label="Navegação da carreira">
+        {([
+          { id: 'CENTRAL', label: 'CARREIRA', icon: LayoutDashboard },
+          { id: 'CALENDARIO', label: 'CALENDÁRIO', icon: Calendar },
+          { id: 'TREINO', label: 'TREINOS', icon: Dumbbell },
+          { id: 'COMPETICOES', label: 'COMPETIÇÕES', icon: Trophy },
+          { id: 'NOTICIAS', label: 'NOTÍCIAS', icon: Newspaper },
+          { id: 'OBJETIVOS', label: 'OBJETIVOS', icon: Target },
+          { id: 'ESTATS', label: 'PERFIL', icon: BarChart3 },
+          { id: 'CONTRATO', label: 'CONTRATO', icon: Briefcase },
+        ] as const).map((item) => {
+          const Icon = item.icon;
+          const active = tab === item.id;
+          return <button key={item.id} type="button" className={`career-nav-item${active ? ' is-active' : ''}`} aria-current={active ? 'page' : undefined} onClick={() => { clickSfx(); setTab(item.id); }}><Icon size={17} /><span>{item.label}</span>{item.id === 'TREINO' && career.trainingPoints > 0 && <i className="career-nav-badge">{career.trainingPoints}</i>}</button>;
+        })}
+      </nav>
 
       {activeDrill && (
         <TrainingMinigame

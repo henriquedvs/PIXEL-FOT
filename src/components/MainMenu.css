@@ -1,0 +1,103 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500;700&family=Space+Grotesk:wght@400;500;600;700&display=swap');
+.main-menu-shell { --menu-bg:#080e16; --menu-panel:#0d1722; --menu-border:#263749; --menu-muted:#8798a9; --menu-green:#65d6a3; width:100%;height:100dvh;overflow:hidden;display:flex;flex-direction:column;color:#edf2f5;background:var(--menu-bg);font-family:'Space Grotesk',system-ui,sans-serif; }
+.main-menu-header { height:64px;flex:0 0 64px;display:flex;align-items:center;justify-content:space-between;gap:16px;padding:0 clamp(16px,3vw,42px);border-bottom:1px solid #1d2b39;background:#0a121b; }
+.main-menu-brand,.main-menu-header-actions { display:flex;align-items:center;gap:12px; }
+.main-menu-brand-mark { width:39px;height:39px;display:grid;place-items:center;color:var(--menu-green);background:#10271f;border:1px solid #315d4b; }
+.main-menu-wordmark { font-size:clamp(15px,2vw,21px);font-weight:700;letter-spacing:.06em;white-space:nowrap; }
+.main-menu-wordmark b { color:var(--menu-green); }
+.main-menu-tagline { margin-top:2px;color:#8091a2;font:500 8px 'DM Mono',monospace;letter-spacing:.19em; }
+.main-season-chip { display:flex;align-items:center;gap:7px;padding:8px 10px;color:#c6d0d8;background:#101b27;border:1px solid #2a3a4b;font:500 9px 'DM Mono',monospace;letter-spacing:.1em;white-space:nowrap; }
+.main-season-dot { width:6px;height:6px;background:var(--menu-green);box-shadow:0 0 9px #65d6a355; }
+.main-menu-utility { min-height:34px;display:flex;align-items:center;gap:7px;padding:0 10px;color:#b8c5cf;background:#0f1a26;border:1px solid #293a4b;font:500 9px 'DM Mono',monospace;letter-spacing:.06em;cursor:pointer; }
+.main-menu-utility:hover { color:var(--menu-green);border-color:#527966; }
+.main-menu-stage { position:relative;isolation:isolate;flex:1;min-height:0;display:grid;grid-template-columns:minmax(310px,.82fr) minmax(370px,1fr);gap:clamp(14px,2.5vw,34px);padding:clamp(14px,2.5vh,28px) clamp(16px,3vw,42px);overflow:auto; }
+.main-menu-stage::before { content:'';position:absolute;z-index:-2;inset:0;background:linear-gradient(90deg,rgba(7,13,21,.96),rgba(7,13,21,.74)),radial-gradient(ellipse at 45% 98%,rgba(25,91,57,.31),transparent 58%),repeating-linear-gradient(90deg,transparent 0 58px,rgba(255,255,255,.012) 59px 60px); }
+.main-menu-stage::after { content:'';position:absolute;z-index:-1;left:0;right:0;bottom:0;height:25%;opacity:.22;background:linear-gradient(transparent,#0c281d),repeating-linear-gradient(90deg,#1e6a3b 0 10%,#165732 10% 20%);clip-path:polygon(0 10%,100% 10%,100% 100%,0 100%); }
+.main-career-panel { position:relative;isolation:isolate;min-height:0;display:flex;flex-direction:column;justify-content:space-between;gap:12px;padding:clamp(16px,2vw,26px);overflow:hidden;background:linear-gradient(135deg,rgba(12,24,35,.96),rgba(9,18,28,.93));border:1px solid #395065;box-shadow:0 16px 40px #0004; }
+.main-career-panel::after { content:'';position:absolute;z-index:-1;inset:auto 0 0;height:36%;opacity:.23;background:repeating-linear-gradient(90deg,transparent 0 49px,#b1e2cb 50px 51px),linear-gradient(0deg,#14522e,transparent);clip-path:polygon(0 18%,100% 18%,100% 100%,0 100%); }
+.main-menu-pitch { position:absolute;z-index:-1;inset:0;opacity:.18;pointer-events:none; }
+.main-menu-pitch::before { content:'';position:absolute;left:50%;top:35%;width:130px;height:130px;transform:translate(-50%,-50%);border:1px solid #9bc7af;border-radius:50%; }
+.main-menu-pitch::after { content:'';position:absolute;left:0;right:0;top:35%;height:1px;background:#9bc7af; }
+.main-panel-overline { display:flex;justify-content:space-between;gap:10px;color:var(--menu-green);font:500 8px 'DM Mono',monospace;letter-spacing:.13em;text-transform:uppercase; }
+.main-panel-overline span:last-child { color:#91a2b1;text-align:right; }
+.main-player-spotlight { position:relative;display:flex;align-items:center;gap:clamp(12px,1.6vw,22px);margin:auto 0; }
+.main-player-canvas { width:clamp(80px,10vw,120px);height:clamp(80px,10vw,120px);flex:0 0 auto;image-rendering:pixelated;background:#0a1823;border:1px solid #42576a; }
+.main-player-copy { min-width:0; }
+.main-player-rating { float:right;display:flex;flex-direction:column;align-items:center;gap:1px;margin-left:8px;color:#8294a3;font:500 8px 'DM Mono',monospace; }
+.main-player-rating b { color:var(--menu-green);font:500 22px 'DM Mono',monospace; }
+.main-player-copy h1 { margin:0;color:#f2f4f5;font-size:clamp(19px,2.8vw,31px);line-height:1.05;letter-spacing:.02em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap; }
+.main-player-copy>p { margin:6px 0 10px;color:#a6b3bf;font:500 9px 'DM Mono',monospace;letter-spacing:.08em; }
+.main-player-club { display:flex;align-items:center;gap:7px;color:#d3dce3;font-size:11px; }
+.main-career-stats { display:grid;grid-template-columns:repeat(4,minmax(0,1fr));border-top:1px solid #314356;border-bottom:1px solid #314356; }
+.main-career-stats>div { min-width:0;display:flex;flex-direction:column;gap:5px;padding:10px 8px;border-right:1px solid #283b4c; }
+.main-career-stats>div:first-child { padding-left:0; }
+.main-career-stats>div:last-child { border-right:0; }
+.main-career-stats small { color:#8495a5;font:500 7px 'DM Mono',monospace;letter-spacing:.1em;white-space:nowrap; }
+.main-career-stats b { color:#e6edf1;font:500 12px 'DM Mono',monospace;overflow:hidden;text-overflow:ellipsis;white-space:nowrap; }
+.main-career-stats .main-next-opponent b { color:#d4b36e;font-size:10px; }
+.main-career-actions { display:grid;grid-template-columns:1fr auto;gap:8px; }
+.main-primary-action,.main-secondary-action { min-height:44px;display:flex;align-items:center;justify-content:center;gap:8px;padding:0 13px;border:1px solid;cursor:pointer;font:600 9px 'DM Mono',monospace;letter-spacing:.075em;white-space:nowrap; }
+.main-primary-action { color:#07140e;background:var(--menu-green);border-color:#8ce6bc; }
+.main-primary-action:hover { background:#86e3b7; }
+.main-secondary-action { color:#bec9d2;background:#111e2b;border-color:#34485b; }
+.main-secondary-action:hover { border-color:#7890a3; }
+.main-new-career-promo { margin:auto 0;max-width:430px; }
+.main-promo-emblem { width:66px;height:66px;display:grid;place-items:center;margin-bottom:18px;color:var(--menu-green);background:#10261e;border:1px solid #3e7059; }
+.main-promo-kicker { color:#b2c0ca;font:500 9px 'DM Mono',monospace;letter-spacing:.16em; }
+.main-new-career-promo h1 { margin:10px 0;color:#f1f4f6;font-size:clamp(24px,3.4vw,40px);line-height:1.08;letter-spacing:-.03em; }
+.main-new-career-promo p { max-width:340px;margin:0;color:#9baab7;font-size:12px;line-height:1.65; }
+.main-menu-options { min-width:0;display:flex;flex-direction:column;justify-content:center; }
+.main-options-heading { display:flex;justify-content:space-between;gap:8px;padding:0 4px 10px;color:#cbd5dc;font:500 9px 'DM Mono',monospace;letter-spacing:.12em; }
+.main-options-heading span:last-child { color:#718394;font-size:8px;text-align:right; }
+.main-option-row { min-height:clamp(49px,8.5vh,67px);display:flex;align-items:center;gap:12px;padding:8px 12px;color:#eaf0f3;text-align:left;background:rgba(13,23,34,.87);border:1px solid #263849;border-bottom:0;cursor:pointer;transition:background .15s,border-color .15s; }
+.main-option-row:nth-last-of-type(1) { border-bottom:1px solid #263849; }
+.main-option-row:hover { position:relative;z-index:1;background:#142534;border-color:#5b8a72; }
+.main-option-index { width:20px;color:#687b8d;font:500 8px 'DM Mono',monospace; }
+.main-option-icon { width:32px;height:32px;flex:0 0 32px;display:grid;place-items:center;color:var(--menu-green);background:#10231e;border:1px solid #29483d; }
+.main-option-copy { min-width:0;flex:1;display:flex;flex-direction:column;gap:3px; }
+.main-option-copy b { color:#e7edf1;font-size:12px;font-weight:600; }
+.main-option-copy small { overflow:hidden;color:#8293a2;font-size:9px;text-overflow:ellipsis;white-space:nowrap; }
+.main-option-arrow { color:#718496; }
+.main-menu-footer-note { display:flex;align-items:center;justify-content:center;gap:8px;padding-top:11px;color:#718294;font:500 8px 'DM Mono',monospace;letter-spacing:.12em; }
+.main-controller-key { width:17px;height:17px;display:grid;place-items:center;color:#06130c;background:var(--menu-green);font-weight:700; }
+@media (max-width:760px) {
+ .main-menu-header { height:52px;flex-basis:52px;padding:0 10px;gap:8px; }
+ .main-menu-brand-mark { width:31px;height:31px; }
+ .main-menu-brand-mark svg { width:19px;height:19px; }
+ .main-menu-tagline { display:none; }
+ .main-menu-header-actions { gap:5px; }
+ .main-menu-utility { min-height:30px;padding:0 7px;font-size:8px; }
+ .main-menu-stage { grid-template-columns:minmax(220px,.86fr) minmax(260px,1fr);gap:9px;padding:9px; }
+ .main-career-panel { padding:12px;gap:8px; }
+ .main-option-row { min-height:48px;padding:6px 8px;gap:7px; }
+ .main-option-index { width:16px; }
+ .main-option-icon { width:27px;height:27px;flex-basis:27px; }
+ .main-option-icon svg { width:17px;height:17px; }
+ .main-option-copy b { font-size:10px; }
+ .main-option-copy small { font-size:7px; }
+ .main-options-heading { padding-bottom:5px;font-size:8px; }
+ .main-menu-footer-note { padding-top:5px; }
+ .main-player-canvas { width:74px;height:74px; }
+ .main-career-stats>div { padding:7px 5px; }
+ .main-primary-action,.main-secondary-action { min-height:38px;padding:0 8px;font-size:8px;gap:5px; }
+}
+@media (orientation:landscape) and (max-height:540px) {
+ .main-menu-header { height:45px;flex-basis:45px; }
+ .main-menu-stage { padding-top:7px;padding-bottom:7px; }
+ .main-career-panel { padding:11px 15px; }
+ .main-player-canvas { width:70px;height:70px; }
+ .main-player-spotlight { margin:8px 0; }
+ .main-career-stats>div { padding-top:6px;padding-bottom:6px; }
+ .main-option-row { min-height:37px; }
+ .main-option-icon { width:24px;height:24px;flex-basis:24px; }
+ .main-option-copy small { display:none; }
+ .main-menu-footer-note { display:none; }
+}
+@media (max-width:560px) and (orientation:portrait) {
+ .main-menu-shell { overflow-y:auto;height:100dvh; }
+ .main-menu-header { position:sticky;top:0;z-index:2; }
+ .main-menu-stage { grid-template-columns:1fr;overflow:visible; }
+ .main-career-panel { min-height:260px; }
+ .main-menu-options { padding-bottom:8px; }
+ .main-option-row { min-height:56px; }
+}
