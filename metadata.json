@@ -1,0 +1,6 @@
+{
+  "name": "PIXEL FOOTBALL",
+  "description": "Jogo de futebol em Pixel Art 2D com câmera top-down, modo carreira completo de jogador, criação de personagem, clubes brasileiros fictícios e partidas 11v11 jogáveis por toque.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
