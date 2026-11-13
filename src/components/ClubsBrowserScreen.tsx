@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { ArrowLeft, MapPin, Shield, Users } from 'lucide-react';
 import { soundEngine } from '../audio/soundEngine';
-import { CLUBS } from '../data/clubs';
+import { CLUBS, SERIE_B_CLUBS } from '../data/clubs';
 import { getPositionMeta } from '../data/positions';
 import { drawPixelPlayerSprite } from '../engine/pixelRenderer';
 import { Club } from '../types/game';
@@ -13,19 +13,21 @@ interface ClubsBrowserScreenProps {
 }
 
 export const ClubsBrowserScreen: React.FC<ClubsBrowserScreenProps> = ({ onBack }) => {
+  const [division, setDivision] = useState<'SERIE_A' | 'SERIE_B'>('SERIE_A');
+  const pool = division === 'SERIE_A' ? CLUBS : SERIE_B_CLUBS;
   const [selectedId, setSelectedId] = useState(CLUBS[0].id);
   const [kitSlot, setKitSlot] = useState<'home' | 'away' | 'third'>('home');
   const [search, setSearch] = useState('');
   const kitCanvasRef = useRef<HTMLCanvasElement | null>(null);
 
-  const visibleClubs = CLUBS.filter(
+  const visibleClubs = pool.filter(
     (c) =>
       c.name.toLowerCase().includes(search.toLowerCase()) ||
       c.city.toLowerCase().includes(search.toLowerCase()) ||
       c.state.toLowerCase().includes(search.toLowerCase())
   );
 
-  const club: Club = CLUBS.find((c) => c.id === selectedId) || CLUBS[0];
+  const club: Club = pool.find((c) => c.id === selectedId) || pool[0];
   const activeKit =
     kitSlot === 'away' && club.awayKit
       ? club.awayKit
@@ -97,8 +99,8 @@ export const ClubsBrowserScreen: React.FC<ClubsBrowserScreenProps> = ({ onBack }
   }, [club, activeKit]);
 
   return (
-    <div className="w-full h-[100dvh] bg-[#0B121D] text-slate-100 flex flex-col overflow-hidden">
-      <header className="px-4 py-2.5 border-b border-slate-800 bg-[#0D1624] flex items-center justify-between gap-3 shrink-0">
+    <div className="w-full h-[100dvh] bg-[#0B121D] text-slate-100 flex flex-col overflow-hidden animate-fadeIn">
+      <header className="px-4 py-2.5 border-b border-slate-800 bg-[#0D1624] flex flex-wrap items-center justify-between gap-3 shrink-0">
         <div className="flex items-center gap-3">
           <button
             type="button"
@@ -113,21 +115,54 @@ export const ClubsBrowserScreen: React.FC<ClubsBrowserScreenProps> = ({ onBack }
           </button>
           <div>
             <h1 className="font-display font-bold text-base sm:text-lg text-white leading-tight">
-              Clubes do Brasileirão Série A (20 Equipes)
+              Clubes do Futebol Brasileiro (40 Equipes)
             </h1>
             <p className="text-[11px] text-slate-400">
-              Escudos em Pixel Art, 3 uniformes e elenco completo com 16 atletas por clube
+              Série A (20) e Série B (20) com escudos em Pixel Art, uniformes e elencos completos
             </p>
           </div>
         </div>
 
-        <input
-          type="text"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Buscar clube, cidade ou UF..."
-          className="hidden sm:block w-56 px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-xs text-white focus:border-emerald-500 outline-none"
-        />
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1 bg-slate-900 p-1 rounded-lg border border-slate-800">
+            <button
+              type="button"
+              onClick={() => {
+                soundEngine.play('menu');
+                setDivision('SERIE_A');
+                setSelectedId(CLUBS[0].id);
+                setKitSlot('home');
+              }}
+              className={`px-3 py-1 rounded text-xs font-semibold cursor-pointer ${
+                division === 'SERIE_A' ? 'bg-emerald-500 text-slate-950' : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              Série A (20)
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                soundEngine.play('menu');
+                setDivision('SERIE_B');
+                setSelectedId(SERIE_B_CLUBS[0].id);
+                setKitSlot('home');
+              }}
+              className={`px-3 py-1 rounded text-xs font-semibold cursor-pointer ${
+                division === 'SERIE_B' ? 'bg-sky-500 text-slate-950' : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              Série B (20)
+            </button>
+          </div>
+
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Buscar clube, cidade..."
+            className="hidden md:block w-48 px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-xs text-white focus:border-emerald-500 outline-none"
+          />
+        </div>
       </header>
 
       <div className="flex-1 grid grid-cols-1 md:grid-cols-12 min-h-0">
@@ -196,23 +231,30 @@ export const ClubsBrowserScreen: React.FC<ClubsBrowserScreenProps> = ({ onBack }
                 className="w-24 h-24 rounded-lg pixelated bg-[#0D1726]"
               />
               <div className="flex gap-1">
-                {(['home', 'away', 'third'] as const).map((slot, idx) => (
-                  <button
-                    key={slot}
-                    type="button"
-                    onClick={() => {
-                      soundEngine.play('menu');
-                      setKitSlot(slot);
-                    }}
-                    className={`px-2 py-1 rounded text-[11px] font-bold cursor-pointer ${
-                      kitSlot === slot
-                        ? 'bg-emerald-500 text-slate-950'
-                        : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
-                    }`}
-                  >
-                    Kit {idx + 1}
-                  </button>
-                ))}
+                {(['home', 'away', 'third'] as const).map((slot, idx) => {
+                  const hasSlot =
+                    slot === 'home' ||
+                    (slot === 'away' && Boolean(club.awayKit)) ||
+                    (slot === 'third' && Boolean(club.thirdKit));
+                  if (!hasSlot) return null;
+                  return (
+                    <button
+                      key={slot}
+                      type="button"
+                      onClick={() => {
+                        soundEngine.play('menu');
+                        setKitSlot(slot);
+                      }}
+                      className={`px-2 py-1 rounded text-[11px] font-bold cursor-pointer ${
+                        kitSlot === slot
+                          ? 'bg-emerald-500 text-slate-950'
+                          : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                      }`}
+                    >
+                      Kit {idx + 1}
+                    </button>
+                  );
+                })}
               </div>
             </div>
           </div>

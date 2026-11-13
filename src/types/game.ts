@@ -11,6 +11,7 @@ export type ScreenId =
   | 'CLUBS_BROWSER'
   | 'STADIUMS_BROWSER'
   | 'COMPETITIONS_BROWSER'
+  | 'CALENDAR_BROWSER'
   | 'CUSTOMIZATION';
 
 export type LanguageCode = 'pt-BR' | 'en-US' | 'es-ES';
@@ -383,6 +384,10 @@ export interface MatchRecord {
   awayName: string;
   homeScore: number;
   awayScore: number;
+  penHomeScore?: number;
+  penAwayScore?: number;
+  fixtureId?: string;
+  startedMatch?: boolean;
   playerClubId: string;
   playerStats: MatchStatLine;
   rating: number;
@@ -428,6 +433,109 @@ export interface LeagueLeader {
   assists: number;
 }
 
+export type CopaStageId = 'Oitavas' | 'Quartas' | 'Semifinal' | 'Final';
+
+export interface CopaMatchTie {
+  id: string;
+  stage: CopaStageId;
+  slotIndex: number;
+  homeClubId: string;
+  awayClubId: string;
+  twoLegged: boolean;
+  homeScoreLeg1?: number;
+  awayScoreLeg1?: number;
+  homeScoreLeg2?: number;
+  awayScoreLeg2?: number;
+  penHome?: number;
+  penAway?: number;
+  playedLeg1: boolean;
+  playedLeg2: boolean;
+  winnerClubId?: string;
+}
+
+export interface CopaBracketState {
+  season: number;
+  currentStage: CopaStageId | 'Concluída';
+  ties: CopaMatchTie[];
+  championClubId?: string;
+  runnerUpClubId?: string;
+}
+
+export interface SupercopaState {
+  season: number;
+  leagueChampId: string;
+  copaChampId: string;
+  homeScore?: number;
+  awayScore?: number;
+  penHome?: number;
+  penAway?: number;
+  winnerClubId?: string;
+  played: boolean;
+}
+
+export interface RoundMatchResult {
+  id: string;
+  season: number;
+  round: number;
+  competition: string;
+  homeClubId: string;
+  awayClubId: string;
+  homeScore: number;
+  awayScore: number;
+  penHome?: number;
+  penAway?: number;
+  dateLabel: string;
+}
+
+export type NewsCategory =
+  | 'RODADA'
+  | 'COPA'
+  | 'SUPERCOPA'
+  | 'ARTILHARIA'
+  | 'MERCADO'
+  | 'DESTAQUE';
+
+export interface NewsItem {
+  id: string;
+  season: number;
+  round: number;
+  dateLabel: string;
+  category: NewsCategory;
+  headline: string;
+  summary: string;
+  clubId?: string;
+  opponentClubId?: string;
+  artKind: 'match' | 'trophy' | 'player' | 'stadium' | 'transfer';
+}
+
+export type ObjectiveKind =
+  | 'GOALS'
+  | 'ASSISTS'
+  | 'MATCHES'
+  | 'OVR'
+  | 'LEAGUE_POS'
+  | 'COPA_STAGE'
+  | 'AVG_RATING';
+
+export interface SeasonObjective {
+  id: string;
+  title: string;
+  description: string;
+  kind: ObjectiveKind;
+  target: number;
+  current: number;
+  completed: boolean;
+  rewardText: string;
+}
+
+export interface CompetitionChampionRecord {
+  season: number;
+  competition: string;
+  championClubId: string;
+  runnerUpClubId?: string;
+  scoreSummary?: string;
+}
+
 export type TrainingCategory = 'FISICO' | 'TECNICO' | 'TATICO' | 'GOLEIRO';
 export type MinigameType = 'DRIBBLE_SPEED' | 'SHOOTING' | 'PASSING' | 'DEFENSE_GK';
 
@@ -457,15 +565,21 @@ export type CalendarActivityType =
 export interface CalendarDay {
   dayIndex: number; // 0..N
   dateLabel: string; // e.g. 14/02
+  monthIndex?: number; // 0..11
   weekday: string; // Seg, Ter...
   activity: CalendarActivityType;
   title: string;
   completed: boolean;
+  matchId?: string;
   roundRef?: number;
   competition?: string;
+  copaStage?: CopaStageId;
+  copaLeg?: 1 | 2;
+  isSupercopa?: boolean;
   opponentClubId?: string;
   isHome?: boolean;
   kickoffTime?: string;
+  resultText?: string;
   note?: string;
 }
 
@@ -519,14 +633,25 @@ export interface PlayerCareer {
   injuryType: string | null;
   seasonStats: MatchStatLine;
   careerStats: MatchStatLine;
+  competitionStats?: Record<string, MatchStatLine>;
+  startsCount?: number;
   recentMatches: MatchRecord[];
   awards: CareerAward[];
   history: CareerHistoryEntry[];
   evolutionHistory?: EvolutionPoint[];
   offers: TransferOffer[];
   standings: LeagueStanding[];
+  serieBStandings?: LeagueStanding[];
   leagueLeaders: LeagueLeader[];
   copaStage: 'Oitavas' | 'Quartas' | 'Semifinal' | 'Final' | 'Eliminado' | 'Campeão';
   estadualStage: 'Fase de Grupos' | 'Semifinal' | 'Final' | 'Campeão';
   schedule: { round: number; homeClubId: string; awayClubId: string; competition?: string }[];
+  serieBSchedule?: { round: number; homeClubId: string; awayClubId: string }[];
+  copaBracket?: CopaBracketState;
+  supercopa?: SupercopaState;
+  championsHistory?: CompetitionChampionRecord[];
+  roundResults?: RoundMatchResult[];
+  news?: NewsItem[];
+  objectives?: SeasonObjective[];
+  playedMatchIds?: string[];
 }

@@ -2645,6 +2645,7 @@ export class MatchEngine {
 
     const activeKit = scoringTeam === 'home' ? this.activeHomeKit : this.activeAwayKit;
     const clubName = scoringTeam === 'home' ? this.homeClub.shortName : this.awayClub.shortName;
+    const isClassico = this.homeClub.state === this.awayClub.state;
     const tag = isFinal
       ? 'GOL NA FINAL!'
       : isLate
@@ -2653,6 +2654,8 @@ export class MatchEngine {
       ? 'GOL DA VIRADA!'
       : isEqualizer
       ? 'GOL DE EMPATE!'
+      : isClassico
+      ? 'GOL NO CLÁSSICO!'
       : 'GOOOOL!';
     this.eventBanner = `${tag} ${clubName} · ${scorer.name}`;
     this.eventTone = 'goal';

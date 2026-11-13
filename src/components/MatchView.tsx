@@ -20,6 +20,7 @@ interface MatchViewProps {
   homeClubId: string;
   awayClubId: string;
   competitionName?: string;
+  fixtureId?: string;
   settings: GameSettings;
   onOpenSettings: () => void;
   onMatchFinished: (result: {
@@ -27,6 +28,9 @@ interface MatchViewProps {
     awayClubId: string;
     homeScore: number;
     awayScore: number;
+    penHomeScore?: number;
+    penAwayScore?: number;
+    fixtureId?: string;
     playerStats: MatchStatLine;
     rating: number;
     motm: boolean;
@@ -41,7 +45,8 @@ export const MatchView: React.FC<MatchViewProps> = ({
   career,
   homeClubId,
   awayClubId,
-  competitionName = 'Liga Nacional',
+  competitionName = 'Brasileirão Série A',
+  fixtureId,
   settings,
   onOpenSettings,
   onMatchFinished,
@@ -116,15 +121,19 @@ export const MatchView: React.FC<MatchViewProps> = ({
   const awayClub = getClubById(awayClubId);
 
   const env = useMemo(() => {
-    const matchDay = career.calendar.find((d) => d.roundRef === career.round);
+    const matchDay = fixtureId
+      ? career.calendar.find((d) => d.matchId === fixtureId)
+      : career.calendar.find((d) => d.roundRef === career.round && d.activity === 'PARTIDA');
     return generateMatchEnvironment({
       homeClub,
-      competitionName: matchDay?.competition || competitionName,
-      roundLabel: `Rodada ${career.round}`,
+      competitionName: competitionName || matchDay?.competition || 'Brasileirão Série A',
+      roundLabel: matchDay?.competition?.includes('Copa')
+        ? matchDay.competition
+        : `Rodada ${career.round}`,
       dateStr: matchDay?.dateLabel || `Rod. ${career.round}`,
-      seed: career.season * 31 + career.round * 7,
+      seed: career.season * 31 + career.round * 7 + (matchDay?.dayIndex ?? 0),
     });
-  }, [homeClub, career.calendar, career.round, career.season, competitionName]);
+  }, [homeClub, career.calendar, career.round, career.season, competitionName, fixtureId]);
 
   const releaseAllTouchControls = () => {
     joyState.current.pointerId = null;
@@ -569,11 +578,15 @@ export const MatchView: React.FC<MatchViewProps> = ({
     soundEngine.play('menu');
     const userGoals = eng.stats.goals;
     const motm = eng.rating >= 7.6 || userGoals >= 2;
+    const hadPenalties = eng.penHomeScore > 0 || eng.penAwayScore > 0;
     onMatchFinished({
       homeClubId,
       awayClubId,
       homeScore: eng.homeScore,
       awayScore: eng.awayScore,
+      penHomeScore: hadPenalties ? eng.penHomeScore : undefined,
+      penAwayScore: hadPenalties ? eng.penAwayScore : undefined,
+      fixtureId,
       playerStats: { ...eng.stats, matches: 1, minutesPlayed: 90, ratingSum: eng.rating },
       rating: eng.rating,
       motm,

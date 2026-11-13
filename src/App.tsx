@@ -10,6 +10,7 @@ import { MainMenu } from './components/MainMenu';
 import { MatchView } from './components/MatchView';
 import { OrientationGuard } from './components/OrientationGuard';
 import { PlayerProfileScreen } from './components/PlayerProfileScreen';
+import { SeasonCalendarView } from './components/SeasonCalendarView';
 import { SettingsScreen } from './components/SettingsScreen';
 import { StadiumsBrowserScreen } from './components/StadiumsBrowserScreen';
 import { TitleScreen } from './components/TitleScreen';
@@ -25,6 +26,7 @@ import {
 import {
   acceptOffer,
   advanceCalendarDay,
+  advanceUntilNextMatch,
   applyMatchOutcomeToCareer,
   completeTrainingDrill,
   createInitialCareer,
@@ -45,6 +47,7 @@ export default function App() {
     homeClubId: string;
     awayClubId: string;
     competitionName?: string;
+    fixtureId?: string;
   } | null>(null);
 
   useEffect(() => {
@@ -102,7 +105,8 @@ export default function App() {
   const handleStartMatch = (
     homeClubId: string,
     awayClubId: string,
-    competitionName?: string
+    competitionName?: string,
+    fixtureId?: string
   ) => {
     if (settings.orientation === 'landscape-locked' && 'orientation' in window.screen) {
       const ori = window.screen.orientation as ScreenOrientation & {
@@ -110,7 +114,7 @@ export default function App() {
       };
       ori.lock?.('landscape').catch(() => {});
     }
-    setActiveFixture({ homeClubId, awayClubId, competitionName });
+    setActiveFixture({ homeClubId, awayClubId, competitionName, fixtureId });
     setScreen('MATCH');
   };
 
@@ -133,6 +137,11 @@ export default function App() {
   const handleAdvanceDay = () => {
     if (!career) return;
     setCareer(advanceCalendarDay(career));
+  };
+
+  const handleAdvanceToNextMatch = () => {
+    if (!career) return;
+    setCareer(advanceUntilNextMatch(career));
   };
 
   const handleCompleteDrill = (
@@ -169,6 +178,7 @@ export default function App() {
           onOpenClubs={() => setScreen('CLUBS_BROWSER')}
           onOpenStadiums={() => setScreen('STADIUMS_BROWSER')}
           onOpenCompetitions={() => setScreen('COMPETITIONS_BROWSER')}
+          onOpenCalendar={() => setScreen('CALENDAR_BROWSER')}
           onOpenCustomization={() => {
             setReturnScreen('MAIN_MENU');
             setScreen('CUSTOMIZATION');
@@ -202,6 +212,17 @@ export default function App() {
         <CompetitionsBrowserScreen
           career={career}
           onBack={() => setScreen('MAIN_MENU')}
+        />
+      )}
+
+      {screen === 'CALENDAR_BROWSER' && (
+        <SeasonCalendarView
+          career={career}
+          onBack={() => setScreen('MAIN_MENU')}
+          onStartNewCareer={() => setScreen('CHAR_CREATOR')}
+          onAdvanceDay={handleAdvanceDay}
+          onAdvanceToNextMatch={handleAdvanceToNextMatch}
+          onPlayMatch={handleStartMatch}
         />
       )}
 
@@ -250,6 +271,7 @@ export default function App() {
           onPlayMatch={handleStartMatch}
           onSimulateInjurySkip={handleInjurySkip}
           onAdvanceDay={handleAdvanceDay}
+          onAdvanceToNextMatch={handleAdvanceToNextMatch}
           onCompleteDrill={handleCompleteDrill}
           onAcceptOffer={handleAcceptOffer}
           onOpenSettings={() => handleOpenSettings('CAREER_HUB')}
@@ -266,6 +288,7 @@ export default function App() {
               homeClubId={activeFixture.homeClubId}
               awayClubId={activeFixture.awayClubId}
               competitionName={activeFixture.competitionName}
+              fixtureId={activeFixture.fixtureId}
               settings={settings}
               onOpenSettings={() => handleOpenSettings('MATCH')}
               onMatchFinished={(result) => {

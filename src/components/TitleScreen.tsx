@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { Maximize2, Minimize2, Play, Volume2, VolumeX } from 'lucide-react';
 import { soundEngine } from '../audio/soundEngine';
-import { useFullscreenState } from '../utils/fullscreen';
+import { CLUBS } from '../data/clubs';
 import {
   drawPixelBall,
   drawPixelPlayerSprite,
@@ -9,8 +9,8 @@ import {
   generateCrowd,
   PITCH_GEO,
 } from '../engine/pixelRenderer';
-import { CLUBS } from '../data/clubs';
 import { GameSettings } from '../types/game';
+import { useFullscreenState } from '../utils/fullscreen';
 
 interface TitleScreenProps {
   settings: GameSettings;
@@ -37,10 +37,10 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
       CLUBS[8].kit.secondary,
       CLUBS[13].kit.primary,
       'high',
-      { awaySecondary: CLUBS[13].kit.secondary, capacity: 68000, importance: 0.95 }
+      { awaySecondary: CLUBS[13].kit.secondary, capacity: 72000, importance: 0.96 }
     );
 
-    const sparkles = Array.from({ length: 42 }, (_, idx) => ({
+    const sparkles = Array.from({ length: 48 }, (_, idx) => ({
       x: ((idx * 173) % 1000) / 1000,
       y: ((idx * 257) % 1000) / 1000,
       spd: 0.04 + (idx % 5) * 0.015,
@@ -70,33 +70,77 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
       ctx.fillStyle = '#081018';
       ctx.fillRect(0, 0, w, h);
 
-      const zoom = Math.max(w / 1120, h / 680);
-      const camX = PITCH_GEO.worldW / 2 + Math.sin(t * 0.25) * 140;
-      const camY = PITCH_GEO.worldH / 2 + Math.cos(t * 0.18) * 55;
+      const zoom = Math.max(w / 1140, h / 690);
+      const camX = PITCH_GEO.worldW / 2 + Math.sin(t * 0.24) * 145;
+      const camY = PITCH_GEO.worldH / 2 + Math.cos(t * 0.18) * 58;
 
       ctx.save();
       ctx.translate(w / 2, h / 2);
       ctx.scale(zoom, zoom);
       ctx.translate(-camX, -camY);
 
-      drawPixelStadium(ctx, crowd, t, 0.65, 0, 0, 'high', {
+      drawPixelStadium(ctx, crowd, t, 0.72, 0, 0, 'high', {
         homeKit: CLUBS[8].kit,
         awayKit: CLUBS[13].kit,
         homeShort: CLUBS[8].shortName,
         awayShort: CLUBS[13].shortName,
         homeScore: 2,
         awayScore: 1,
-        matchMinuteStr: '88:12',
+        matchMinuteStr: 'PRÉ-JOGO',
         mascot: CLUBS[8].mascot,
         crowdMood: 'excited',
         showMosaic: true,
         mosaicProgress: 1,
       });
 
-      // Animated pixel exhibition players warming up
+      // Diving goalkeeper warmup drill inside left penalty box
+      const gkDiveCycle = Math.sin(t * 1.9);
+      const gkDiving = Math.abs(gkDiveCycle) > 0.72;
+      drawPixelPlayerSprite(
+        ctx,
+        PITCH_GEO.pitchX + 95,
+        PITCH_GEO.pitchY + PITCH_GEO.pitchH / 2 + gkDiveCycle * 46,
+        2.15,
+        {
+          appearance: {
+            skinColor: '#C68642',
+            hairStyle: 'Curto',
+            hairColor: '#1B1717',
+            faceStyle: 'Determinado',
+            eyeStyle: 'Padrão',
+            eyebrowStyle: 'Grossa',
+            beardStyle: 'Nenhuma',
+            mustacheStyle: 'Nenhum',
+            bodyType: 'Atlético',
+            visualHeightScale: 1.03,
+          },
+          gear: {
+            jerseyNumber: 1,
+            dominantFoot: 'Direito',
+            bootModel: 'Controle',
+            bootColor: '#10B981',
+            sleeveLength: 'Longa',
+            sockType: 'Alta',
+            accessory: 'Luva Térmica',
+          },
+          kit: CLUBS[8].kit,
+          isGoalkeeper: true,
+          isUserControlled: false,
+          facingAngle: 0,
+          animPhase: t * 8,
+          isSprinting: false,
+          isDribbling: false,
+          hasBall: false,
+          action: gkDiving ? 'gk_dive' : 'idle',
+          zOffset: gkDiving ? 5 : 0,
+        },
+        'match'
+      );
+
+      // Animated pixel exhibition players warming up & passing
       for (let i = 0; i < 6; i++) {
-        const px = PITCH_GEO.pitchX + 350 + Math.sin(t * 1.1 + i * 1.2) * 170;
-        const py = PITCH_GEO.pitchY + 180 + i * 65 + Math.cos(t * 1.4 + i) * 35;
+        const px = PITCH_GEO.pitchX + 360 + Math.sin(t * 1.15 + i * 1.2) * 185;
+        const py = PITCH_GEO.pitchY + 170 + i * 68 + Math.cos(t * 1.45 + i) * 34;
         const kit = i % 2 === 0 ? CLUBS[8].kit : CLUBS[13].kit;
         drawPixelPlayerSprite(
           ctx,
@@ -105,7 +149,7 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
           2.1,
           {
             appearance: {
-              skinColor: '#D19A6E',
+              skinColor: i % 3 === 0 ? '#8D5524' : '#D19A6E',
               hairStyle: i % 2 === 0 ? 'Moicano' : 'Topete',
               hairColor: '#1B1717',
               faceStyle: 'Determinado',
@@ -128,11 +172,12 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
             kit,
             isGoalkeeper: false,
             isUserControlled: false,
-            facingAngle: Math.cos(t * 1.1 + i * 1.2) >= 0 ? 0 : Math.PI,
-            animPhase: t * 8 + i,
-            isSprinting: false,
-            isDribbling: false,
+            facingAngle: Math.cos(t * 1.15 + i * 1.2) >= 0 ? 0 : Math.PI,
+            animPhase: t * 8.5 + i,
+            isSprinting: i % 3 === 0,
+            isDribbling: i % 2 === 1,
             hasBall: false,
+            action: i === 0 && Math.sin(t * 2.2) > 0.75 ? 'kick' : 'run',
           },
           'match'
         );
@@ -140,16 +185,16 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
 
       drawPixelBall(
         ctx,
-        PITCH_GEO.pitchX + PITCH_GEO.pitchW / 2 + Math.sin(t * 1.6) * 90,
-        PITCH_GEO.pitchY + PITCH_GEO.pitchH / 2 + Math.cos(t * 1.2) * 40,
-        Math.abs(Math.sin(t * 3.5)) * 18,
-        t * 6
+        PITCH_GEO.pitchX + PITCH_GEO.pitchW / 2 + Math.sin(t * 1.7) * 95,
+        PITCH_GEO.pitchY + PITCH_GEO.pitchH / 2 + Math.cos(t * 1.25) * 42,
+        Math.abs(Math.sin(t * 3.6)) * 20,
+        t * 6.5
       );
 
       ctx.restore();
 
-      // Stadium spotlight beams & drifting pixel confetti
-      const beamAlpha = 0.08 + Math.sin(t * 1.5) * 0.02;
+      // Stadium floodlight beams & drifting pixel confetti
+      const beamAlpha = 0.085 + Math.sin(t * 1.5) * 0.025;
       ctx.fillStyle = `rgba(255, 250, 220, ${beamAlpha})`;
       ctx.beginPath();
       ctx.moveTo(0, 0);
@@ -201,9 +246,9 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
         ref={canvasRef}
         className="absolute inset-0 w-full h-full pixelated"
       />
-      <div className="absolute inset-0 bg-gradient-to-t from-[#081018]/92 via-[#081018]/55 to-[#081018]/75" />
+      <div className="absolute inset-0 bg-gradient-to-t from-[#081018]/92 via-[#081018]/50 to-[#081018]/78" />
 
-      {/* Top right audio & fullscreen controls */}
+      {/* Top right audio & fullscreen controls (Fullscreen strictly on Title & Settings) */}
       <div className="absolute top-4 right-4 z-20 flex items-center gap-2">
         <button
           type="button"
@@ -212,7 +257,7 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
             soundEngine.play('menu');
             toggleFullscreen();
           }}
-          className="flex items-center justify-center p-2 rounded-lg bg-slate-900/85 border border-slate-700/70 text-slate-200 hover:border-emerald-400/60 transition-colors cursor-pointer"
+          className="flex items-center justify-center p-2 rounded-lg bg-slate-900/90 border border-slate-700/80 text-slate-200 hover:border-emerald-400/60 transition-colors cursor-pointer"
           aria-label={isFullscreen ? 'Sair da tela cheia' : 'Colocar em tela cheia'}
           title={isFullscreen ? 'Sair da tela cheia' : 'Tela cheia'}
         >
@@ -226,7 +271,7 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
         <button
           type="button"
           onClick={handleMusicClick}
-          className="flex items-center gap-2 px-3.5 py-2 rounded-lg bg-slate-900/85 border border-slate-700/70 text-slate-200 hover:border-emerald-400/60 transition-colors cursor-pointer whitespace-nowrap"
+          className="flex items-center gap-2 px-3.5 py-2 rounded-lg bg-slate-900/90 border border-slate-700/80 text-slate-200 hover:border-emerald-400/60 transition-colors cursor-pointer whitespace-nowrap"
           aria-label="Alternar música de abertura"
         >
           {settings.audio.musicEnabled ? <Volume2 size={18} className="text-emerald-400" /> : <VolumeX size={18} className="text-slate-400" />}
@@ -237,13 +282,13 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
       </div>
 
       {/* Center Lockup */}
-      <div className="relative z-10 flex flex-col items-center text-center px-6 max-w-xl animate-fadeIn">
-        {/* Original Pixel Football SVG Crest */}
+      <div className="relative z-10 flex flex-col items-center text-center px-6 max-w-2xl animate-fadeIn">
+        {/* Crisp Pixel Football Crest */}
         <svg
-          width="88"
-          height="88"
+          width="92"
+          height="92"
           viewBox="0 0 64 64"
-          className="mb-3 drop-shadow-[0_10px_25px_rgba(16,185,129,0.35)]"
+          className="mb-3 drop-shadow-[0_12px_28px_rgba(16,185,129,0.38)] pixelated"
           aria-hidden="true"
         >
           <path
@@ -259,25 +304,26 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
           <rect x="36" y="20" width="4" height="4" fill="#0F172A" />
           <rect x="24" y="32" width="4" height="4" fill="#0F172A" />
           <rect x="36" y="32" width="4" height="4" fill="#0F172A" />
+          <rect x="29" y="11" width="6" height="3" fill="#FACC15" />
         </svg>
 
         <h1 className="font-display text-4xl sm:text-6xl font-extrabold tracking-tight text-white drop-shadow-md text-balance">
           PIXEL <span className="text-emerald-400">FOOTBALL</span>
         </h1>
-        <p className="mt-2 text-sm sm:text-base text-slate-300 max-w-md">
-          Futebol clássico em Pixel Art 2D com carreira profissional completa e partidas 11v11 por toque.
+        <p className="mt-2 text-sm sm:text-base text-slate-200 max-w-lg">
+          Carreira profissional completa, Brasileirão Série A e B, Copa do Brasil, Supercopa e partidas 11v11 em Pixel Art.
         </p>
 
         <button
           type="button"
           onClick={handlePlayClick}
-          className="mt-6 flex items-center gap-3 px-10 py-3.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 active:scale-[0.98] text-slate-950 font-display font-extrabold text-lg tracking-wide shadow-[0_8px_30px_rgba(16,185,129,0.4)] transition-all cursor-pointer whitespace-nowrap"
+          className="mt-6 flex items-center gap-3 px-11 py-3.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 active:scale-[0.98] text-slate-950 font-display font-extrabold text-lg tracking-wide shadow-[0_10px_32px_rgba(16,185,129,0.45)] transition-all cursor-pointer whitespace-nowrap"
         >
           <Play size={22} fill="currentColor" />
           JOGAR
         </button>
 
-        <p className="mt-4 text-xs text-slate-400 tracking-wide">
+        <p className="mt-4 text-xs text-slate-300/90 tracking-wide">
           Toque e arraste para mover · Toque no companheiro para passar · Mire no gol para finalizar
         </p>
       </div>
