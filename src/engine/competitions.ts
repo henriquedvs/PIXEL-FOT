@@ -535,9 +535,13 @@ export function evaluateObjectives(career: PlayerCareer): SeasonObjective[] {
       ? career.objectives
       : createSeasonObjectives(career);
 
+  const activeTable =
+    career.division === 'Série B' && career.serieBStandings?.length
+      ? career.serieBStandings
+      : career.standings;
   const leaguePos = Math.max(
     1,
-    career.standings.findIndex((s) => s.clubId === career.clubId) + 1
+    activeTable.findIndex((s) => s.clubId === career.clubId) + 1
   );
   const copaRankMap: Record<string, number> = {
     Eliminado: 0,
@@ -614,10 +618,15 @@ export function buildAutoHighlights(career: PlayerCareer): string[] {
     }
   }
 
-  const posIdx = career.standings.findIndex((s) => s.clubId === career.clubId);
+  const activeTable =
+    career.division === 'Série B' && career.serieBStandings?.length
+      ? career.serieBStandings
+      : career.standings;
+  const divisionLabel = career.division === 'Série B' ? 'Brasileirão Série B' : 'Brasileirão Série A';
+  const posIdx = activeTable.findIndex((s) => s.clubId === career.clubId);
   if (posIdx >= 0) {
     highlights.push(
-      `Seu clube está na ${posIdx + 1}ª posição do Brasileirão Série A (${career.standings[posIdx].points} pts)`
+      `Seu clube está na ${posIdx + 1}ª posição do ${divisionLabel} (${activeTable[posIdx].points} pts)`
     );
   }
 
@@ -765,3 +774,31 @@ export function createMatchNewsItem(params: {
 
   return items;
 }
+
+export function getDivisionClubsFromIds(ids: string[] | undefined, fallback: Club[]): Club[] {
+  if (!ids || ids.length === 0) return fallback;
+  const resolved = ids.map((id) => getClubById(id));
+  return resolved.length >= 2 ? resolved : fallback;
+}
+
+export function buildTopScorersForDivision(
+  divisionClubs: Club[],
+  userClubId: string,
+  userName: string
+): LeagueLeader[] {
+  const leaders: LeagueLeader[] = [
+    { playerId: 'user_player', name: userName, clubId: userClubId, goals: 0, assists: 0 },
+  ];
+  for (const c of divisionClubs) {
+    const striker = c.squad[9] || c.squad.find((m) => m.position === 'ST' || m.position === 'FALSE_9');
+    const playmaker = c.squad[7] || c.squad.find((m) => m.position === 'CAM' || m.position === 'PLAYMAKER');
+    if (striker && c.id !== userClubId) {
+      leaders.push({ playerId: striker.id, name: striker.name, clubId: c.id, goals: 0, assists: 0 });
+    }
+    if (playmaker && c.id !== userClubId && playmaker.id !== striker?.id) {
+      leaders.push({ playerId: playmaker.id, name: playmaker.name, clubId: c.id, goals: 0, assists: 0 });
+    }
+  }
+  return leaders;
+}
+

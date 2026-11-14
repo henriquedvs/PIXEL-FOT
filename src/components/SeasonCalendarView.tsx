@@ -5,6 +5,7 @@ import {
   CheckCircle2,
   FastForward,
   List,
+  MessageSquare,
   Play,
   SkipForward,
   UserPlus,
@@ -23,6 +24,13 @@ interface SeasonCalendarViewProps {
     competitionName?: string,
     fixtureId?: string
   ) => void;
+  onSimulateMatch?: (
+    homeClubId: string,
+    awayClubId: string,
+    competitionName?: string,
+    fixtureId?: string
+  ) => void;
+  onTriggerNarrativeEvent?: (day: CalendarDay) => void;
   onAdvanceDay?: () => void;
   onAdvanceToNextMatch?: () => void;
   onBack?: () => void;
@@ -96,6 +104,8 @@ function getDayStyle(day: CalendarDay): {
 export const SeasonCalendarView: React.FC<SeasonCalendarViewProps> = ({
   career,
   onPlayMatch,
+  onSimulateMatch,
+  onTriggerNarrativeEvent,
   onAdvanceDay,
   onAdvanceToNextMatch,
   onBack,
@@ -196,14 +206,25 @@ export const SeasonCalendarView: React.FC<SeasonCalendarViewProps> = ({
   }
 
   const userClub = getClubById(career.clubId);
+  const activeDivision = career.division || 'Série A';
+  const activeSchedule =
+    activeDivision === 'Série B' && career.serieBSchedule?.length
+      ? career.serieBSchedule
+      : career.schedule;
   const canLaunchCurrentMatch =
     currentDay?.activity === 'PARTIDA' &&
     !currentDay.completed &&
-    Boolean(onPlayMatch);
+    Boolean(onPlayMatch || onSimulateMatch);
 
-  const launchMatchForDay = (day: CalendarDay) => {
-    if (!onPlayMatch) return;
-    const fxMatch = career.schedule.find(
+  const canTriggerTodayEvent =
+    Boolean(currentDay) &&
+    !currentDay!.completed &&
+    !currentDay!.narrativeEventId &&
+    Boolean(onTriggerNarrativeEvent) &&
+    ['COMPROMISSO', 'ESPECIAL', 'TREINO', 'VIAGEM'].includes(currentDay!.activity);
+
+  const resolveMatchTeamsForDay = (day: CalendarDay) => {
+    const fxMatch = activeSchedule.find(
       (f) =>
         f.round === (day.roundRef || career.round) &&
         (f.homeClubId === career.clubId || f.awayClubId === career.clubId)
@@ -217,8 +238,26 @@ export const SeasonCalendarView: React.FC<SeasonCalendarViewProps> = ({
       homeId = fxMatch.homeClubId;
       awayId = fxMatch.awayClubId;
     }
+    return {
+      homeId,
+      awayId,
+      competition: day.competition || `Brasileirão ${activeDivision}`,
+      matchId: day.matchId,
+    };
+  };
+
+  const launchMatchForDay = (day: CalendarDay) => {
+    if (!onPlayMatch) return;
+    const fx = resolveMatchTeamsForDay(day);
     soundEngine.play('whistle');
-    onPlayMatch(homeId, awayId, day.competition || 'Brasileirão Série A', day.matchId);
+    onPlayMatch(fx.homeId, fx.awayId, fx.competition, fx.matchId);
+  };
+
+  const simulateMatchForDay = (day: CalendarDay) => {
+    if (!onSimulateMatch) return;
+    const fx = resolveMatchTeamsForDay(day);
+    soundEngine.play('menu');
+    onSimulateMatch(fx.homeId, fx.awayId, fx.competition, fx.matchId);
   };
 
   const inspectedOpp = inspectedDay?.opponentClubId
@@ -332,16 +371,43 @@ export const SeasonCalendarView: React.FC<SeasonCalendarViewProps> = ({
               )}
 
               {canLaunchCurrentMatch && currentDay ? (
-                <button
-                  type="button"
-                  onClick={() => launchMatchForDay(currentDay)}
-                  className="px-4 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-display font-extrabold text-xs sm:text-sm flex items-center gap-2 cursor-pointer shadow-lg"
-                >
-                  <Play size={15} fill="currentColor" />
-                  Ir para o Estádio
-                </button>
+                <>
+                  {onPlayMatch && (
+                    <button
+                      type="button"
+                      onClick={() => launchMatchForDay(currentDay)}
+                      className="min-h-[42px] px-4 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-display font-extrabold text-xs sm:text-sm flex items-center gap-2 cursor-pointer shadow-lg"
+                    >
+                      <Play size={15} fill="currentColor" />
+                      Ir para o Estádio
+                    </button>
+                  )}
+                  {onSimulateMatch && (
+                    <button
+                      type="button"
+                      onClick={() => simulateMatchForDay(currentDay)}
+                      className="min-h-[42px] px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-100 font-display font-bold text-xs flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <FastForward size={14} />
+                      Simular Partida
+                    </button>
+                  )}
+                </>
               ) : (
                 <>
+                  {canTriggerTodayEvent && currentDay && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        soundEngine.play('menu');
+                        onTriggerNarrativeEvent?.(currentDay);
+                      }}
+                      className="min-h-[42px] px-3.5 py-2.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-display font-extrabold text-xs flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <MessageSquare size={14} />
+                      Participar do Evento
+                    </button>
+                  )}
                   {onAdvanceDay && (
                     <button
                       type="button"
@@ -354,7 +420,7 @@ export const SeasonCalendarView: React.FC<SeasonCalendarViewProps> = ({
                           setSelectedMonth(career.calendar[nextIdx].monthIndex ?? activeMonth);
                         }
                       }}
-                      className="px-3.5 py-2.5 rounded-xl bg-sky-500 hover:bg-sky-400 text-slate-950 font-display font-bold text-xs flex items-center gap-1.5 cursor-pointer"
+                      className="min-h-[42px] px-3.5 py-2.5 rounded-xl bg-sky-500 hover:bg-sky-400 text-slate-950 font-display font-bold text-xs flex items-center gap-1.5 cursor-pointer"
                     >
                       <FastForward size={14} />
                       Avançar Dia
@@ -367,7 +433,7 @@ export const SeasonCalendarView: React.FC<SeasonCalendarViewProps> = ({
                         soundEngine.play('menu');
                         onAdvanceToNextMatch();
                       }}
-                      className="px-3.5 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-display font-extrabold text-xs flex items-center gap-1.5 cursor-pointer"
+                      className="min-h-[42px] px-3.5 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-display font-extrabold text-xs flex items-center gap-1.5 cursor-pointer"
                     >
                       <SkipForward size={14} />
                       Ir até Próximo Jogo
@@ -381,7 +447,7 @@ export const SeasonCalendarView: React.FC<SeasonCalendarViewProps> = ({
           {/* Competition Color Legend */}
           <div className="flex flex-wrap items-center gap-3 text-[11px] text-slate-300 px-1">
             <span className="flex items-center gap-1.5">
-              <span className="w-2.5 h-2.5 rounded-sm bg-emerald-400 inline-block" /> Brasileirão Série A
+              <span className="w-2.5 h-2.5 rounded-sm bg-emerald-400 inline-block" /> Brasileirão {activeDivision}
             </span>
             <span className="flex items-center gap-1.5">
               <span className="w-2.5 h-2.5 rounded-sm bg-yellow-400 inline-block" /> Copa do Brasil
@@ -653,16 +719,29 @@ export const SeasonCalendarView: React.FC<SeasonCalendarViewProps> = ({
 
                   {inspectedDay.dayIndex === career.currentDayIndex &&
                     inspectedDay.activity === 'PARTIDA' &&
-                    !inspectedDay.completed &&
-                    onPlayMatch && (
-                      <button
-                        type="button"
-                        onClick={() => launchMatchForDay(inspectedDay)}
-                        className="w-full py-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-display font-extrabold text-xs flex items-center justify-center gap-2 cursor-pointer"
-                      >
-                        <Play size={15} fill="currentColor" />
-                        Entrar em Campo Hoje
-                      </button>
+                    !inspectedDay.completed && (
+                      <div className="space-y-2">
+                        {onPlayMatch && (
+                          <button
+                            type="button"
+                            onClick={() => launchMatchForDay(inspectedDay)}
+                            className="w-full min-h-[44px] py-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-display font-extrabold text-xs flex items-center justify-center gap-2 cursor-pointer"
+                          >
+                            <Play size={15} fill="currentColor" />
+                            Entrar em Campo Hoje
+                          </button>
+                        )}
+                        {onSimulateMatch && (
+                          <button
+                            type="button"
+                            onClick={() => simulateMatchForDay(inspectedDay)}
+                            className="w-full min-h-[42px] py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white font-display font-bold text-xs flex items-center justify-center gap-2 cursor-pointer"
+                          >
+                            <FastForward size={14} />
+                            Simular Partida
+                          </button>
+                        )}
+                      </div>
                     )}
                 </>
               ) : (

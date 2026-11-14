@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef } from 'react';
 import { ArrowLeft, Award, Paintbrush, Play, Shield, TrendingUp, UserCheck } from 'lucide-react';
 import { soundEngine } from '../audio/soundEngine';
 import { getClubById } from '../data/clubs';
-import { ATTRIBUTE_LABELS, getPositionMeta } from '../data/positions';
+import { ATTRIBUTE_CATEGORIES, ATTRIBUTE_LABELS, getPositionMeta } from '../data/positions';
 import { drawPixelPlayerSprite } from '../engine/pixelRenderer';
 import { PlayerCareer } from '../types/game';
 import { calculateAge } from '../utils/storage';
@@ -158,7 +158,10 @@ export const PlayerProfileScreen: React.FC<PlayerProfileScreenProps> = ({
               Meu Jogador · Perfil Profissional
             </h1>
             <p className="text-[11px] text-slate-400">
-              {career.personal.hometown} ({career.personal.nationality}) · Contrato até {career.contract.signedSeason + career.contract.yearsRemaining}
+              {career.personal.hometown} ({career.personal.nationality}
+              {career.personal.secondaryNationality ? ` / ${career.personal.secondaryNationality}` : ''}) ·{' '}
+              {career.division || 'Série A'} · Contrato até{' '}
+              {career.contract.signedSeason + career.contract.yearsRemaining}
             </p>
           </div>
         </div>
@@ -208,18 +211,72 @@ export const PlayerProfileScreen: React.FC<PlayerProfileScreenProps> = ({
                 <div className="text-[11px] text-emerald-400 font-semibold">
                   {club.name} · {posMeta.code} · {career.contract.role}
                 </div>
+                {career.secondaryPositions && career.secondaryPositions.length > 0 && (
+                  <div className="text-[10px] text-slate-400">
+                    Secundárias: {career.secondaryPositions.map((p) => getPositionMeta(p).code).join(' · ')}
+                  </div>
+                )}
               </div>
             </div>
 
             <div className="md:col-span-8 grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-              <StatCard label="Overall (OVR)" value={String(career.ovr)} accent />
+              <StatCard
+                label="OVR / Potencial"
+                value={`${career.ovr} / ${career.potential ?? career.ovr}`}
+                accent
+              />
               <StatCard label="Idade / País" value={`${age} anos · ${career.personal.nationality}`} />
-              <StatCard label="Físico / Pé" value={`${career.personal.heightCm}cm · ${career.gear.dominantFoot}`} />
-              <StatCard label="Salário Semanal" value={`R$ ${career.contract.weeklySalary.toLocaleString('pt-BR')}`} />
+              <StatCard
+                label="Valor de Mercado"
+                value={formatCurrency(career.marketValue ?? 950000)}
+                accent
+              />
+              <StatCard
+                label="Salário Semanal"
+                value={`R$ ${career.contract.weeklySalary.toLocaleString('pt-BR')}`}
+              />
               <StatCard label="Jogos (Titular)" value={`${career.careerStats.matches} (${startsCount})`} />
               <StatCard label="Gols · Assist." value={`${career.careerStats.goals}G · ${career.careerStats.assists}A`} accent />
               <StatCard label="Partic. em Gol" value={String(goalInvolvements)} accent />
               <StatCard label="Nota Média / Aprov." value={`${avgRating} · ${winRatePct}`} />
+            </div>
+          </section>
+
+          {/* Traits & Relationships Strip */}
+          <section className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+            <div className="lg:col-span-5 bg-[#111B2B] border border-slate-800 rounded-xl p-4 space-y-2.5">
+              <h2 className="font-display font-bold text-sm text-white">
+                Especialidades & Perfil Técnico
+              </h2>
+              <div className="text-xs text-slate-400">
+                Estilo: <span className="text-white font-semibold">{career.playstyle}</span> · Físico:{' '}
+                <span className="text-white font-semibold">
+                  {career.personal.heightCm}cm · Pé {career.gear.dominantFoot}
+                </span>
+              </div>
+              <div className="flex flex-wrap gap-1.5 pt-1">
+                {(career.traits && career.traits.length > 0 ? career.traits : [career.playstyle]).map((tr) => (
+                  <span
+                    key={tr}
+                    className="px-2.5 py-1 rounded-md bg-emerald-500/15 border border-emerald-500/35 text-[11px] font-semibold text-emerald-300"
+                  >
+                    {tr}
+                  </span>
+                ))}
+              </div>
+            </div>
+
+            <div className="lg:col-span-7 bg-[#111B2B] border border-slate-800 rounded-xl p-4 space-y-2.5">
+              <h2 className="font-display font-bold text-sm text-white">
+                Status no Clube & Reputação
+              </h2>
+              <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5">
+                <RelationBar label="Moral" value={career.morale} color="bg-emerald-500" />
+                <RelationBar label="Treinador" value={career.coachTrust} color="bg-sky-500" />
+                <RelationBar label="Entrosamento" value={career.teamChemistry ?? 70} color="bg-indigo-500" />
+                <RelationBar label="Imprensa" value={career.pressRelation ?? 65} color="bg-amber-500" />
+                <RelationBar label="Torcida" value={career.fanSupport ?? 65} color="bg-teal-400" />
+              </div>
             </div>
           </section>
 
@@ -237,7 +294,7 @@ export const PlayerProfileScreen: React.FC<PlayerProfileScreenProps> = ({
 
             {compEntries.length === 0 ? (
               <p className="text-xs text-slate-400">
-                Dispute partidas pelo Brasileirão Série A, Copa do Brasil ou Supercopa para detalhar seus números por torneio.
+                Dispute partidas pelo Brasileirão {career.division || 'Série A'}, Copa do Brasil ou Supercopa para detalhar seus números por torneio.
               </p>
             ) : (
               <div className="overflow-x-auto">
@@ -286,17 +343,29 @@ export const PlayerProfileScreen: React.FC<PlayerProfileScreenProps> = ({
                 <Shield size={16} className="text-emerald-400" />
                 Atributos Atuais ({posMeta.name} · {career.playstyle})
               </h2>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                {ATTRIBUTE_LABELS.map((item) => {
-                  const val = career.attributes[item.key];
+              <div className="space-y-3">
+                {ATTRIBUTE_CATEGORIES.map((category) => {
+                  const items = ATTRIBUTE_LABELS.filter((a) => a.category === category);
                   return (
-                    <div key={item.key} className="p-2 rounded-lg bg-slate-900/70 border border-slate-800/80">
-                      <div className="flex justify-between text-xs mb-1">
-                        <span className="text-slate-300">{item.label}</span>
-                        <span className="font-mono-num font-bold text-emerald-400">{val}</span>
+                    <div key={category} className="space-y-1.5">
+                      <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-800/80 pb-1">
+                        {category}
                       </div>
-                      <div className="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
-                        <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${val}%` }} />
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        {items.map((item) => {
+                          const val = career.attributes[item.key];
+                          return (
+                            <div key={item.key} className="p-2 rounded-lg bg-slate-900/70 border border-slate-800/80">
+                              <div className="flex justify-between text-xs mb-1">
+                                <span className="text-slate-300">{item.label}</span>
+                                <span className="font-mono-num font-bold text-emerald-400">{val}</span>
+                              </div>
+                              <div className="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                                <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${val}%` }} />
+                              </div>
+                            </div>
+                          );
+                        })}
                       </div>
                     </div>
                   );
@@ -373,4 +442,23 @@ function StatCard({ label, value, accent = false }: { label: string; value: stri
       </div>
     </div>
   );
+}
+
+function RelationBar({ label, value, color }: { label: string; value: number; color: string }) {
+  return (
+    <div className="p-2.5 rounded-xl bg-slate-900/75 border border-slate-800 space-y-1.5">
+      <div className="flex items-center justify-between text-[11px]">
+        <span className="text-slate-400 truncate">{label}</span>
+        <span className="font-mono-num font-bold text-white">{value}</span>
+      </div>
+      <div className="h-1.5 rounded-full bg-slate-800 overflow-hidden">
+        <div className={`h-full rounded-full ${color}`} style={{ width: `${Math.max(0, Math.min(100, value))}%` }} />
+      </div>
+    </div>
+  );
+}
+
+function formatCurrency(val: number): string {
+  if (val >= 1_000_000) return `R$ ${(val / 1_000_000).toFixed(1)}M`;
+  return `R$ ${Math.round(val / 1000)} mil`;
 }

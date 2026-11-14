@@ -189,7 +189,12 @@ export const ClubSelection: React.FC<ClubSelectionProps> = ({
                 <Users size={18} className="text-emerald-400 shrink-0" />
                 <div>
                   <div className="text-xs font-bold text-white">Projeção na Equipe</div>
-                  <div className="text-xs text-slate-400">{chanceLabel}</div>
+                  <div className="text-xs text-slate-400">
+                    {chanceLabel}
+                    {selectedClub.division === 'Série B'
+                      ? ' · G-4 da Série B sobe para a Série A na próxima temporada'
+                      : ''}
+                  </div>
                 </div>
               </div>
               <Shield size={18} className="text-slate-500 shrink-0" />

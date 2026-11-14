@@ -22,7 +22,9 @@ export const CompetitionsBrowserScreen: React.FC<CompetitionsBrowserScreenProps>
   career,
   onBack,
 }) => {
-  const [tab, setTab] = useState<CompTab>('SERIE_A');
+  const [tab, setTab] = useState<CompTab>(
+    career?.division === 'Série B' ? 'SERIE_B' : 'SERIE_A'
+  );
   const [selectedRound, setSelectedRound] = useState<number>(
     Math.max(1, (career?.round || 1) - 1)
   );
@@ -51,13 +53,15 @@ export const CompetitionsBrowserScreen: React.FC<CompetitionsBrowserScreenProps>
     return createInitialSupercopa(2026);
   }, [career]);
 
+  const activeCompKeyword = tab === 'SERIE_B' ? 'Série B' : 'Série A';
+
   const roundNumbers = useMemo(() => {
     const rounds = new Set<number>();
     (career?.roundResults || []).forEach((r) => {
-      if (r.competition.includes('Série A')) rounds.add(r.round);
+      if (r.competition.includes(activeCompKeyword)) rounds.add(r.round);
     });
     return Array.from(rounds).sort((a, b) => b - a);
-  }, [career?.roundResults]);
+  }, [career?.roundResults, activeCompKeyword]);
 
   const activeRoundFilter = roundNumbers.includes(selectedRound)
     ? selectedRound
@@ -65,9 +69,9 @@ export const CompetitionsBrowserScreen: React.FC<CompetitionsBrowserScreenProps>
 
   const filteredRoundResults = useMemo(() => {
     return (career?.roundResults || []).filter(
-      (r) => r.competition.includes('Série A') && r.round === activeRoundFilter
+      (r) => r.competition.includes(activeCompKeyword) && r.round === activeRoundFilter
     );
-  }, [career?.roundResults, activeRoundFilter]);
+  }, [career?.roundResults, activeRoundFilter, activeCompKeyword]);
 
   const topScorers = useMemo(() => {
     return [...(career?.leagueLeaders || [])]
@@ -111,7 +115,7 @@ export const CompetitionsBrowserScreen: React.FC<CompetitionsBrowserScreenProps>
             </h1>
             <p className="text-[11px] text-slate-400">
               {career
-                ? `Temporada ${career.season} · Rodada ${career.round}/38 · Copa: ${career.copaStage}`
+                ? `Temporada ${career.season} · ${career.division || 'Série A'} · Rodada ${career.round}/38 · Copa: ${career.copaStage}`
                 : 'Brasileirão Série A & B (20 clubes cada), Copa do Brasil e Supercopa do Brasil'}
             </p>
           </div>
@@ -273,69 +277,133 @@ export const CompetitionsBrowserScreen: React.FC<CompetitionsBrowserScreenProps>
           )}
 
           {tab === 'SERIE_B' && (
-            <div className="bg-[#111B2B] border border-slate-800 rounded-xl p-4 overflow-x-auto">
-              <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
-                <div>
-                  <h2 className="font-display font-bold text-base text-white flex items-center gap-2">
-                    <PixelShieldIcon size={18} />
-                    Brasileirão Série B — 20 Clubes (Simulação Integrada)
-                  </h2>
-                  <p className="text-xs text-slate-400">
-                    Os 4 primeiros conquistam o acesso à Série A na temporada seguinte.
-                  </p>
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
+              <div className="lg:col-span-8 bg-[#111B2B] border border-slate-800 rounded-xl p-4 overflow-x-auto">
+                <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+                  <div>
+                    <h2 className="font-display font-bold text-base text-white flex items-center gap-2">
+                      <PixelShieldIcon size={18} />
+                      Brasileirão Série B — 20 Clubes (38 Rodadas)
+                    </h2>
+                    <p className="text-xs text-slate-400">
+                      Os 4 primeiros conquistam o acesso à Série A na temporada seguinte.
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-3 text-[11px] text-slate-400">
+                    <span className="text-sky-400">G-4 Acesso à Série A</span>
+                    <span className="text-rose-400">Z-4 Rebaixamento</span>
+                  </div>
                 </div>
-                <div className="flex items-center gap-3 text-[11px] text-slate-400">
-                  <span className="text-sky-400">G-4 Acesso à Série A</span>
-                  <span className="text-rose-400">Z-4 Rebaixamento</span>
-                </div>
+                <table className="w-full text-xs text-left">
+                  <thead className="text-[11px] text-slate-400 border-b border-slate-800">
+                    <tr>
+                      <th className="py-2 pr-2">#</th>
+                      <th className="py-2">Clube</th>
+                      <th className="py-2 text-center">J</th>
+                      <th className="py-2 text-center">V</th>
+                      <th className="py-2 text-center">E</th>
+                      <th className="py-2 text-center">D</th>
+                      <th className="py-2 text-center">GP</th>
+                      <th className="py-2 text-center">GC</th>
+                      <th className="py-2 text-center">SG</th>
+                      <th className="py-2 text-right">PTS</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-800/70">
+                    {serieBStandings.map((row, idx) => {
+                      const c = getClubById(row.clubId);
+                      const isMine = career?.clubId === row.clubId;
+                      const zoneColor =
+                        idx < 4
+                          ? 'text-sky-400'
+                          : idx >= 16
+                          ? 'text-rose-400'
+                          : 'text-slate-400';
+                      return (
+                        <tr
+                          key={row.clubId}
+                          className={
+                            isMine ? 'bg-emerald-500/15 text-emerald-200 font-semibold' : 'text-slate-300'
+                          }
+                        >
+                          <td className={`py-2 pr-2 font-mono-num font-bold ${zoneColor}`}>{idx + 1}</td>
+                          <td className="py-2 flex items-center gap-2">
+                            <ClubCrest club={c} size={20} />
+                            <span className="truncate max-w-[160px]">{c.name}</span>
+                          </td>
+                          <td className="py-2 text-center font-mono-num">{row.played}</td>
+                          <td className="py-2 text-center font-mono-num">{row.won}</td>
+                          <td className="py-2 text-center font-mono-num">{row.drawn}</td>
+                          <td className="py-2 text-center font-mono-num">{row.lost}</td>
+                          <td className="py-2 text-center font-mono-num">{row.gf}</td>
+                          <td className="py-2 text-center font-mono-num">{row.ga}</td>
+                          <td className="py-2 text-center font-mono-num">{row.gf - row.ga}</td>
+                          <td className="py-2 text-right font-mono-num font-bold text-white">{row.points}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
               </div>
-              <table className="w-full text-xs text-left">
-                <thead className="text-[11px] text-slate-400 border-b border-slate-800">
-                  <tr>
-                    <th className="py-2 pr-2">#</th>
-                    <th className="py-2">Clube</th>
-                    <th className="py-2 text-center">J</th>
-                    <th className="py-2 text-center">V</th>
-                    <th className="py-2 text-center">E</th>
-                    <th className="py-2 text-center">D</th>
-                    <th className="py-2 text-center">GP</th>
-                    <th className="py-2 text-center">GC</th>
-                    <th className="py-2 text-center">SG</th>
-                    <th className="py-2 text-right">PTS</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-800/70">
-                  {serieBStandings.map((row, idx) => {
-                    const c = getClubById(row.clubId);
-                    const zoneColor =
-                      idx < 4
-                        ? 'text-sky-400'
-                        : idx >= 16
-                        ? 'text-rose-400'
-                        : 'text-slate-400';
-                    return (
-                      <tr key={row.clubId} className="text-slate-300">
-                        <td className={`py-2 pr-2 font-mono-num font-bold ${zoneColor}`}>{idx + 1}</td>
-                        <td className="py-2 flex items-center gap-2">
-                          <ClubCrest club={c} size={20} />
-                          <span className="truncate max-w-[180px]">{c.name}</span>
-                          <span className="text-[10px] text-slate-500 hidden sm:inline">
-                            ({c.city}/{c.state})
+
+              <div className="lg:col-span-4 bg-[#111B2B] border border-slate-800 rounded-xl p-4 space-y-3">
+                <div className="flex items-center justify-between gap-2">
+                  <h3 className="font-display font-bold text-sm text-white">
+                    Resultados da Série B
+                  </h3>
+                  {roundNumbers.length > 0 && (
+                    <select
+                      value={activeRoundFilter}
+                      onChange={(e) => setSelectedRound(Number(e.target.value))}
+                      className="px-2 py-1 rounded bg-slate-900 border border-slate-700 text-xs text-white font-mono-num"
+                      aria-label="Selecionar rodada da Série B"
+                    >
+                      {roundNumbers.map((r) => (
+                        <option key={r} value={r}>
+                          Rodada {r}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                </div>
+
+                {filteredRoundResults.length === 0 ? (
+                  <p className="text-xs text-slate-400">
+                    Os placares da Série B aparecem automaticamente conforme as rodadas avançam.
+                  </p>
+                ) : (
+                  <div className="space-y-1.5 max-h-[420px] overflow-y-auto custom-scroll pr-1">
+                    {filteredRoundResults.map((res) => {
+                      const hc = getClubById(res.homeClubId);
+                      const ac = getClubById(res.awayClubId);
+                      const involvesUser =
+                        career && (res.homeClubId === career.clubId || res.awayClubId === career.clubId);
+                      return (
+                        <div
+                          key={res.id}
+                          className={`p-2 rounded-lg border flex items-center justify-between text-xs ${
+                            involvesUser
+                              ? 'bg-emerald-500/15 border-emerald-500/40'
+                              : 'bg-slate-900/75 border-slate-800'
+                          }`}
+                        >
+                          <span className="flex items-center gap-1.5 font-semibold text-white w-2/5 truncate">
+                            <ClubCrest club={hc} size={16} />
+                            {hc.shortName}
                           </span>
-                        </td>
-                        <td className="py-2 text-center font-mono-num">{row.played}</td>
-                        <td className="py-2 text-center font-mono-num">{row.won}</td>
-                        <td className="py-2 text-center font-mono-num">{row.drawn}</td>
-                        <td className="py-2 text-center font-mono-num">{row.lost}</td>
-                        <td className="py-2 text-center font-mono-num">{row.gf}</td>
-                        <td className="py-2 text-center font-mono-num">{row.ga}</td>
-                        <td className="py-2 text-center font-mono-num">{row.gf - row.ga}</td>
-                        <td className="py-2 text-right font-mono-num font-bold text-white">{row.points}</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+                          <span className="font-mono-num font-extrabold text-emerald-400">
+                            {res.homeScore} x {res.awayScore}
+                          </span>
+                          <span className="flex items-center justify-end gap-1.5 font-semibold text-white w-2/5 truncate">
+                            {ac.shortName}
+                            <ClubCrest club={ac} size={16} />
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
             </div>
           )}
 

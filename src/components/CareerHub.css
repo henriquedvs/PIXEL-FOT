@@ -17,8 +17,7 @@
 .career-club-identity { gap:10px; min-width:0; }
 .career-club-copy { display:flex; flex-direction:column; gap:1px; min-width:0; }
 .career-club-copy strong { color:#f1f4f7; font-size:13px; letter-spacing:.12em; font-weight:700; }
-.career-club-copy span { color:var(--career-muted); font-size:9px; letter-spacing:.1em; text-transform:uppercase; white-space:nowrap; }
-.career-club-copy i, .career-match-meta i { display:inline-block; width:3px; height:3px; margin:0 5px 2px; border-radius:50%; background:#64748b; }
+.career-club-copy span { color:var(--career-muted); font-size:9px; letter-spacing:.08em; text-transform:uppercase; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .career-date-chip { gap:8px; padding:7px 12px; border-left:1px solid var(--career-border); border-right:1px solid var(--career-border); color:#b9c5d1; font:500 10px 'DM Mono',monospace; letter-spacing:.08em; }
 .career-date-chip svg { color:var(--career-green); }
 .career-top-actions { gap:8px; }
@@ -30,23 +29,25 @@
 .career-player-panel { display:flex; flex-direction:column; padding:clamp(14px,1.6vw,22px); }
 .career-panel-kicker, .career-eyebrow { color:var(--career-green); font:500 9px 'DM Mono',monospace; letter-spacing:.14em; text-transform:uppercase; }
 .career-panel-kicker span { color:#4d6374; padding:0 4px; }
-.career-player-heading { display:flex; align-items:center; gap:13px; padding:clamp(14px,2vh,24px) 0 16px; }
+.career-player-heading { display:flex; align-items:center; gap:13px; padding:clamp(12px,1.8vh,20px) 0 14px; }
 .career-player-avatar { width:78px; height:90px; flex:0 0 78px; display:flex; align-items:center; justify-content:center; overflow:hidden; background:#111e2b; border:1px solid #304254; image-rendering:pixelated; }
 .career-player-nameblock { min-width:0; }
 .career-player-nameblock h1 { margin:0; color:#f4f6f8; font-size:clamp(19px,2.2vw,27px); line-height:1.05; font-weight:700; letter-spacing:.02em; }
-.career-player-nameblock p { margin:7px 0 4px; color:var(--career-gold); font:500 11px 'DM Mono',monospace; letter-spacing:.08em; }
+.career-player-nameblock p { margin:7px 0 4px; color:var(--career-gold); font:500 10.5px 'DM Mono',monospace; letter-spacing:.06em; }
 .career-player-nameblock p span, .career-player-nameblock small span { color:#718397; padding:0 3px; }
 .career-player-nameblock small { color:var(--career-muted); font-size:10px; }
-.career-player-rating-row { display:grid; grid-template-columns:1.08fr 1fr 1fr; border-top:1px solid #253647; border-bottom:1px solid #253647; padding:11px 0; }
-.career-overall, .career-stat { display:flex; flex-direction:column; gap:4px; padding:0 10px; border-left:1px solid #253647; }
+.career-player-rating-row { display:grid; grid-template-columns:1.1fr 1fr 1fr; border-top:1px solid #253647; border-bottom:1px solid #253647; padding:10px 0; }
+.career-overall, .career-stat { display:flex; flex-direction:column; gap:4px; padding:0 8px; border-left:1px solid #253647; min-width:0; }
 .career-overall { border-left:0; padding-left:0; }
-.career-overall small, .career-stat small, .career-fatigue-row span { color:var(--career-muted); font:500 8px 'DM Mono',monospace; letter-spacing:.12em; }
-.career-overall strong { color:var(--career-green); font:500 24px 'DM Mono',monospace; }
-.career-stat strong { color:#edf1f4; font:500 17px 'DM Mono',monospace; }
-.career-club-row { display:flex; align-items:center; gap:8px; padding:14px 0; color:#bec8d2; font-size:11px; }
+.career-overall small, .career-stat small, .career-fatigue-row span { color:var(--career-muted); font:500 8px 'DM Mono',monospace; letter-spacing:.1em; white-space:nowrap; }
+.career-overall strong { color:var(--career-green); font:500 22px 'DM Mono',monospace; white-space:nowrap; }
+.career-overall strong em { font-style:normal; color:#7dd3fc; font-size:13px; }
+.career-stat strong { color:#edf1f4; font:500 15px 'DM Mono',monospace; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.career-club-row { display:flex; align-items:center; gap:8px; padding:11px 0 8px; color:#bec8d2; font-size:11px; }
 .career-club-row span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .career-club-row b { margin-left:auto; color:#cdb06f; font:500 9px 'DM Mono',monospace; white-space:nowrap; }
-.career-fatigue-row { display:flex; align-items:center; gap:8px; margin-top:auto; padding-top:12px; border-top:1px solid #253647; }
+.career-traits-line { color:#e2c27a; font:500 9.5px 'DM Mono',monospace; padding-bottom:10px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.career-fatigue-row { display:flex; align-items:center; gap:8px; margin-top:auto; padding-top:10px; border-top:1px solid #253647; }
 .career-fatigue-row div { flex:1; height:4px; background:#243242; }
 .career-fatigue-row div i { display:block; height:100%; background:linear-gradient(90deg,#5bc693,#d4b36e); }
 .career-fatigue-row b { color:#c8d1d8; font:500 9px 'DM Mono',monospace; }
@@ -60,15 +61,17 @@
 .career-team small { max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--career-muted); font-size:9px; }
 .career-versus { color:#697a8c; font:600 17px 'DM Mono',monospace; text-align:center; }
 .career-versus span { display:block; width:140px; max-width:23vw; margin-top:6px; color:#7e8d9b; font:400 8px 'DM Mono',monospace; line-height:1.3; }
-.career-match-meta { display:flex; align-items:center; justify-content:center; gap:7px; padding:9px 5px; border-top:1px solid #253647; color:#a0adba; font:400 9px 'DM Mono',monospace; }
+.career-match-meta { display:flex; align-items:center; justify-content:center; gap:7px; padding:9px 5px; border-top:1px solid #253647; color:#a0adba; font:400 9px 'DM Mono',monospace; text-align:center; }
 .career-match-meta svg { color:var(--career-green); flex:0 0 auto; }
 .career-injury-note { display:flex; align-items:center; gap:7px; padding:8px 10px; margin:4px 0; color:#e8c478; background:#332815; border:1px solid #604a25; font-size:10px; }
-.career-match-actions { display:grid; grid-template-columns:1.3fr 1fr 1fr; gap:7px; padding-top:9px; }
-.career-action-primary, .career-action-secondary, .career-action-tertiary { min-height:42px; display:flex; align-items:center; justify-content:center; gap:7px; padding:0 9px; border-radius:3px; cursor:pointer; font:600 9px 'DM Mono',monospace; letter-spacing:.055em; white-space:nowrap; }
-.career-action-primary { color:#07150f; background:var(--career-green); border:1px solid #8ce5bb; }
+.career-match-actions { display:flex; flex-wrap:wrap; gap:7px; padding-top:9px; }
+.career-action-primary, .career-action-secondary, .career-action-tertiary, .career-action-event { flex:1 1 115px; min-height:44px; display:flex; align-items:center; justify-content:center; gap:6px; padding:0 10px; border-radius:3px; cursor:pointer; font:600 9px 'DM Mono',monospace; letter-spacing:.05em; white-space:nowrap; }
+.career-action-primary { flex:1.35 1 140px; color:#07150f; background:var(--career-green); border:1px solid #8ce5bb; }
 .career-action-primary:hover { background:#83e2b7; }
-.career-action-primary.is-warning { grid-column:1/-1; color:#171205; background:#d4b36e; border-color:#e5c986; }
+.career-action-primary.is-warning { flex:1 1 100%; color:#171205; background:#d4b36e; border-color:#e5c986; }
 .career-action-secondary { color:#d6e0e6; background:#172536; border:1px solid #34475a; }
+.career-action-event { color:#161104; background:#e5c470; border:1px solid #f0d78e; }
+.career-action-event:hover { background:#edd082; }
 .career-action-secondary:hover, .career-action-tertiary:hover { border-color:#7890a3; }
 .career-action-tertiary { color:#93a3b2; background:transparent; border:1px solid #293a4a; }
 .career-standings-panel { display:flex; flex-direction:column; padding:clamp(13px,1.45vw,20px); }

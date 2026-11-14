@@ -3,16 +3,23 @@ import { ArrowLeft, ArrowRight, Check, Shuffle, Sparkles } from 'lucide-react';
 import { soundEngine } from '../audio/soundEngine';
 import { getClubById } from '../data/clubs';
 import {
+  ATTRIBUTE_CATEGORIES,
   ATTRIBUTE_LABELS,
   PLAYSTYLES,
   POSITIONS,
+  calculateMarketValue,
   calculateOverall,
+  derivePlayerTraits,
+  estimatePotential,
+  generateBalancedPoolAttributes,
   generateInitialAttributes,
   getPositionMeta,
+  suggestWeeklySalary,
 } from '../data/positions';
 import { drawPixelPlayerSprite } from '../engine/pixelRenderer';
 import {
   AccessoryType,
+  AttributeCreationMode,
   BeardStyle,
   BodyType,
   BootModel,
@@ -45,7 +52,9 @@ export interface CreatedCharacterDraft {
   appearance: PlayerAppearance;
   gear: SportGear;
   position: PositionId;
+  secondaryPositions: PositionId[];
   playstyle: PlaystyleId;
+  creationMode: AttributeCreationMode;
   attributes: PlayerAttributes;
 }
 
@@ -183,8 +192,17 @@ export const CharacterCreator: React.FC<CharacterCreatorProps> = ({
   );
 
   const [position, setPosition] = useState<PositionId>(initialCareer?.position ?? 'CAM');
+  const [secondaryPositions, setSecondaryPositions] = useState<PositionId[]>(
+    initialCareer?.secondaryPositions ?? []
+  );
   const [playstyle, setPlaystyle] = useState<PlaystyleId>(initialCareer?.playstyle ?? 'ARMADOR');
+  const [creationMode, setCreationMode] = useState<AttributeCreationMode>(
+    initialCareer?.creationMode ?? 'automatico'
+  );
   const [bonusPoints, setBonusPoints] = useState(editMode ? 0 : 6);
+  const [balancedBase, setBalancedBase] = useState<PlayerAttributes>(() =>
+    generateBalancedPoolAttributes(initialCareer?.position ?? 'CAM', initialCareer?.playstyle ?? 'ARMADOR').baseAttributes
+  );
   const [attributes, setAttributes] = useState<PlayerAttributes>(() =>
     initialCareer?.attributes
       ? { ...initialCareer.attributes }
@@ -195,31 +213,93 @@ export const CharacterCreator: React.FC<CharacterCreatorProps> = ({
 
   const age = useMemo(() => calculateAge(personal.birthDate), [personal.birthDate]);
   const ovr = useMemo(() => calculateOverall(attributes, position), [attributes, position]);
+  const potential = useMemo(() => estimatePotential(ovr, age), [ovr, age]);
+  const marketValue = useMemo(
+    () => calculateMarketValue(ovr, potential, age, position),
+    [ovr, potential, age, position]
+  );
+  const suggestedSalary = useMemo(
+    () => suggestWeeklySalary(ovr, 72, marketValue),
+    [ovr, marketValue]
+  );
+  const derivedTraits = useMemo(
+    () => derivePlayerTraits(attributes, position, playstyle),
+    [attributes, position, playstyle]
+  );
   const posMeta = useMemo(() => getPositionMeta(position), [position]);
+
+  const applyCreationMode = (
+    mode: AttributeCreationMode,
+    targetPos: PositionId = position,
+    targetStyle: PlaystyleId = playstyle
+  ) => {
+    setCreationMode(mode);
+    if (editMode) return;
+    if (mode === 'automatico') {
+      setAttributes(generateInitialAttributes(targetPos, targetStyle, age));
+      setBonusPoints(6);
+    } else if (mode === 'balanceado') {
+      const pool = generateBalancedPoolAttributes(targetPos, targetStyle, age);
+      setBalancedBase(pool.baseAttributes);
+      setAttributes({ ...pool.baseAttributes });
+      setBonusPoints(pool.bonusPoints);
+    } else {
+      // 'livre' starts from current or initial attributes and unlocks full slider adjustment
+      setAttributes(generateInitialAttributes(targetPos, targetStyle, age));
+      setBonusPoints(0);
+    }
+  };
 
   const handlePositionOrStyleChange = (nextPos: PositionId, nextStyle: PlaystyleId) => {
     setPosition(nextPos);
     setPlaystyle(nextStyle);
+    setSecondaryPositions((prev) => prev.filter((p) => p !== nextPos).slice(0, 2));
     if (!editMode) {
-      setAttributes(generateInitialAttributes(nextPos, nextStyle));
-      setBonusPoints(6);
+      applyCreationMode(creationMode, nextPos, nextStyle);
     }
     if (nextPos === 'GK_TRAD' || nextPos === 'GK_SWEEPER') {
       setGear((g) => ({ ...g, accessory: 'Luvas', jerseyNumber: editMode ? g.jerseyNumber : 1 }));
     }
   };
 
+  const toggleSecondaryPosition = (posId: PositionId) => {
+    if (posId === position) return;
+    soundEngine.play('menu');
+    setSecondaryPositions((prev) => {
+      if (prev.includes(posId)) return prev.filter((p) => p !== posId);
+      if (prev.length >= 2) return [prev[1], posId];
+      return [...prev, posId];
+    });
+  };
+
   const adjustAttr = (key: keyof PlayerAttributes, delta: 1 | -1) => {
     if (editMode) return;
-    if (delta === 1 && bonusPoints <= 0) return;
-    const base = generateInitialAttributes(position, playstyle)[key];
     const current = attributes[key];
+    if (creationMode === 'livre') {
+      const nextVal = Math.max(30, Math.min(88, current + delta));
+      if (nextVal === current) return;
+      soundEngine.play('menu');
+      setAttributes((prev) => ({ ...prev, [key]: nextVal }));
+      return;
+    }
+
+    if (delta === 1 && bonusPoints <= 0) return;
+    const base =
+      creationMode === 'balanceado'
+        ? balancedBase[key]
+        : generateInitialAttributes(position, playstyle, age)[key];
     if (delta === -1 && current <= base) return;
     if (delta === 1 && current >= 88) return;
 
     soundEngine.play('menu');
     setAttributes((prev) => ({ ...prev, [key]: prev[key] + delta }));
     setBonusPoints((p) => p - delta);
+  };
+
+  const setLivreAttr = (key: keyof PlayerAttributes, value: number) => {
+    if (editMode || creationMode !== 'livre') return;
+    const clamped = Math.max(30, Math.min(88, Math.round(value)));
+    setAttributes((prev) => ({ ...prev, [key]: clamped }));
   };
 
   const randomizeCharacter = () => {
@@ -359,7 +439,9 @@ export const CharacterCreator: React.FC<CharacterCreatorProps> = ({
         shirtName: (gear.shirtName || cleanNick).trim().toUpperCase().slice(0, 11),
       },
       position,
+      secondaryPositions,
       playstyle,
+      creationMode,
       attributes,
     });
   };
@@ -504,14 +586,18 @@ export const CharacterCreator: React.FC<CharacterCreatorProps> = ({
             </button>
           </div>
 
-          <div className="flex-1 md:w-full bg-slate-900/75 border border-slate-800 rounded-xl p-3 flex flex-col gap-1.5">
+          <div className="flex-1 md:w-full bg-slate-900/75 border border-slate-800 rounded-xl p-3 flex flex-col gap-2">
             <div className="flex items-center justify-between">
               <div className="min-w-0">
                 <div className="font-display font-bold text-base text-white truncate">
                   {personal.nickname || `${personal.firstName} ${personal.lastName}`}
                 </div>
                 <div className="text-xs text-slate-400 truncate">
-                  {posMeta.name} · {age} anos · #{gear.jerseyNumber} ({gear.shirtName || 'CRAQUE'})
+                  {posMeta.name}
+                  {secondaryPositions.length > 0
+                    ? ` (${secondaryPositions.map((p) => getPositionMeta(p).code).join('/')})`
+                    : ''}{' '}
+                  · {age}a · #{gear.jerseyNumber}
                 </div>
               </div>
               <div className="text-right shrink-0 pl-2">
@@ -521,10 +607,33 @@ export const CharacterCreator: React.FC<CharacterCreatorProps> = ({
                 </div>
               </div>
             </div>
-            <div className="text-[11px] text-slate-400 border-t border-slate-800 pt-1.5 flex justify-between">
+            <div className="grid grid-cols-3 gap-1.5 border-t border-slate-800 pt-2 text-[10px] font-mono-num">
+              <div className="bg-slate-950/70 rounded px-2 py-1">
+                <div className="text-slate-500">POTENCIAL</div>
+                <div className="font-bold text-sky-400">{potential}</div>
+              </div>
+              <div className="bg-slate-950/70 rounded px-2 py-1">
+                <div className="text-slate-500">VALOR</div>
+                <div className="font-bold text-emerald-400">
+                  R$ {(marketValue / 1000000).toFixed(1)}M
+                </div>
+              </div>
+              <div className="bg-slate-950/70 rounded px-2 py-1">
+                <div className="text-slate-500">SALÁRIO EST.</div>
+                <div className="font-bold text-amber-300">
+                  R$ {(suggestedSalary / 1000).toFixed(1)}k
+                </div>
+              </div>
+            </div>
+            <div className="text-[10px] text-slate-400 border-t border-slate-800 pt-1.5 flex justify-between">
               <span>{personal.heightCm} cm · {personal.weightKg} kg</span>
               <span>Pé: {gear.dominantFoot}</span>
             </div>
+            {derivedTraits.length > 0 && (
+              <div className="text-[10px] text-amber-300/90 border-t border-slate-800 pt-1.5 truncate">
+                Especialidades: {derivedTraits.slice(0, 3).join(' · ')}
+              </div>
+            )}
           </div>
         </aside>
 
@@ -592,7 +701,7 @@ export const CharacterCreator: React.FC<CharacterCreatorProps> = ({
                     className="w-full px-3 py-2 rounded-lg bg-slate-900 border border-slate-700 text-sm text-white focus:border-emerald-500 outline-none"
                   />
                 </Field>
-                <Field label="Nacionalidade">
+                <Field label="Nacionalidade Principal">
                   <input
                     type="text"
                     maxLength={22}
@@ -600,6 +709,28 @@ export const CharacterCreator: React.FC<CharacterCreatorProps> = ({
                     onChange={(e) => setPersonal({ ...personal, nationality: e.target.value })}
                     className="w-full px-3 py-2 rounded-lg bg-slate-900 border border-slate-700 text-sm text-white focus:border-emerald-500 outline-none"
                   />
+                </Field>
+                <Field label="Segunda Nacionalidade (Opcional)">
+                  <select
+                    value={personal.secondaryNationality || ''}
+                    onChange={(e) =>
+                      setPersonal({
+                        ...personal,
+                        secondaryNationality: e.target.value || undefined,
+                      })
+                    }
+                    className="w-full px-3 py-2 rounded-lg bg-slate-900 border border-slate-700 text-sm text-white focus:border-emerald-500 outline-none"
+                  >
+                    <option value="">Nenhuma</option>
+                    <option value="Portugal">Portugal</option>
+                    <option value="Itália">Itália</option>
+                    <option value="Espanha">Espanha</option>
+                    <option value="Argentina">Argentina</option>
+                    <option value="Uruguai">Uruguai</option>
+                    <option value="Japão">Japão</option>
+                    <option value="Alemanha">Alemanha</option>
+                    <option value="França">França</option>
+                  </select>
                 </Field>
                 <Field label="Cidade natal">
                   <input
@@ -936,6 +1067,36 @@ export const CharacterCreator: React.FC<CharacterCreatorProps> = ({
                 </div>
 
                 <div className="border-t border-slate-800 pt-3">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs font-semibold text-slate-300">
+                      Posições Secundárias (até 2)
+                    </span>
+                    <span className="text-[11px] font-mono-num text-emerald-400">
+                      {secondaryPositions.length}/2 selecionadas
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {POSITIONS.filter((p) => p.id !== position).map((p) => {
+                      const active = secondaryPositions.includes(p.id);
+                      return (
+                        <button
+                          key={p.id}
+                          type="button"
+                          onClick={() => toggleSecondaryPosition(p.id)}
+                          className={`px-2.5 py-1.5 rounded-lg border text-[11px] font-medium cursor-pointer transition-colors ${
+                            active
+                              ? 'bg-sky-500 text-slate-950 border-sky-400 font-bold'
+                              : 'bg-slate-900 border-slate-800 text-slate-300 hover:border-slate-600'
+                          }`}
+                        >
+                          {p.code} · {p.name}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="border-t border-slate-800 pt-3">
                   <div className="text-xs font-semibold text-slate-300 mb-2">
                     Estilo de Jogo (8 Perfis Táticos)
                   </div>
@@ -964,58 +1125,122 @@ export const CharacterCreator: React.FC<CharacterCreatorProps> = ({
             )}
 
             {tab === 'ATRIBUTOS' && !editMode && (
-              <div className="space-y-3">
-                <div className="flex items-center justify-between bg-slate-900/80 border border-slate-800 rounded-lg px-3.5 py-2.5">
+              <div className="space-y-4">
+                {/* Creation Mode Selector */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  {(
+                    [
+                      {
+                        id: 'automatico',
+                        title: 'Automático',
+                        desc: 'Base fiel à posição e estilo + 6 pontos extras.',
+                      },
+                      {
+                        id: 'balanceado',
+                        title: 'Balanceado (Pontos)',
+                        desc: 'Receba 36 pontos livres para moldar seu craque.',
+                      },
+                      {
+                        id: 'livre',
+                        title: 'Livre (Sliders)',
+                        desc: 'Ajuste qualquer atributo diretamente entre 30 e 88.',
+                      },
+                    ] as { id: AttributeCreationMode; title: string; desc: string }[]
+                  ).map((m) => (
+                    <button
+                      key={m.id}
+                      type="button"
+                      onClick={() => {
+                        soundEngine.play('menu');
+                        applyCreationMode(m.id);
+                      }}
+                      className={`p-3 rounded-xl border text-left cursor-pointer transition-colors ${
+                        creationMode === m.id
+                          ? 'bg-emerald-500/15 border-emerald-500 text-white'
+                          : 'bg-slate-900/70 border-slate-800 text-slate-300 hover:border-slate-600'
+                      }`}
+                    >
+                      <div className="text-xs font-bold text-white">{m.title}</div>
+                      <div className="text-[11px] text-slate-400 mt-0.5">{m.desc}</div>
+                    </button>
+                  ))}
+                </div>
+
+                <div className="flex flex-wrap items-center justify-between gap-2 bg-slate-900/80 border border-slate-800 rounded-lg px-3.5 py-2.5">
                   <div>
                     <div className="text-xs font-bold text-white">
-                      Distribuição Inicial Equilibrada · OVR {ovr}
+                      Modo {creationMode === 'livre' ? 'Livre' : creationMode === 'balanceado' ? 'Balanceado' : 'Automático'} · OVR {ovr} · Potencial {potential}
                     </div>
                     <div className="text-[11px] text-slate-400">
-                      Atributos ajustados pela posição ({posMeta.name}) e estilo ({playstyle}).
+                      {posMeta.name} ({playstyle}) · Especialidades: {derivedTraits.slice(0, 2).join(', ')}
                     </div>
                   </div>
                   <div className="text-right shrink-0">
                     <span className="text-xs font-semibold text-emerald-400 font-mono-num">
-                      {bonusPoints} pontos bônus
+                      {creationMode === 'livre'
+                        ? 'Edição livre (30–88)'
+                        : `${bonusPoints} pontos disponíveis`}
                     </span>
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  {ATTRIBUTE_LABELS.map((item) => {
-                    const isGkAttr = item.category === 'Goleiro';
-                    const playerIsGk = position === 'GK_TRAD' || position === 'GK_SWEEPER';
-                    if (isGkAttr && !playerIsGk) return null;
-                    const val = attributes[item.key];
-                    return (
-                      <div
-                        key={item.key}
-                        className="flex items-center justify-between gap-2 px-3 py-1.5 rounded-lg bg-slate-900/60 border border-slate-800/80"
-                      >
-                        <span className="text-xs text-slate-300 truncate">{item.label}</span>
-                        <div className="flex items-center gap-1.5 shrink-0">
-                          <button
-                            type="button"
-                            onClick={() => adjustAttr(item.key, -1)}
-                            className="w-7 h-7 rounded bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-300 cursor-pointer"
-                          >
-                            -
-                          </button>
-                          <span className="w-7 text-center font-mono-num text-xs font-bold text-emerald-400">
-                            {val}
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => adjustAttr(item.key, 1)}
-                            className="w-7 h-7 rounded bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-300 cursor-pointer"
-                          >
-                            +
-                          </button>
-                        </div>
+                {ATTRIBUTE_CATEGORIES.map((category) => {
+                  const playerIsGk = position === 'GK_TRAD' || position === 'GK_SWEEPER';
+                  if (category === 'Goleiro' && !playerIsGk && creationMode !== 'livre') return null;
+                  const items = ATTRIBUTE_LABELS.filter((a) => a.category === category);
+                  return (
+                    <div key={category} className="space-y-2">
+                      <h4 className="text-[11px] font-bold uppercase tracking-wider text-emerald-400">
+                        {category}
+                      </h4>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        {items.map((item) => {
+                          const val = attributes[item.key];
+                          return (
+                            <div
+                              key={item.key}
+                              className="px-3 py-2 rounded-lg bg-slate-900/65 border border-slate-800/80 space-y-1.5"
+                            >
+                              <div className="flex items-center justify-between gap-2">
+                                <span className="text-xs text-slate-200 truncate">{item.label}</span>
+                                <div className="flex items-center gap-1.5 shrink-0">
+                                  <button
+                                    type="button"
+                                    onClick={() => adjustAttr(item.key, -1)}
+                                    className="w-7 h-7 rounded bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-300 cursor-pointer"
+                                  >
+                                    -
+                                  </button>
+                                  <span className="w-7 text-center font-mono-num text-xs font-bold text-emerald-400">
+                                    {val}
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={() => adjustAttr(item.key, 1)}
+                                    className="w-7 h-7 rounded bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-300 cursor-pointer"
+                                  >
+                                    +
+                                  </button>
+                                </div>
+                              </div>
+                              {creationMode === 'livre' && (
+                                <input
+                                  type="range"
+                                  min={30}
+                                  max={88}
+                                  value={val}
+                                  onChange={(e) => setLivreAttr(item.key, Number(e.target.value))}
+                                  aria-label={item.label}
+                                  className="w-full accent-emerald-500 cursor-pointer h-1.5"
+                                />
+                              )}
+                            </div>
+                          );
+                        })}
                       </div>
-                    );
-                  })}
-                </div>
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>

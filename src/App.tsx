@@ -6,18 +6,29 @@ import { ClubsBrowserScreen } from './components/ClubsBrowserScreen';
 import { ClubSelection } from './components/ClubSelection';
 import { CompetitionsBrowserScreen } from './components/CompetitionsBrowserScreen';
 import { CreditsScreen } from './components/CreditsScreen';
-import { MainMenu } from './components/MainMenu';
+import { MainMenu, CareerHubTab } from './components/MainMenu';
+import { MatchReportModal } from './components/MatchReportModal';
 import { MatchView } from './components/MatchView';
+import { NarrativeEventModal } from './components/NarrativeEventModal';
 import { OrientationGuard } from './components/OrientationGuard';
 import { PlayerProfileScreen } from './components/PlayerProfileScreen';
 import { SeasonCalendarView } from './components/SeasonCalendarView';
 import { SettingsScreen } from './components/SettingsScreen';
+import { SquadBrowserScreen } from './components/SquadBrowserScreen';
 import { StadiumsBrowserScreen } from './components/StadiumsBrowserScreen';
 import { TitleScreen } from './components/TitleScreen';
+import { getClubById } from './data/clubs';
 import { calculateOverall } from './data/positions';
+import { generateMatchEnvironment } from './data/stadiums';
+import { simulateDetailedMatch } from './engine/matchSimulator';
+import { buildInteractiveEventForDay } from './engine/narrativeEvents';
 import {
+  CalendarDay,
   Club,
   GameSettings,
+  MatchSimReport,
+  NarrativeChoice,
+  NarrativeEvent,
   PlayerCareer,
   ScreenId,
   TrainingDrill,
@@ -28,6 +39,7 @@ import {
   advanceCalendarDay,
   advanceUntilNextMatch,
   applyMatchOutcomeToCareer,
+  applyNarrativeChoice,
   completeTrainingDrill,
   createInitialCareer,
   emptyStats,
@@ -43,6 +55,12 @@ export default function App() {
   const [settings, setSettings] = useState<GameSettings>(() => loadSettings());
   const [career, setCareer] = useState<PlayerCareer | null>(() => loadCareer());
   const [charDraft, setCharDraft] = useState<CreatedCharacterDraft | null>(null);
+  const [hubTab, setHubTab] = useState<CareerHubTab>('CENTRAL');
+  const [pendingSimReport, setPendingSimReport] = useState<MatchSimReport | null>(null);
+  const [pendingNarrative, setPendingNarrative] = useState<{
+    dayIndex: number;
+    event: NarrativeEvent;
+  } | null>(null);
   const [activeFixture, setActiveFixture] = useState<{
     homeClubId: string;
     awayClubId: string;
@@ -99,6 +117,7 @@ export default function App() {
     });
     setCareer(newCareer);
     saveCareer(newCareer);
+    setHubTab('CENTRAL');
     setScreen('CAREER_HUB');
   };
 
@@ -157,6 +176,59 @@ export default function App() {
     setCareer(acceptOffer(career, offer));
   };
 
+  const handleSimulateMatch = (
+    homeClubId: string,
+    awayClubId: string,
+    competitionName?: string,
+    fixtureId?: string
+  ) => {
+    if (!career) return;
+    const homeClub = getClubById(homeClubId);
+    const awayClub = getClubById(awayClubId);
+    const comp = competitionName || `Brasileirão ${career.division || 'Série A'}`;
+    const env = generateMatchEnvironment({
+      homeClub,
+      competitionName: comp,
+      roundLabel: `Rodada ${career.round}`,
+      dateStr: career.calendar[career.currentDayIndex]?.dateLabel || '2026',
+      seed: career.season * 100 + career.round + career.currentDayIndex,
+    });
+    const isKnockout =
+      comp.includes('Supercopa') ||
+      comp.includes('Final') ||
+      comp.includes('Volta');
+
+    const { report, outcomePayload } = simulateDetailedMatch(career, homeClub, awayClub, {
+      competition: comp,
+      fixtureId,
+      stadiumName: env.stadium.name,
+      weather: env.weather,
+      isKnockout,
+    });
+    const next = applyMatchOutcomeToCareer(career, outcomePayload);
+    setCareer(next);
+    setPendingSimReport(report);
+  };
+
+  const handleTriggerNarrativeEvent = (day: CalendarDay) => {
+    if (!career) return;
+    setPendingNarrative({
+      dayIndex: day.dayIndex,
+      event: buildInteractiveEventForDay(career, day),
+    });
+  };
+
+  const handleResolveNarrativeChoice = (choice: NarrativeChoice) => {
+    if (!career || !pendingNarrative) return;
+    const next = applyNarrativeChoice(
+      career,
+      pendingNarrative.dayIndex,
+      pendingNarrative.event,
+      choice
+    );
+    setCareer(next);
+  };
+
   return (
     <>
       <OrientationGuard />
@@ -172,13 +244,23 @@ export default function App() {
       {screen === 'MAIN_MENU' && (
         <MainMenu
           career={career}
-          onContinueCareer={() => setScreen('CAREER_HUB')}
+          onContinueCareer={() => {
+            setHubTab('CENTRAL');
+            setScreen('CAREER_HUB');
+          }}
           onNewCareer={() => setScreen('CHAR_CREATOR')}
           onOpenPlayerProfile={() => setScreen('PLAYER_PROFILE')}
+          onOpenSquad={() => setScreen('SQUAD_BROWSER')}
           onOpenClubs={() => setScreen('CLUBS_BROWSER')}
           onOpenStadiums={() => setScreen('STADIUMS_BROWSER')}
           onOpenCompetitions={() => setScreen('COMPETITIONS_BROWSER')}
           onOpenCalendar={() => setScreen('CALENDAR_BROWSER')}
+          onOpenCareerTab={(t) => {
+            setHubTab(t);
+            setScreen('CAREER_HUB');
+          }}
+          onPlayNextMatch={handleStartMatch}
+          onSimulateNextMatch={handleSimulateMatch}
           onOpenCustomization={() => {
             setReturnScreen('MAIN_MENU');
             setScreen('CUSTOMIZATION');
@@ -200,6 +282,14 @@ export default function App() {
         />
       )}
 
+      {screen === 'SQUAD_BROWSER' && (
+        <SquadBrowserScreen
+          career={career}
+          onBack={() => setScreen('MAIN_MENU')}
+          onStartNewCareer={() => setScreen('CHAR_CREATOR')}
+        />
+      )}
+
       {screen === 'CLUBS_BROWSER' && (
         <ClubsBrowserScreen onBack={() => setScreen('MAIN_MENU')} />
       )}
@@ -218,11 +308,13 @@ export default function App() {
       {screen === 'CALENDAR_BROWSER' && (
         <SeasonCalendarView
           career={career}
-          onBack={() => setScreen('MAIN_MENU')}
-          onStartNewCareer={() => setScreen('CHAR_CREATOR')}
+          onPlayMatch={handleStartMatch}
+          onSimulateMatch={handleSimulateMatch}
+          onTriggerNarrativeEvent={handleTriggerNarrativeEvent}
           onAdvanceDay={handleAdvanceDay}
           onAdvanceToNextMatch={handleAdvanceToNextMatch}
-          onPlayMatch={handleStartMatch}
+          onBack={() => setScreen('MAIN_MENU')}
+          onStartNewCareer={() => setScreen('CHAR_CREATOR')}
         />
       )}
 
@@ -268,7 +360,10 @@ export default function App() {
       {screen === 'CAREER_HUB' && career && (
         <CareerHub
           career={career}
+          initialTab={hubTab}
           onPlayMatch={handleStartMatch}
+          onSimulateMatch={handleSimulateMatch}
+          onTriggerNarrativeEvent={handleTriggerNarrativeEvent}
           onSimulateInjurySkip={handleInjurySkip}
           onAdvanceDay={handleAdvanceDay}
           onAdvanceToNextMatch={handleAdvanceToNextMatch}
@@ -313,6 +408,20 @@ export default function App() {
             )}
           </>
         )}
+      {pendingSimReport && (
+        <MatchReportModal
+          report={pendingSimReport}
+          onClose={() => setPendingSimReport(null)}
+        />
+      )}
+
+      {pendingNarrative && (
+        <NarrativeEventModal
+          event={pendingNarrative.event}
+          onSelectChoice={handleResolveNarrativeChoice}
+          onClose={() => setPendingNarrative(null)}
+        />
+      )}
     </>
   );
 }

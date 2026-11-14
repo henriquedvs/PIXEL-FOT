@@ -121,7 +121,7 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
             bootColor: '#10B981',
             sleeveLength: 'Longa',
             sockType: 'Alta',
-            accessory: 'Luva Térmica',
+            accessory: 'Luvas',
           },
           kit: CLUBS[8].kit,
           isGoalkeeper: true,
@@ -131,7 +131,7 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
           isSprinting: false,
           isDribbling: false,
           hasBall: false,
-          action: gkDiving ? 'gk_dive' : 'idle',
+          action: gkDiving ? 'dive' : 'idle',
           zOffset: gkDiving ? 5 : 0,
         },
         'match'

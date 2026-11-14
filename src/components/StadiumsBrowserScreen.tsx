@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { ArrowLeft, Building2, Lightbulb, MapPin, Users } from 'lucide-react';
 import { soundEngine } from '../audio/soundEngine';
-import { CLUBS } from '../data/clubs';
+import { CLUBS, SERIE_B_CLUBS, getAllClubs } from '../data/clubs';
 import { getStadiumForClub } from '../data/stadiums';
 import { drawPixelStadium, generateCrowd, PITCH_GEO } from '../engine/pixelRenderer';
 import { TimeOfDay } from '../types/game';
@@ -12,11 +12,19 @@ interface StadiumsBrowserScreenProps {
 }
 
 export const StadiumsBrowserScreen: React.FC<StadiumsBrowserScreenProps> = ({ onBack }) => {
+  const allClubs = getAllClubs();
   const [selectedClubId, setSelectedClubId] = useState(CLUBS[0].id);
+  const [divisionFilter, setDivisionFilter] = useState<'TODAS' | 'Série A' | 'Série B'>('TODAS');
   const [timeOfDay, setTimeOfDay] = useState<TimeOfDay>('Noite');
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
-  const club = CLUBS.find((c) => c.id === selectedClubId) || CLUBS[0];
+  const visibleList =
+    divisionFilter === 'Série A'
+      ? CLUBS
+      : divisionFilter === 'Série B'
+      ? SERIE_B_CLUBS
+      : allClubs;
+  const club = allClubs.find((c) => c.id === selectedClubId) || CLUBS[0];
   const stadium = getStadiumForClub(club);
 
   useEffect(() => {
@@ -121,7 +129,7 @@ export const StadiumsBrowserScreen: React.FC<StadiumsBrowserScreenProps> = ({ on
           </button>
           <div>
             <h1 className="font-display font-bold text-base sm:text-lg text-white leading-tight">
-              Estádios do Brasil (20 Arenas em Pixel Art)
+              Estádios do Brasil (40 Arenas em Pixel Art)
             </h1>
             <p className="text-[11px] text-slate-400">
               Visualização interativa com arquibancadas, refletores, bandeirão e gramado exclusivo
@@ -129,28 +137,47 @@ export const StadiumsBrowserScreen: React.FC<StadiumsBrowserScreenProps> = ({ on
           </div>
         </div>
 
-        <div className="flex items-center gap-1 bg-slate-900 p-1 rounded-lg border border-slate-800">
-          {(['Tarde', 'Fim de tarde', 'Noite'] as TimeOfDay[]).map((tod) => (
-            <button
-              key={tod}
-              type="button"
-              onClick={() => {
-                soundEngine.play('menu');
-                setTimeOfDay(tod);
-              }}
-              className={`px-2.5 py-1 rounded text-[11px] font-semibold cursor-pointer ${
-                timeOfDay === tod ? 'bg-emerald-500 text-slate-950' : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              {tod}
-            </button>
-          ))}
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex items-center gap-1 bg-slate-900 p-1 rounded-lg border border-slate-800">
+            {(['TODAS', 'Série A', 'Série B'] as const).map((div) => (
+              <button
+                key={div}
+                type="button"
+                onClick={() => {
+                  soundEngine.play('menu');
+                  setDivisionFilter(div);
+                }}
+                className={`px-2 py-1 rounded text-[11px] font-semibold cursor-pointer ${
+                  divisionFilter === div ? 'bg-emerald-500 text-slate-950' : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                {div}
+              </button>
+            ))}
+          </div>
+          <div className="flex items-center gap-1 bg-slate-900 p-1 rounded-lg border border-slate-800">
+            {(['Tarde', 'Fim de tarde', 'Noite'] as TimeOfDay[]).map((tod) => (
+              <button
+                key={tod}
+                type="button"
+                onClick={() => {
+                  soundEngine.play('menu');
+                  setTimeOfDay(tod);
+                }}
+                className={`px-2.5 py-1 rounded text-[11px] font-semibold cursor-pointer ${
+                  timeOfDay === tod ? 'bg-emerald-500 text-slate-950' : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                {tod}
+              </button>
+            ))}
+          </div>
         </div>
       </header>
 
       <div className="flex-1 grid grid-cols-1 md:grid-cols-12 min-h-0">
         <aside className="md:col-span-4 border-b md:border-b-0 md:border-r border-slate-800 overflow-y-auto custom-scroll p-3 space-y-1.5 bg-[#0E1623]">
-          {CLUBS.map((c) => {
+          {visibleList.map((c) => {
             const st = getStadiumForClub(c);
             const active = c.id === club.id;
             return (

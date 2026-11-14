@@ -73,6 +73,14 @@ export interface SimPlayer {
   dribbleStat: number;
   defendStat: number;
   gkStat: number;
+  jumpStat: number;
+  volleyStat: number;
+  composureStat: number;
+  decisionStat: number;
+  leadershipStat: number;
+  elasticityStat: number;
+  defPosStat: number;
+  traits: string[];
   appearance: PlayerAppearance;
   gear: SportGear;
   dribbleTimer: number;
@@ -616,6 +624,14 @@ export class MatchEngine {
           dribbleStat: Math.round((a.drible + a.controleBola + a.agilidade) / 3),
           defendStat: Math.round((a.desarme + a.marcacao + a.interceptacao) / 3),
           gkStat: Math.round((a.reflexos + a.posicionamentoGk) / 2),
+          jumpStat: a.impulsao ?? a.forcaFisica,
+          volleyStat: a.voleio ?? a.finalizacao,
+          composureStat: a.compostura ?? a.decisoes,
+          decisionStat: a.decisoes ?? a.visaoJogo,
+          leadershipStat: a.lideranca ?? 65,
+          elasticityStat: a.elasticidade ?? a.reflexos,
+          defPosStat: a.posicionamentoDefensivo ?? a.marcacao,
+          traits: this.career.traits || [],
           appearance: this.career.appearance,
           gear: this.career.gear,
           dribbleTimer: 0,
@@ -657,6 +673,14 @@ export class MatchEngine {
           dribbleStat: m.dribbling,
           defendStat: m.defending,
           gkStat: m.gkSkill,
+          jumpStat: Math.round((m.ovr + m.speed) / 2),
+          volleyStat: Math.round((m.shooting + m.dribbling) / 2),
+          composureStat: m.ovr,
+          decisionStat: Math.round((m.passing + m.ovr) / 2),
+          leadershipStat: isCaptain ? Math.min(95, m.ovr + 10) : m.ovr,
+          elasticityStat: m.gkSkill,
+          defPosStat: m.defending,
+          traits: m.traits || [],
           appearance: visuals.appearance,
           gear: visuals.gear,
           dribbleTimer: 0,
@@ -739,6 +763,13 @@ export class MatchEngine {
     outgoing.dribbleStat = incoming.dribbling;
     outgoing.defendStat = incoming.defending;
     outgoing.gkStat = incoming.gkSkill;
+    outgoing.jumpStat = Math.round((incoming.ovr + incoming.speed) / 2);
+    outgoing.volleyStat = Math.round((incoming.shooting + incoming.dribbling) / 2);
+    outgoing.composureStat = incoming.ovr;
+    outgoing.decisionStat = Math.round((incoming.passing + incoming.ovr) / 2);
+    outgoing.elasticityStat = incoming.gkSkill;
+    outgoing.defPosStat = incoming.defending;
+    outgoing.traits = incoming.traits || [];
     outgoing.appearance = visuals.appearance;
     outgoing.gear = visuals.gear;
     outgoing.matchRating = 6.5;
@@ -1154,13 +1185,15 @@ export class MatchEngine {
     const ty = target.y + target.vy * leadTime;
 
     const baseAngle = Math.atan2(ty - passer.y, tx - passer.x);
-    const maxSpread = ((100 - passer.passStat) / 100) * 0.14;
+    const hasMaestro = passer.traits.includes('Maestro de Passes');
+    const decisionFactor = (passer.passStat * 0.7 + passer.decisionStat * 0.3 + (hasMaestro ? 6 : 0));
+    const maxSpread = clamp((100 - decisionFactor) / 100, 0.03, 0.45) * 0.14;
     const angle = baseAngle + (Math.random() - 0.5) * maxSpread;
     const isLong = d > 270;
     const speed = clamp(
-      295 + d * 0.95 + (passer.passStat - 60) * 1.6 + (throughBall ? 65 : 0),
+      295 + d * 0.95 + (passer.passStat - 60) * 1.6 + (hasMaestro ? 22 : 0) + (throughBall ? 65 : 0),
       285,
-      680
+      695
     );
 
     this.ball.ownerId = null;
@@ -1204,11 +1237,36 @@ export class MatchEngine {
     }
 
     const baseAngle = Math.atan2(aimY - shooter.y, goalX - shooter.x);
-    const spread = ((100 - shooter.shootStat) / 100) * 0.2;
+    const isAerialStrike = this.ball.z > 10;
+    const nearestDefDist = this.players
+      .filter((o) => o.team !== shooter.team && !o.redCard && !o.isGoalkeeper)
+      .reduce((minD, o) => Math.min(minD, dist(o.x, o.y, shooter.x, shooter.y)), 999);
+    const underPressure = nearestDefDist < 48;
+    const hasColdTrait = shooter.traits.includes('Artilheiro Frio');
+
+    // Dominant foot alignment bonus when shooting across body vs natural side
+    const dyGoal = aimY - shooter.y;
+    const footAligned =
+      shooter.gear.dominantFoot === 'Ambidestro' ||
+      (shooter.gear.dominantFoot === 'Direito' && ((dir === 1 && dyGoal <= 16) || (dir === -1 && dyGoal >= -16))) ||
+      (shooter.gear.dominantFoot === 'Esquerdo' && ((dir === 1 && dyGoal >= -16) || (dir === -1 && dyGoal <= 16)));
+
+    const effectiveAccuracy =
+      shooter.shootStat * 0.72 +
+      (isAerialStrike ? shooter.volleyStat * 0.28 : shooter.composureStat * 0.28) +
+      (hasColdTrait ? 6 : 0) +
+      (footAligned ? 4 : -2) -
+      (underPressure ? Math.max(0, (75 - shooter.composureStat) * 0.25) : 0);
+
+    const spread = clamp((100 - effectiveAccuracy) / 100, 0.04, 0.55) * 0.2;
     const angle = baseAngle + (Math.random() - 0.5) * spread;
     const pwr = clamp(power01, 0.35, 1.0);
     const isPowerShot = pwr >= 0.78;
-    const speed = (475 + pwr * 295 + (shooter.shootStat - 60) * 2.2) * (isPowerShot ? 1.08 : 1.0);
+    const aerialBoost = isAerialStrike ? 1 + Math.max(0, (shooter.volleyStat + shooter.jumpStat - 120) * 0.0014) : 1;
+    const speed =
+      (475 + pwr * 295 + (shooter.shootStat - 60) * 2.2) *
+      (isPowerShot ? 1.08 : 1.0) *
+      aerialBoost;
 
     this.pendingOffsideIds.clear();
     this.ball.ownerId = null;
@@ -1920,7 +1978,8 @@ export class MatchEngine {
 
       const tx = inOwnBox && !this.ball.ownerId ? this.ball.x : goalLineX;
       const ty = inOwnBox && !this.ball.ownerId ? this.ball.y : targetY;
-      this.steerAiToward(p, tx, ty, 132 + p.gkStat * 0.78, dt);
+      const gkMoveSpeed = 132 + (p.gkStat * 0.6 + p.elasticityStat * 0.22);
+      this.steerAiToward(p, tx, ty, gkMoveSpeed, dt);
       p.facingAngle = dir === 1 ? 0 : Math.PI;
       return;
     }
@@ -2041,7 +2100,8 @@ export class MatchEngine {
     ty = clamp(ty, g.pitchY + 30, g.pitchY + g.pitchH - 30);
 
     const staminaMod = p.stamina < 30 ? 0.88 : 1.0;
-    const aiSpeed = (135 + (p.speedStat - 50) * 1.2) * (isPresser ? 1.1 : 0.96) * staminaMod;
+    const posDiscipline = !teamHasBall ? 1 + (p.defPosStat - 60) * 0.0025 : 1 + (p.decisionStat - 60) * 0.002;
+    const aiSpeed = (135 + (p.speedStat - 50) * 1.2) * (isPresser ? 1.1 : 0.96) * staminaMod * clamp(posDiscipline, 0.92, 1.12);
     this.steerAiToward(p, tx, ty, aiSpeed, dt);
   }
 
@@ -2419,7 +2479,10 @@ export class MatchEngine {
     if (this.ball.pickupLockTimer <= 0 && this.ball.z < 28) {
       for (const p of this.players) {
         if (p.redCard) continue;
-        const reach = p.isGoalkeeper ? 24 : 17;
+        const gkReachBonus = (p.elasticityStat - 60) * 0.12 + (p.traits.includes('Gato Sob as Traves') ? 2.5 : 0);
+        const reach = p.isGoalkeeper
+          ? clamp(23 + gkReachBonus, 21, 30)
+          : 17 + (this.ball.z > 12 ? clamp((p.jumpStat - 60) * 0.08, 0, 3.5) : 0);
         if (dist(p.x, p.y, this.ball.x, this.ball.y) < reach) {
           // Real Offside check + Crisp Offside Line Flash
           if (this.pendingOffsideIds.has(p.id)) {

@@ -1,10 +1,11 @@
-import { BeardStyle, Club, ClubKit, ClubSquadMember, HairStyle, PositionId } from '../types/game';
+import { BeardStyle, Club, ClubKit, ClubSquadMember, DominantFoot, HairStyle, PositionId } from '../types/game';
 
 const FIRST_NAMES = [
   'Lucas', 'Gabriel', 'Matheus', 'Rafael', 'Bruno', 'Felipe', 'Gustavo', 'Rodrigo',
   'Thiago', 'Vinícius', 'Pedro', 'João', 'Caio', 'Igor', 'Danilo', 'André',
   'Eduardo', 'Leonardo', 'Diego', 'Henrique', 'Renato', 'Fábio', 'Marcelo', 'Cauã',
   'Breno', 'Murilo', 'Otávio', 'Yago', 'Sérgio', 'Samuel', 'Heitor', 'Luan',
+  'Mateo', 'Nicolás', 'Facundo', 'Sebastián', 'Tomás', 'Enzo', 'Alan', 'Vítor',
 ];
 
 const LAST_NAMES = [
@@ -12,8 +13,10 @@ const LAST_NAMES = [
   'Nascimento', 'Lima', 'Araújo', 'Fernandes', 'Carvalho', 'Gomes', 'Martins', 'Rocha',
   'Ribeiro', 'Alves', 'Monteiro', 'Mendes', 'Barros', 'Cardoso', 'Teixeira', 'Nunes',
   'Ferreira', 'Moreira', 'Campos', 'Borges', 'Vieira', 'Cavalcanti', 'Rezende', 'Duarte',
+  'Ramírez', 'Gutiérrez', 'Pereyra', 'Morales', 'Acosta', 'Pacheco', 'Farias', 'Sampaio',
 ];
 
+const NATIONALITIES = ['Brasil', 'Brasil', 'Brasil', 'Brasil', 'Brasil', 'Brasil', 'Argentina', 'Uruguai', 'Colômbia', 'Paraguai', 'Chile', 'Equador'];
 const SKINS = ['#F6D2B8', '#E8B896', '#D19A6E', '#A8704A', '#73452A', '#4D2D1B'];
 const HAIRS = ['#1B1717', '#3D2719', '#6C4727', '#B68A42', '#101419'];
 const HAIR_STYLES: HairStyle[] = [
@@ -48,34 +51,93 @@ const SQUAD_SLOTS: PositionId[] = [
   'FALSE_9',
 ];
 
+function clampStat(v: number): number {
+  return Math.max(25, Math.min(95, Math.round(v)));
+}
+
+function deriveMemberTraits(pos: PositionId, ovr: number, age: number, idx: number): string[] {
+  const traits: string[] = [];
+  if (pos === 'GK_TRAD' || pos === 'GK_SWEEPER') {
+    traits.push(ovr >= 78 ? 'Reflexo Felino' : 'Saída Segura');
+  } else if (pos === 'CB_STOPPER' || pos === 'CB_BALL') {
+    traits.push(pos === 'CB_BALL' ? 'Saída Limpa' : 'Jogo Aéreo');
+  } else if (pos === 'RB' || pos === 'LB' || pos === 'WB') {
+    traits.push('Apoio Constante');
+  } else if (pos === 'CDM_ANCHOR' || pos === 'CDM_BOX') {
+    traits.push(pos === 'CDM_ANCHOR' ? 'Cão de Guarda' : 'Box-to-Box');
+  } else if (pos === 'CM' || pos === 'CAM' || pos === 'PLAYMAKER') {
+    traits.push(idx === 7 ? 'Passe Vertical' : 'Controle de Ritmo');
+  } else if (pos === 'RW' || pos === 'LW') {
+    traits.push('Drible em Velocidade');
+  } else {
+    traits.push(ovr >= 79 ? 'Artilheiro Decisivo' : 'Presença de Área');
+  }
+  if (age <= 21) traits.push('Joia da Base');
+  else if (age >= 31 || idx === 1) traits.push('Liderança');
+  return traits;
+}
+
 function buildSquad(clubSeed: number, squadQuality: number): ClubSquadMember[] {
   const numbers = [1, 2, 3, 4, 6, 5, 8, 10, 7, 9, 11, 12, 14, 15, 18, 19];
   return SQUAD_SLOTS.map((pos, idx) => {
     const fn = FIRST_NAMES[(clubSeed * 7 + idx * 5) % FIRST_NAMES.length];
     const ln = LAST_NAMES[(clubSeed * 13 + idx * 7 + 3) % LAST_NAMES.length];
-    const variance = ((clubSeed * 3 + idx * 11) % 9) - 4 - (idx >= 11 ? 3 : 0);
-    const ovr = Math.max(60, Math.min(89, squadQuality + variance));
+    const starBoost = idx === 7 || idx === 9 ? 3 : idx === 0 || idx === 2 ? 1 : 0;
+    const variance = ((clubSeed * 3 + idx * 11) % 7) - 3 + starBoost - (idx >= 11 ? 4 : 0);
+    const ovr = Math.max(58, Math.min(89, squadQuality + variance));
+    const age =
+      idx === 0
+        ? 24 + ((clubSeed * 3) % 10)
+        : idx >= 11
+        ? 18 + ((clubSeed * 5 + idx * 3) % 11)
+        : 20 + ((clubSeed * 5 + idx * 3) % 14);
+    const potential =
+      age <= 21
+        ? Math.min(93, ovr + 8 + ((clubSeed + idx) % 5))
+        : age <= 25
+        ? Math.min(91, ovr + 4)
+        : ovr;
+
     const isGK = pos === 'GK_TRAD' || pos === 'GK_SWEEPER';
-    const isDef = pos === 'CB_STOPPER' || pos === 'CB_BALL' || pos === 'RB' || pos === 'LB';
-    const isAtt = pos === 'ST' || pos === 'RW' || pos === 'LW' || pos === 'CAM' || pos === 'FALSE_9';
+    const isCB = pos === 'CB_STOPPER' || pos === 'CB_BALL';
+    const isFB = pos === 'RB' || pos === 'LB' || pos === 'WB';
+    const isCDM = pos === 'CDM_ANCHOR' || pos === 'CDM_BOX';
+    const isMid = pos === 'CM' || pos === 'CAM' || pos === 'PLAYMAKER';
+    const isWinger = pos === 'RW' || pos === 'LW';
+    const isST = pos === 'ST' || pos === 'FALSE_9' || pos === 'SS';
+
+    const nationality =
+      idx % 4 === 3 ? NATIONALITIES[(clubSeed + idx) % NATIONALITIES.length] : 'Brasil';
+    const preferredFoot: DominantFoot =
+      pos === 'LB' || pos === 'LW'
+        ? 'Esquerdo'
+        : (clubSeed + idx) % 7 === 0
+        ? 'Ambidestro'
+        : (clubSeed + idx) % 5 === 0
+        ? 'Esquerdo'
+        : 'Direito';
 
     return {
       id: `npc_${clubSeed}_${idx}`,
       name: `${fn} ${ln}`,
-      age: 19 + ((clubSeed * 5 + idx * 3) % 15),
+      age,
+      nationality,
+      preferredFoot,
       number: numbers[idx] ?? idx + 1,
       position: pos,
       ovr,
+      potential,
+      traits: deriveMemberTraits(pos, ovr, age, idx),
       skinColor: SKINS[(clubSeed + idx * 2) % SKINS.length],
       hairColor: HAIRS[(clubSeed + idx * 3) % HAIRS.length],
       hairStyle: HAIR_STYLES[(clubSeed + idx) % HAIR_STYLES.length],
       beard: BEARDS[(clubSeed + idx) % BEARDS.length],
-      speed: Math.min(93, ovr + (pos === 'RW' || pos === 'LW' || pos === 'RB' || pos === 'LB' ? 6 : isGK ? -14 : 0)),
-      passing: Math.min(93, ovr + (pos === 'CM' || pos === 'CAM' || pos === 'PLAYMAKER' ? 7 : isGK ? -6 : 0)),
-      shooting: Math.min(93, ovr + (isAtt ? 7 : isDef ? -10 : -14)),
-      defending: Math.min(93, ovr + (isDef || pos === 'CDM_ANCHOR' || pos === 'CDM_BOX' ? 8 : isAtt ? -16 : -9)),
-      dribbling: Math.min(93, ovr + (isAtt ? 6 : isGK ? -18 : -3)),
-      gkSkill: isGK ? Math.min(93, ovr + 4) : 25,
+      speed: clampStat(ovr + (isWinger || isFB ? 8 : isST ? 3 : isCB ? -4 : isGK ? -22 : 0)),
+      passing: clampStat(ovr + (isMid ? 8 : isCDM ? 4 : pos === 'CB_BALL' ? 3 : isGK ? -12 : 0)),
+      shooting: clampStat(ovr + (isST ? 9 : isWinger || pos === 'CAM' ? 5 : isCB || isFB ? -14 : isGK ? -30 : -3)),
+      defending: clampStat(ovr + (isCB ? 9 : isCDM ? 7 : isFB ? 5 : isST || isWinger ? -26 : isGK ? -28 : -8)),
+      dribbling: clampStat(ovr + (isWinger || pos === 'CAM' ? 8 : isST || isMid ? 4 : isCB ? -14 : isGK ? -28 : -2)),
+      gkSkill: isGK ? clampStat(ovr + 5) : 24,
     };
   });
 }
@@ -1105,4 +1167,12 @@ export function getClubById(id: string): Club {
     SERIE_B_CLUBS.find((c) => c.id === resolved) ||
     CLUBS[0]
   );
+}
+
+export function getAllClubs(): Club[] {
+  return [...CLUBS, ...SERIE_B_CLUBS];
+}
+
+export function getClubsByDivision(division: 'Série A' | 'Série B'): Club[] {
+  return division === 'Série B' ? SERIE_B_CLUBS : CLUBS;
 }

@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   Activity,
   Award,
@@ -11,12 +11,14 @@ import {
   FastForward,
   Home,
   LayoutDashboard,
+  MessageSquare,
   Newspaper,
   Play,
   Settings,
   SkipForward,
   Target,
   Trophy,
+  Users,
 } from 'lucide-react';
 import { soundEngine } from '../audio/soundEngine';
 import { getClubById } from '../data/clubs';
@@ -25,6 +27,7 @@ import { generateMatchEnvironment, getStadiumForClub } from '../data/stadiums';
 import { TRAINING_DRILLS } from '../data/trainingDrills';
 import { buildAutoHighlights } from '../engine/competitions';
 import {
+  CalendarDay,
   MatchStatLine,
   NewsCategory,
   PlayerCareer,
@@ -36,6 +39,7 @@ import { calculateAge } from '../utils/storage';
 import { ClubCrest } from './ClubCrest';
 import { CompetitionsBrowserScreen } from './CompetitionsBrowserScreen';
 import { EvolutionChart } from './EvolutionChart';
+import { CareerHubTab } from './MainMenu';
 import {
   PixelNewspaperIcon,
   PixelStadiumIcon,
@@ -44,17 +48,26 @@ import {
 } from './PixelIcons';
 import { PixelPortrait } from './PixelPortrait';
 import { SeasonCalendarView } from './SeasonCalendarView';
+import { SquadBrowserScreen } from './SquadBrowserScreen';
 import { TrainingMinigame } from './TrainingMinigame';
 import './CareerHub.css';
 
 interface CareerHubProps {
   career: PlayerCareer;
+  initialTab?: CareerHubTab;
   onPlayMatch: (
     homeClubId: string,
     awayClubId: string,
     competitionName?: string,
     fixtureId?: string
   ) => void;
+  onSimulateMatch: (
+    homeClubId: string,
+    awayClubId: string,
+    competitionName?: string,
+    fixtureId?: string
+  ) => void;
+  onTriggerNarrativeEvent: (day: CalendarDay) => void;
   onSimulateInjurySkip: (homeClubId: string, awayClubId: string) => void;
   onAdvanceDay: () => void;
   onAdvanceToNextMatch: () => void;
@@ -64,19 +77,12 @@ interface CareerHubProps {
   onBackToMenu: () => void;
 }
 
-type HubTab =
-  | 'CENTRAL'
-  | 'CALENDARIO'
-  | 'TREINO'
-  | 'COMPETICOES'
-  | 'NOTICIAS'
-  | 'OBJETIVOS'
-  | 'ESTATS'
-  | 'CONTRATO';
-
 export const CareerHub: React.FC<CareerHubProps> = ({
   career,
+  initialTab,
   onPlayMatch,
+  onSimulateMatch,
+  onTriggerNarrativeEvent,
   onSimulateInjurySkip,
   onAdvanceDay,
   onAdvanceToNextMatch,
@@ -85,19 +91,32 @@ export const CareerHub: React.FC<CareerHubProps> = ({
   onOpenSettings,
   onBackToMenu,
 }) => {
-  const [tab, setTab] = useState<HubTab>('CENTRAL');
+  const [tab, setTab] = useState<CareerHubTab>(initialTab || 'CENTRAL');
   const [statScope, setStatScope] = useState<'TEMPORADA' | 'CARREIRA'>('TEMPORADA');
   const [drillCat, setDrillCat] = useState<'TODAS' | TrainingCategory>('TODAS');
   const [newsFilter, setNewsFilter] = useState<'TODAS' | NewsCategory>('TODAS');
   const [activeDrill, setActiveDrill] = useState<TrainingDrill | null>(null);
 
+  useEffect(() => {
+    if (initialTab) setTab(initialTab);
+  }, [initialTab]);
+
   const club = getClubById(career.clubId);
   const posMeta = getPositionMeta(career.position);
   const age = calculateAge(career.personal.birthDate);
-  const maxRound = career.schedule.reduce((m, f) => Math.max(m, f.round), 38);
+  const activeDivision = career.division || 'Série A';
+  const activeStandings =
+    activeDivision === 'Série B' && career.serieBStandings?.length
+      ? career.serieBStandings
+      : career.standings;
+  const activeSchedule =
+    activeDivision === 'Série B' && career.serieBSchedule?.length
+      ? career.serieBSchedule
+      : career.schedule;
+  const maxRound = activeSchedule.reduce((m, f) => Math.max(m, f.round), 38);
   const currentDay = career.calendar[career.currentDayIndex];
 
-  // Resolve next fixture cleanly: if current or upcoming calendar day is PARTIDA (e.g., Supercopa / Copa do Brasil / Brasileirão) use it!
+  // Resolve next fixture dynamically for Série A, Série B, Copa do Brasil, or Supercopa
   const nextCalendarMatch = useMemo(() => {
     return career.calendar.find(
       (d, idx) => idx >= career.currentDayIndex && !d.completed && d.activity === 'PARTIDA'
@@ -106,34 +125,44 @@ export const CareerHub: React.FC<CareerHubProps> = ({
 
   const nextScheduleFixture = useMemo(() => {
     return (
-      career.schedule.find(
+      activeSchedule.find(
         (f) =>
           f.round === career.round &&
           (f.homeClubId === career.clubId || f.awayClubId === career.clubId)
-      ) || career.schedule[0]
+      ) || activeSchedule[0]
     );
-  }, [career.schedule, career.round, career.clubId]);
+  }, [activeSchedule, career.round, career.clubId]);
 
   const nextFixture = useMemo(() => {
+    const defaultComp = `Brasileirão ${activeDivision}`;
     if (nextCalendarMatch && nextCalendarMatch.opponentClubId) {
       const homeClubId = nextCalendarMatch.isHome ? career.clubId : nextCalendarMatch.opponentClubId;
       const awayClubId = nextCalendarMatch.isHome ? nextCalendarMatch.opponentClubId : career.clubId;
       return {
         homeClubId,
         awayClubId,
-        competition: nextCalendarMatch.competition || 'Brasileirão Série A',
+        competition: nextCalendarMatch.competition || defaultComp,
         fixtureId: nextCalendarMatch.matchId,
         dateLabel: nextCalendarMatch.dateLabel,
       };
     }
+    const prefix = activeDivision === 'Série B' ? 'serieB' : 'serieA';
     return {
       homeClubId: nextScheduleFixture.homeClubId,
       awayClubId: nextScheduleFixture.awayClubId,
-      competition: nextScheduleFixture.competition || 'Brasileirão Série A',
-      fixtureId: `serieA_${career.season}_r${career.round}`,
+      competition: nextScheduleFixture.competition || defaultComp,
+      fixtureId: `${prefix}_${career.season}_r${career.round}`,
       dateLabel: currentDay?.dateLabel || `Rod. ${career.round}`,
     };
-  }, [nextCalendarMatch, nextScheduleFixture, career.clubId, career.season, career.round, currentDay?.dateLabel]);
+  }, [
+    nextCalendarMatch,
+    nextScheduleFixture,
+    career.clubId,
+    career.season,
+    career.round,
+    currentDay?.dateLabel,
+    activeDivision,
+  ]);
 
   const homeClub = getClubById(nextFixture.homeClubId);
   const awayClub = getClubById(nextFixture.awayClubId);
@@ -143,26 +172,27 @@ export const CareerHub: React.FC<CareerHubProps> = ({
     return generateMatchEnvironment({
       homeClub,
       competitionName: nextFixture.competition,
-      roundLabel: nextFixture.competition.includes('Série A')
-        ? `Rodada ${career.round}`
-        : nextFixture.competition,
+      roundLabel:
+        nextFixture.competition.includes('Série A') || nextFixture.competition.includes('Série B')
+          ? `Rodada ${career.round}`
+          : nextFixture.competition,
       dateStr: nextFixture.dateLabel,
       seed: career.season * 31 + career.round * 7 + (nextCalendarMatch?.dayIndex ?? 0),
     });
   }, [homeClub, nextFixture, career.round, career.season, nextCalendarMatch?.dayIndex]);
 
   const highlights = useMemo(() => buildAutoHighlights(career), [career]);
-  const leaguePos = career.standings.findIndex((s) => s.clubId === career.clubId) + 1;
+  const leaguePos = activeStandings.findIndex((s) => s.clubId === career.clubId) + 1;
 
   // Compact table slice around user's club or Top 6
   const quickTableRows = useMemo(() => {
-    const top5 = career.standings.slice(0, 6);
+    const top6 = activeStandings.slice(0, 6);
     if (leaguePos > 6) {
-      const myRow = career.standings[leaguePos - 1];
-      if (myRow) return [...top5.slice(0, 5), myRow];
+      const myRow = activeStandings[leaguePos - 1];
+      if (myRow) return [...top6.slice(0, 5), myRow];
     }
-    return top5;
-  }, [career.standings, leaguePos]);
+    return top6;
+  }, [activeStandings, leaguePos]);
 
   const activeStats: MatchStatLine =
     statScope === 'TEMPORADA' ? career.seasonStats : career.careerStats;
@@ -185,7 +215,15 @@ export const CareerHub: React.FC<CareerHubProps> = ({
       : (career.news || []).filter((n) => n.category === newsFilter);
 
   const isTodayMatchDay = currentDay?.activity === 'PARTIDA' && !currentDay.completed;
+  const canTriggerTodayEvent =
+    Boolean(currentDay) &&
+    !currentDay!.completed &&
+    !currentDay!.narrativeEventId &&
+    ['COMPROMISSO', 'ESPECIAL', 'TREINO', 'VIAGEM'].includes(currentDay!.activity);
   const completedObjectivesCount = (career.objectives || []).filter((o) => o.completed).length;
+  const marketValueM = career.marketValue
+    ? `R$ ${(career.marketValue / 1000000).toFixed(1)}M`
+    : '—';
 
   return (
     <div className="career-hub-shell animate-fadeIn">
@@ -194,29 +232,52 @@ export const CareerHub: React.FC<CareerHubProps> = ({
           <ClubCrest club={club} size={32} />
           <div className="career-club-copy">
             <strong>{club.shortName || club.name}</strong>
-            <span>{club.name} <i /> {career.contract.role}</span>
+            <span>
+              {club.name} · {career.contract.role} · {activeDivision}
+            </span>
           </div>
         </div>
         <div className="career-date-chip">
           <Calendar size={15} />
-          <span>{currentDay ? `${currentDay.dateLabel} · ${career.season}` : `TEMPORADA ${career.season}`}</span>
+          <span>
+            {currentDay
+              ? `${currentDay.dateLabel} · ${currentDay.weekday} · T${career.season}`
+              : `TEMPORADA ${career.season}`}
+          </span>
         </div>
         <div className="career-top-actions">
-          <button type="button" className="career-icon-button" onClick={() => { clickSfx(); onOpenSettings(); }} aria-label="Configurações" title="Configurações">
+          <button
+            type="button"
+            className="career-icon-button"
+            onClick={() => {
+              clickSfx();
+              onOpenSettings();
+            }}
+            aria-label="Configurações"
+            title="Configurações"
+          >
             <Settings size={17} />
           </button>
-          <button type="button" className="career-menu-button" onClick={() => { clickSfx(); onBackToMenu(); }}>
+          <button
+            type="button"
+            className="career-menu-button"
+            onClick={() => {
+              clickSfx();
+              onBackToMenu();
+            }}
+          >
             <Home size={15} /> <span>Menu</span>
           </button>
         </div>
       </header>
 
       <main className="career-main custom-scroll">
-
         {tab === 'CENTRAL' && (
           <div className="career-overview">
             <section className="career-panel career-player-panel">
-              <div className="career-panel-kicker">TEMPORADA {career.season} <span>·</span> {career.contract.role.toUpperCase()}</div>
+              <div className="career-panel-kicker">
+                TEMPORADA {career.season} <span>·</span> {career.contract.role.toUpperCase()}
+              </div>
               <div className="career-player-heading">
                 <div className="career-player-avatar">
                   <PixelPortrait
@@ -229,96 +290,398 @@ export const CareerHub: React.FC<CareerHubProps> = ({
                   />
                 </div>
                 <div className="career-player-nameblock">
-                  <h1>{career.personal.nickname || `${career.personal.firstName} ${career.personal.lastName}`}</h1>
-                  <p>#{career.gear.jerseyNumber} <span>·</span> {posMeta.name}</p>
-                  <small>{age} anos <span>·</span> {career.personal.nationality}</small>
+                  <h1>
+                    {career.personal.nickname ||
+                      `${career.personal.firstName} ${career.personal.lastName}`}
+                  </h1>
+                  <p>
+                    #{career.gear.jerseyNumber} <span>·</span> {posMeta.name}
+                    {career.secondaryPositions && career.secondaryPositions.length > 0
+                      ? ` (${career.secondaryPositions.map((p) => getPositionMeta(p).code).join('/')})`
+                      : ''}
+                  </p>
+                  <small>
+                    {age} anos <span>·</span> {career.personal.nationality}
+                    {career.personal.secondaryNationality
+                      ? ` / ${career.personal.secondaryNationality}`
+                      : ''}
+                  </small>
                 </div>
               </div>
+
               <div className="career-player-rating-row">
-                <div className="career-overall"><small>OVR</small><strong>{career.ovr}</strong></div>
-                <div className="career-stat"><small>GOLS</small><strong>{career.seasonStats.goals}</strong></div>
-                <div className="career-stat"><small>ASSIST.</small><strong>{career.seasonStats.assists}</strong></div>
+                <div className="career-overall">
+                  <small>OVR / POT</small>
+                  <strong>
+                    {career.ovr}
+                    <em>/{career.potential ?? career.ovr}</em>
+                  </strong>
+                </div>
+                <div className="career-stat">
+                  <small>GOLS / ASS.</small>
+                  <strong>
+                    {career.seasonStats.goals}/{career.seasonStats.assists}
+                  </strong>
+                </div>
+                <div className="career-stat">
+                  <small>MERCADO</small>
+                  <strong>{marketValueM}</strong>
+                </div>
               </div>
-              <div className="career-club-row"><ClubCrest club={club} size={21} /><span>{club.name}</span><b>{leaguePos || 1}º na Série A</b></div>
-              <div className="career-fatigue-row"><span>FADIGA</span><div><i style={{ width: `${Math.max(0, Math.min(100, career.fatigue))}%` }} /></div><b>{career.fatigue}%</b></div>
+
+              <div className="career-club-row">
+                <ClubCrest club={club} size={21} />
+                <span>{club.name}</span>
+                <b>
+                  {leaguePos || 1}º na {activeDivision}
+                </b>
+              </div>
+
+              {career.traits && career.traits.length > 0 && (
+                <div className="career-traits-line">
+                  {career.traits.slice(0, 2).join(' · ')}
+                </div>
+              )}
+
+              <div className="career-fatigue-row">
+                <span>FADIGA</span>
+                <div>
+                  <i style={{ width: `${Math.max(0, Math.min(100, career.fatigue))}%` }} />
+                </div>
+                <b>{career.fatigue}%</b>
+              </div>
             </section>
 
             <section className="career-panel career-match-panel">
               <div className="career-panel-heading">
-                <div><span className="career-eyebrow">{nextEnv.competitionName} · {nextFixture.dateLabel}</span><h2>PRÓXIMO JOGO</h2></div>
-                <span className="career-weather">{nextEnv.weather} · {nextEnv.temperatureC}°</span>
+                <div>
+                  <span className="career-eyebrow">
+                    {nextEnv.competitionName} · {nextFixture.dateLabel}
+                  </span>
+                  <h2>PRÓXIMO JOGO</h2>
+                </div>
+                <span className="career-weather">
+                  {nextEnv.weather} · {nextEnv.temperatureC}°
+                </span>
               </div>
               <div className="career-fixture">
-                <div className="career-team"><ClubCrest club={homeClub} size={43} /><strong>{homeClub.shortName || homeClub.name}</strong><small>{homeClub.name}</small></div>
-                <div className="career-versus">VS<span>{stadium.name}</span></div>
-                <div className="career-team"><ClubCrest club={awayClub} size={43} /><strong>{awayClub.shortName || awayClub.name}</strong><small>{awayClub.name}</small></div>
+                <div className="career-team">
+                  <ClubCrest club={homeClub} size={43} />
+                  <strong>{homeClub.shortName || homeClub.name}</strong>
+                  <small>{homeClub.name}</small>
+                </div>
+                <div className="career-versus">
+                  VS<span>{stadium.name}</span>
+                </div>
+                <div className="career-team">
+                  <ClubCrest club={awayClub} size={43} />
+                  <strong>{awayClub.shortName || awayClub.name}</strong>
+                  <small>{awayClub.name}</small>
+                </div>
               </div>
-              <div className="career-match-meta"><PixelStadiumIcon size={17} /><span>{stadium.city || homeClub.city} <i /> {nextEnv.kickoffTime}</span></div>
+              <div className="career-match-meta">
+                <PixelStadiumIcon size={17} />
+                <span>
+                  {stadium.city || homeClub.city} · {nextEnv.kickoffTime}
+                  {currentDay && !isTodayMatchDay ? ` · Hoje: ${currentDay.title}` : ''}
+                </span>
+              </div>
               {career.injuryMatchesRemaining > 0 && (
-                <div className="career-injury-note"><Activity size={14} /> Departamento Médico: {career.injuryType} · {career.injuryMatchesRemaining} jogo(s)</div>
+                <div className="career-injury-note">
+                  <Activity size={14} /> Departamento Médico: {career.injuryType} ·{' '}
+                  {career.injuryMatchesRemaining} jogo(s)
+                </div>
               )}
               <div className="career-match-actions">
                 {career.injuryMatchesRemaining > 0 ? (
-                  <button type="button" className="career-action-primary is-warning" onClick={() => { clickSfx(); onSimulateInjurySkip(nextFixture.homeClubId, nextFixture.awayClubId); }}>RECUPERAR E AVANÇAR <ChevronRight size={16} /></button>
+                  <button
+                    type="button"
+                    className="career-action-primary is-warning"
+                    onClick={() => {
+                      clickSfx();
+                      onSimulateInjurySkip(nextFixture.homeClubId, nextFixture.awayClubId);
+                    }}
+                  >
+                    RECUPERAR E AVANÇAR <ChevronRight size={16} />
+                  </button>
                 ) : isTodayMatchDay ? (
-                  <button type="button" className="career-action-primary" onClick={() => { soundEngine.play('whistle'); onPlayMatch(nextFixture.homeClubId, nextFixture.awayClubId, nextEnv.competitionName, nextFixture.fixtureId); }}><Play size={15} fill="currentColor" /> JOGAR PARTIDA</button>
+                  <>
+                    <button
+                      type="button"
+                      className="career-action-primary"
+                      onClick={() => {
+                        soundEngine.play('whistle');
+                        onPlayMatch(
+                          nextFixture.homeClubId,
+                          nextFixture.awayClubId,
+                          nextEnv.competitionName,
+                          nextFixture.fixtureId
+                        );
+                      }}
+                    >
+                      <Play size={15} fill="currentColor" /> JOGAR PARTIDA
+                    </button>
+                    <button
+                      type="button"
+                      className="career-action-secondary"
+                      onClick={() => {
+                        clickSfx();
+                        onSimulateMatch(
+                          nextFixture.homeClubId,
+                          nextFixture.awayClubId,
+                          nextEnv.competitionName,
+                          nextFixture.fixtureId
+                        );
+                      }}
+                    >
+                      <FastForward size={15} /> SIMULAR PARTIDA
+                    </button>
+                  </>
                 ) : (
                   <>
-                    <button type="button" className="career-action-primary" onClick={() => { soundEngine.play('whistle'); onPlayMatch(nextFixture.homeClubId, nextFixture.awayClubId, nextEnv.competitionName, nextFixture.fixtureId); }}><Play size={15} fill="currentColor" /> JOGAR PARTIDA</button>
-                    <button type="button" className="career-action-secondary" onClick={() => { clickSfx(); onAdvanceDay(); }}><FastForward size={15} /> AVANÇAR DIA</button>
-                    <button type="button" className="career-action-tertiary" onClick={() => { clickSfx(); onAdvanceToNextMatch(); }}><SkipForward size={14} /> DIA DO JOGO</button>
+                    <button
+                      type="button"
+                      className="career-action-primary"
+                      onClick={() => {
+                        soundEngine.play('whistle');
+                        onPlayMatch(
+                          nextFixture.homeClubId,
+                          nextFixture.awayClubId,
+                          nextEnv.competitionName,
+                          nextFixture.fixtureId
+                        );
+                      }}
+                    >
+                      <Play size={15} fill="currentColor" /> JOGAR
+                    </button>
+                    <button
+                      type="button"
+                      className="career-action-secondary"
+                      onClick={() => {
+                        clickSfx();
+                        onSimulateMatch(
+                          nextFixture.homeClubId,
+                          nextFixture.awayClubId,
+                          nextEnv.competitionName,
+                          nextFixture.fixtureId
+                        );
+                      }}
+                    >
+                      <FastForward size={14} /> SIMULAR
+                    </button>
+                    {canTriggerTodayEvent && currentDay ? (
+                      <button
+                        type="button"
+                        className="career-action-event"
+                        onClick={() => {
+                          clickSfx();
+                          onTriggerNarrativeEvent(currentDay);
+                        }}
+                      >
+                        <MessageSquare size={14} /> EVENTO
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        className="career-action-tertiary"
+                        onClick={() => {
+                          clickSfx();
+                          onAdvanceDay();
+                        }}
+                      >
+                        <FastForward size={14} /> AVANÇAR DIA
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      className="career-action-tertiary"
+                      onClick={() => {
+                        clickSfx();
+                        onAdvanceToNextMatch();
+                      }}
+                    >
+                      <SkipForward size={14} /> DIA DO JOGO
+                    </button>
                   </>
                 )}
               </div>
             </section>
 
             <section className="career-panel career-standings-panel">
-              <div className="career-standings-heading"><div><Trophy size={17} /><h2>CLASSIFICAÇÃO</h2></div><button type="button" onClick={() => { clickSfx(); setTab('COMPETICOES'); }}>SÉRIE A <ChevronRight size={13} /></button></div>
-              <div className="career-table-head"><span>#</span><span>CLUBE</span><span>J</span><span>SG</span><span>PTS</span></div>
+              <div className="career-standings-heading">
+                <div>
+                  <Trophy size={17} />
+                  <h2>CLASSIFICAÇÃO</h2>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    clickSfx();
+                    setTab('COMPETICOES');
+                  }}
+                >
+                  {activeDivision.toUpperCase()} <ChevronRight size={13} />
+                </button>
+              </div>
+              <div className="career-table-head">
+                <span>#</span>
+                <span>CLUBE</span>
+                <span>J</span>
+                <span>SG</span>
+                <span>PTS</span>
+              </div>
               <div className="career-table-body">
                 {quickTableRows.map((row) => {
-                  const rank = career.standings.findIndex((s) => s.clubId === row.clubId) + 1;
+                  const rank = activeStandings.findIndex((s) => s.clubId === row.clubId) + 1;
                   const rowClub = getClubById(row.clubId);
                   const isMine = row.clubId === career.clubId;
-                  return <div key={row.clubId} className={`career-table-row${isMine ? ' is-current' : ''}`}><span>{rank}</span><span className="career-table-team"><ClubCrest club={rowClub} size={18} /><b>{rowClub.shortName || rowClub.name}</b></span><span>{row.played}</span><span>{row.gf - row.ga}</span><strong>{row.points}</strong></div>;
+                  return (
+                    <div
+                      key={row.clubId}
+                      className={`career-table-row${isMine ? ' is-current' : ''}`}
+                    >
+                      <span>{rank}</span>
+                      <span className="career-table-team">
+                        <ClubCrest club={rowClub} size={18} />
+                        <b>{rowClub.shortName || rowClub.name}</b>
+                      </span>
+                      <span>{row.played}</span>
+                      <span>{row.gf - row.ga}</span>
+                      <strong>{row.points}</strong>
+                    </div>
+                  );
                 })}
               </div>
-              <button type="button" className="career-full-table" onClick={() => { clickSfx(); setTab('COMPETICOES'); }}>VER TABELA COMPLETA <ChevronRight size={14} /></button>
+              <button
+                type="button"
+                className="career-full-table"
+                onClick={() => {
+                  clickSfx();
+                  setTab('COMPETICOES');
+                }}
+              >
+                VER TABELA COMPLETA <ChevronRight size={14} />
+              </button>
             </section>
 
             <section className="career-activity-strip">
               <article className="career-activity-panel">
-                <button type="button" className="career-activity-title" onClick={() => { clickSfx(); setTab('NOTICIAS'); }}>
-                  <span><PixelTrophyIcon size={15} /> DESTAQUES DA SEMANA</span><ChevronRight size={14} />
+                <button
+                  type="button"
+                  className="career-activity-title"
+                  onClick={() => {
+                    clickSfx();
+                    setTab('NOTICIAS');
+                  }}
+                >
+                  <span>
+                    <PixelTrophyIcon size={15} /> DESTAQUES DA SEMANA
+                  </span>
+                  <ChevronRight size={14} />
                 </button>
-                <ul>{highlights.map((highlight, index) => <li key={`${index}-${highlight}`}><i />{highlight}</li>)}</ul>
+                <ul>
+                  {highlights.map((highlight, index) => (
+                    <li key={`${index}-${highlight}`}>
+                      <i />
+                      {highlight}
+                    </li>
+                  ))}
+                </ul>
               </article>
               <article className="career-activity-panel">
-                <button type="button" className="career-activity-title" onClick={() => { clickSfx(); setTab('OBJETIVOS'); }}>
-                  <span><PixelTargetIcon size={15} /> OBJETIVOS DA TEMPORADA</span><small>{completedObjectivesCount}/{(career.objectives || []).length}</small>
+                <button
+                  type="button"
+                  className="career-activity-title"
+                  onClick={() => {
+                    clickSfx();
+                    setTab('OBJETIVOS');
+                  }}
+                >
+                  <span>
+                    <PixelTargetIcon size={15} /> OBJETIVOS DA TEMPORADA
+                  </span>
+                  <small>
+                    {completedObjectivesCount}/{(career.objectives || []).length}
+                  </small>
                 </button>
                 {(career.objectives || []).slice(0, 3).map((objective) => {
-                  const progress = objective.kind === 'LEAGUE_POS'
-                    ? objective.current <= objective.target ? 100 : Math.max(10, Math.round((objective.target / Math.max(1, objective.current)) * 100))
-                    : Math.min(100, Math.round((objective.current / Math.max(1, objective.target)) * 100));
-                  return <div className="career-objective-mini" key={objective.id}><div><span>{objective.title}</span><b>{objective.completed ? 'OK' : objective.kind === 'LEAGUE_POS' ? `${objective.current}º / Top ${objective.target}` : `${objective.current}/${objective.target}`}</b></div><i><em style={{ width: `${progress}%` }} /></i></div>;
+                  const progress =
+                    objective.kind === 'LEAGUE_POS'
+                      ? objective.current <= objective.target
+                        ? 100
+                        : Math.max(
+                            10,
+                            Math.round((objective.target / Math.max(1, objective.current)) * 100)
+                          )
+                      : Math.min(
+                          100,
+                          Math.round((objective.current / Math.max(1, objective.target)) * 100)
+                        );
+                  return (
+                    <div className="career-objective-mini" key={objective.id}>
+                      <div>
+                        <span>{objective.title}</span>
+                        <b>
+                          {objective.completed
+                            ? 'OK'
+                            : objective.kind === 'LEAGUE_POS'
+                            ? `${objective.current}º / Top ${objective.target}`
+                            : `${objective.current}/${objective.target}`}
+                        </b>
+                      </div>
+                      <i>
+                        <em style={{ width: `${progress}%` }} />
+                      </i>
+                    </div>
+                  );
                 })}
               </article>
               <article className="career-activity-panel">
-                <button type="button" className="career-activity-title" onClick={() => { clickSfx(); setTab('NOTICIAS'); }}>
-                  <span><PixelNewspaperIcon size={15} /> NOTÍCIAS RECENTES</span><ChevronRight size={14} />
+                <button
+                  type="button"
+                  className="career-activity-title"
+                  onClick={() => {
+                    clickSfx();
+                    setTab('NOTICIAS');
+                  }}
+                >
+                  <span>
+                    <PixelNewspaperIcon size={15} /> NOTÍCIAS RECENTES
+                  </span>
+                  <ChevronRight size={14} />
                 </button>
-                {(career.news || []).slice(0, 3).map((item) => <button type="button" className="career-news-mini" key={item.id} onClick={() => { clickSfx(); setTab('NOTICIAS'); }}><small>{item.category} · {item.dateLabel}</small><span>{item.headline}</span></button>)}
-                {(career.news || []).length === 0 && <p className="career-empty-mini">As notícias da temporada aparecerão aqui.</p>}
+                {(career.news || []).slice(0, 3).map((item) => (
+                  <button
+                    type="button"
+                    className="career-news-mini"
+                    key={item.id}
+                    onClick={() => {
+                      clickSfx();
+                      setTab('NOTICIAS');
+                    }}
+                  >
+                    <small>
+                      {item.category} · {item.dateLabel}
+                    </small>
+                    <span>{item.headline}</span>
+                  </button>
+                ))}
+                {(career.news || []).length === 0 && (
+                  <p className="career-empty-mini">As notícias da temporada aparecerão aqui.</p>
+                )}
               </article>
             </section>
           </div>
         )}
 
+        {tab === 'ELENCO' && <SquadBrowserScreen career={career} embedded />}
+
         {tab === 'CALENDARIO' && (
           <SeasonCalendarView
             career={career}
             onPlayMatch={onPlayMatch}
+            onSimulateMatch={onSimulateMatch}
+            onTriggerNarrativeEvent={onTriggerNarrativeEvent}
             onAdvanceDay={onAdvanceDay}
             onAdvanceToNextMatch={onAdvanceToNextMatch}
           />
@@ -343,7 +706,11 @@ export const CareerHub: React.FC<CareerHubProps> = ({
                   <div className="text-[10px] text-slate-400">Sessões</div>
                 </div>
                 <div className="text-right">
-                  <div className={`font-mono-num text-xl font-extrabold ${career.fatigue > 75 ? 'text-amber-400' : 'text-sky-400'}`}>
+                  <div
+                    className={`font-mono-num text-xl font-extrabold ${
+                      career.fatigue > 75 ? 'text-amber-400' : 'text-sky-400'
+                    }`}
+                  >
                     {career.fatigue}%
                   </div>
                   <div className="text-[10px] text-slate-400">Fadiga</div>
@@ -405,7 +772,7 @@ export const CareerHub: React.FC<CareerHubProps> = ({
                         clickSfx();
                         setActiveDrill(drill);
                       }}
-                      className="w-full py-2.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 disabled:opacity-45 disabled:cursor-not-allowed text-slate-950 font-display font-bold text-xs cursor-pointer"
+                      className="w-full min-h-[42px] py-2.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 disabled:opacity-45 disabled:cursor-not-allowed text-slate-950 font-display font-bold text-xs cursor-pointer"
                     >
                       {career.fatigue >= 90
                         ? 'Fadiga Alta — Descanse'
@@ -570,7 +937,9 @@ export const CareerHub: React.FC<CareerHubProps> = ({
                     <div className="flex items-start justify-between gap-2">
                       <div>
                         <h3 className="font-display font-bold text-sm text-white flex items-center gap-1.5">
-                          {obj.completed && <CheckCircle2 size={15} className="text-emerald-400 shrink-0" />}
+                          {obj.completed && (
+                            <CheckCircle2 size={15} className="text-emerald-400 shrink-0" />
+                          )}
                           {obj.title}
                         </h3>
                         <p className="text-xs text-slate-400 mt-0.5">{obj.description}</p>
@@ -608,7 +977,7 @@ export const CareerHub: React.FC<CareerHubProps> = ({
           <div className="max-w-6xl mx-auto p-4 space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <h2 className="font-display font-bold text-base text-white">
-                Estatísticas, Evolução & Histórico Profissional
+                Perfil Profissional, Evolução & Reputação
               </h2>
               <div className="flex gap-1 bg-slate-900 p-1 rounded-lg border border-slate-800">
                 {(['TEMPORADA', 'CARREIRA'] as const).map((sc) => (
@@ -626,6 +995,48 @@ export const CareerHub: React.FC<CareerHubProps> = ({
                     {sc === 'TEMPORADA' ? `Temporada ${career.season}` : 'Toda Carreira'}
                   </button>
                 ))}
+              </div>
+            </div>
+
+            {/* Potential, Value, Secondary Positions, Traits & Relationships */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+              <div className="lg:col-span-5 bg-[#111B2B] border border-slate-800 rounded-xl p-4 space-y-3">
+                <h3 className="font-display font-bold text-sm text-white">
+                  Projeção & Especialidades
+                </h3>
+                <div className="grid grid-cols-3 gap-2">
+                  <InfoCell label="OVR Atual" value={String(career.ovr)} highlight />
+                  <InfoCell label="Potencial" value={String(career.potential ?? career.ovr)} />
+                  <InfoCell label="Valor Mercado" value={marketValueM} highlight />
+                </div>
+                <div className="text-xs text-slate-300 space-y-1">
+                  <div>
+                    <span className="text-slate-400">Posições Secundárias:</span>{' '}
+                    {career.secondaryPositions && career.secondaryPositions.length > 0
+                      ? career.secondaryPositions.map((p) => getPositionMeta(p).name).join(', ')
+                      : 'Nenhuma definida'}
+                  </div>
+                  <div>
+                    <span className="text-slate-400">Especialidades:</span>{' '}
+                    <span className="text-amber-300 font-semibold">
+                      {(career.traits || []).join(' · ') || career.playstyle}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="lg:col-span-7 bg-[#111B2B] border border-slate-800 rounded-xl p-4 space-y-2.5">
+                <h3 className="font-display font-bold text-sm text-white">
+                  Clima & Relacionamentos na Carreira
+                </h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  <MeterBar label="Moral do Atleta" value={career.morale} />
+                  <MeterBar label="Confiança do Treinador" value={career.coachTrust} />
+                  <MeterBar label="Entrosamento do Elenco" value={career.teamChemistry ?? 70} />
+                  <MeterBar label="Apoio da Torcida" value={career.fanSupport ?? 65} />
+                  <MeterBar label="Relação com a Imprensa" value={career.pressRelation ?? 65} />
+                  <MeterBar label="Popularidade Geral" value={career.popularity} />
+                </div>
               </div>
             </div>
 
@@ -649,7 +1060,10 @@ export const CareerHub: React.FC<CareerHubProps> = ({
                 value={`${activeStats.shots} (${activeStats.shotsOnTarget})`}
               />
               <InfoCell label="Dribles Certos" value={String(activeStats.dribblesCompleted)} />
-              <InfoCell label="Desarmes + Interc." value={String(activeStats.tackles + activeStats.interceptions)} />
+              <InfoCell
+                label="Desarmes + Interc."
+                value={String(activeStats.tackles + activeStats.interceptions)}
+              />
               <InfoCell
                 label="Cartões (AM/VM)"
                 value={`${activeStats.yellowCards}/${activeStats.redCards}`}
@@ -701,7 +1115,9 @@ export const CareerHub: React.FC<CareerHubProps> = ({
                         <div>
                           <div className="font-bold text-white font-mono-num">
                             {m.homeName} {m.homeScore} x {m.awayScore} {m.awayName}
-                            {m.penHomeScore !== undefined && m.penAwayScore !== undefined && m.homeScore === m.awayScore
+                            {m.penHomeScore !== undefined &&
+                            m.penAwayScore !== undefined &&
+                            m.homeScore === m.awayScore
                               ? ` (${m.penHomeScore}-${m.penAwayScore} pên.)`
                               : ''}
                           </div>
@@ -722,12 +1138,15 @@ export const CareerHub: React.FC<CareerHubProps> = ({
               <section className="bg-[#111B2B] border border-slate-800 rounded-xl p-4 space-y-3">
                 <h3 className="font-display font-bold text-sm text-white flex items-center gap-1.5">
                   <Award size={16} className="text-amber-400" />
-                  Títulos, Prêmios & Clubes
+                  Títulos, Prêmios & Decisões
                 </h3>
                 {career.awards.length > 0 && (
                   <div className="space-y-1.5">
                     {career.awards.map((aw) => (
-                      <div key={aw.id} className="text-xs text-amber-300 bg-amber-500/10 border border-amber-500/30 rounded-lg px-3 py-1.5">
+                      <div
+                        key={aw.id}
+                        className="text-xs text-amber-300 bg-amber-500/10 border border-amber-500/30 rounded-lg px-3 py-1.5"
+                      >
                         {aw.title} — {aw.clubName}
                       </div>
                     ))}
@@ -740,15 +1159,38 @@ export const CareerHub: React.FC<CareerHubProps> = ({
                 ) : (
                   <div className="space-y-1.5">
                     {career.history.map((h, i) => (
-                      <div key={i} className="text-xs text-slate-300 flex justify-between bg-slate-900/60 px-3 py-1.5 rounded-lg">
+                      <div
+                        key={i}
+                        className="text-xs text-slate-300 flex justify-between bg-slate-900/60 px-3 py-1.5 rounded-lg"
+                      >
                         <span>
-                          {h.season} · {h.clubName}
+                          {h.season} · {h.clubName} ({h.division})
                         </span>
                         <span className="font-mono-num">
                           {h.matches}J · {h.goals}G · {h.assists}A · {h.avgRating}
                         </span>
                       </div>
                     ))}
+                  </div>
+                )}
+                {career.narrativeHistory && career.narrativeHistory.length > 0 && (
+                  <div className="pt-2 border-t border-slate-800 space-y-1.5">
+                    <div className="text-[11px] font-bold uppercase text-emerald-400">
+                      Registro de Entrevistas & Vestiário
+                    </div>
+                    <div className="space-y-1 max-h-36 overflow-y-auto custom-scroll">
+                      {career.narrativeHistory.slice(0, 6).map((nh) => (
+                        <div
+                          key={`${nh.eventId}_${nh.dayIndex}`}
+                          className="text-[11px] bg-slate-900/65 border border-slate-800/80 rounded-lg px-2.5 py-1.5"
+                        >
+                          <div className="font-semibold text-white">
+                            {nh.dateLabel} · {nh.title}
+                          </div>
+                          <div className="text-slate-400">{nh.choiceLabel}</div>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 )}
               </section>
@@ -765,7 +1207,7 @@ export const CareerHub: React.FC<CareerHubProps> = ({
                 <div>
                   <div className="font-display font-bold text-sm text-white">{club.name}</div>
                   <div className="text-xs text-slate-400">
-                    {club.division} · Status: {career.contract.role}
+                    {activeDivision} · Status: {career.contract.role}
                   </div>
                 </div>
               </div>
@@ -779,6 +1221,8 @@ export const CareerHub: React.FC<CareerHubProps> = ({
                   label="Duração Restante"
                   value={`${career.contract.yearsRemaining} ano(s)`}
                 />
+                <InfoCell label="Valor de Mercado" value={marketValueM} highlight />
+                <InfoCell label="Potencial" value={String(career.potential ?? career.ovr)} />
               </div>
             </section>
 
@@ -814,7 +1258,7 @@ export const CareerHub: React.FC<CareerHubProps> = ({
                           soundEngine.play('celebration');
                           onAcceptOffer(off);
                         }}
-                        className="px-3.5 py-2 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs cursor-pointer shrink-0 whitespace-nowrap"
+                        className="min-h-[40px] px-3.5 py-2 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs cursor-pointer shrink-0 whitespace-nowrap"
                       >
                         Assinar
                       </button>
@@ -828,19 +1272,39 @@ export const CareerHub: React.FC<CareerHubProps> = ({
       </main>
 
       <nav className="career-bottom-nav" aria-label="Navegação da carreira">
-        {([
-          { id: 'CENTRAL', label: 'CARREIRA', icon: LayoutDashboard },
-          { id: 'CALENDARIO', label: 'CALENDÁRIO', icon: Calendar },
-          { id: 'TREINO', label: 'TREINOS', icon: Dumbbell },
-          { id: 'COMPETICOES', label: 'COMPETIÇÕES', icon: Trophy },
-          { id: 'NOTICIAS', label: 'NOTÍCIAS', icon: Newspaper },
-          { id: 'OBJETIVOS', label: 'OBJETIVOS', icon: Target },
-          { id: 'ESTATS', label: 'PERFIL', icon: BarChart3 },
-          { id: 'CONTRATO', label: 'CONTRATO', icon: Briefcase },
-        ] as const).map((item) => {
+        {(
+          [
+            { id: 'CENTRAL', label: 'CARREIRA', icon: LayoutDashboard },
+            { id: 'ELENCO', label: 'ELENCO', icon: Users },
+            { id: 'CALENDARIO', label: 'CALENDÁRIO', icon: Calendar },
+            { id: 'TREINO', label: 'TREINOS', icon: Dumbbell },
+            { id: 'COMPETICOES', label: 'COMPETIÇÕES', icon: Trophy },
+            { id: 'NOTICIAS', label: 'NOTÍCIAS', icon: Newspaper },
+            { id: 'OBJETIVOS', label: 'OBJETIVOS', icon: Target },
+            { id: 'ESTATS', label: 'PERFIL', icon: BarChart3 },
+            { id: 'CONTRATO', label: 'CONTRATO', icon: Briefcase },
+          ] as const
+        ).map((item) => {
           const Icon = item.icon;
           const active = tab === item.id;
-          return <button key={item.id} type="button" className={`career-nav-item${active ? ' is-active' : ''}`} aria-current={active ? 'page' : undefined} onClick={() => { clickSfx(); setTab(item.id); }}><Icon size={17} /><span>{item.label}</span>{item.id === 'TREINO' && career.trainingPoints > 0 && <i className="career-nav-badge">{career.trainingPoints}</i>}</button>;
+          return (
+            <button
+              key={item.id}
+              type="button"
+              className={`career-nav-item${active ? ' is-active' : ''}`}
+              aria-current={active ? 'page' : undefined}
+              onClick={() => {
+                clickSfx();
+                setTab(item.id);
+              }}
+            >
+              <Icon size={17} />
+              <span>{item.label}</span>
+              {item.id === 'TREINO' && career.trainingPoints > 0 && (
+                <i className="career-nav-badge">{career.trainingPoints}</i>
+              )}
+            </button>
+          );
         })}
       </nav>
 
@@ -858,28 +1322,6 @@ export const CareerHub: React.FC<CareerHubProps> = ({
     </div>
   );
 };
-
-function MiniMeter({
-  label,
-  value,
-  unit = '%',
-  highlight = false,
-}: {
-  label: string;
-  value: number;
-  unit?: string;
-  highlight?: boolean;
-}) {
-  return (
-    <div className="p-2 rounded-lg bg-slate-900/75 border border-slate-800 text-center min-w-[54px]">
-      <div className="text-[10px] text-slate-400">{label}</div>
-      <div className={`font-mono-num text-sm font-extrabold ${highlight ? 'text-emerald-400' : 'text-white'}`}>
-        {value}
-        {unit}
-      </div>
-    </div>
-  );
-}
 
 function InfoCell({
   label,
@@ -899,6 +1341,21 @@ function InfoCell({
         }`}
       >
         {value}
+      </div>
+    </div>
+  );
+}
+
+function MeterBar({ label, value }: { label: string; value: number }) {
+  const pct = Math.max(0, Math.min(100, Math.round(value)));
+  return (
+    <div className="p-2.5 rounded-lg bg-slate-900/70 border border-slate-800/80 space-y-1">
+      <div className="flex items-center justify-between text-xs">
+        <span className="text-slate-300">{label}</span>
+        <span className="font-mono-num font-bold text-emerald-400">{pct}%</span>
+      </div>
+      <div className="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
+        <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${pct}%` }} />
       </div>
     </div>
   );

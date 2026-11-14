@@ -1016,7 +1016,7 @@ function drawMascotMosaic(
     }
   }
 
-  // Diagonal rays & flanking golden stars on mosaic (inspired by Tifo banner artwork)
+  // Diagonal rays & flanking pixel club shields + golden stars on mosaic
   if (visibleW > 180) {
     ctx.fillStyle = secondary;
     ctx.fillRect(startX + 10, startY + 6, 16, totalH - 12);
@@ -1024,10 +1024,21 @@ function drawMascotMosaic(
     ctx.fillRect(startX + visibleW - 26, startY + 6, 16, totalH - 12);
     ctx.fillRect(startX + visibleW - 40, startY + 6, 8, totalH - 12);
 
-    // Golden stars row flanking the mascot emblem
-    for (let st = 0; st < 4; st++) {
-      const lx = startX + 66 + st * 22;
-      const rx = startX + visibleW - 72 - st * 22;
+    // Flanking Pixel Club Crest Shields
+    const drawPixelShield = (sx: number, sy: number) => {
+      px(ctx, sx, sy, 26, 28, '#0B121D');
+      px(ctx, sx + 2, sy + 2, 22, 24, '#FACC15');
+      px(ctx, sx + 4, sy + 4, 18, 20, primary);
+      px(ctx, sx + 10, sy + 4, 6, 20, secondary);
+      px(ctx, sx + 4, sy + 24, 18, 3, '#0B121D');
+    };
+    drawPixelShield(startX + 52, startY + 32);
+    drawPixelShield(startX + visibleW - 78, startY + 32);
+
+    // Golden star wings flanking the mascot emblem
+    for (let st = 0; st < 3; st++) {
+      const lx = startX + 86 + st * 20;
+      const rx = startX + visibleW - 92 - st * 20;
       const pulse = Math.round(Math.sin(timeSec * 6 + st) * 1.5);
       px(ctx, lx, startY + 42 + pulse, 7, 7, '#FACC15');
       px(ctx, lx + 2, startY + 40 + pulse, 3, 11, '#FDE047');
@@ -1085,6 +1096,23 @@ function drawMascotMosaic(
   ctx.fillRect(48, PITCH_GEO.worldH / 2 - 28 + westWave, 34, 56);
   ctx.fillStyle = primary;
   ctx.fillRect(56, PITCH_GEO.worldH / 2 - 14 + westWave, 18, 28);
+
+  // South stand horizontal support strip during full mosaic opening
+  if (openProgress >= 0.7) {
+    const southWave = Math.round(Math.cos(timeSec * 4.2) * 1.5);
+    const stripW = 340;
+    const stripX = Math.round(PITCH_GEO.worldW / 2 - stripW / 2);
+    const stripY = PITCH_GEO.worldH - 64 + southWave;
+    px(ctx, stripX, stripY, stripW, 20, '#0B121D');
+    px(ctx, stripX + 2, stripY + 2, stripW - 4, 16, primary);
+    px(ctx, stripX + 2, stripY + 2, 28, 16, secondary);
+    px(ctx, stripX + stripW - 30, stripY + 2, 28, 16, secondary);
+    ctx.fillStyle = '#FACC15';
+    ctx.font = 'bold 8px "JetBrains Mono", monospace';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(MASCOT_SLOGANS[mascot] || 'RAÇA & VITÓRIA', PITCH_GEO.worldW / 2, stripY + 10);
+  }
 }
 
 interface AdBrand {
@@ -1273,51 +1301,16 @@ function drawDugoutAndCoach(
   }
 }
 
-export function drawPixelStadium(
+let staticStadiumCache: { key: string; canvas: HTMLCanvasElement } | null = null;
+
+function drawStaticStadiumGeometry(
   ctx: CanvasRenderingContext2D,
-  crowd: CrowdSpectator[],
-  timeSec: number,
-  goalExcitement: number,
-  netRippleLeft: number,
-  netRippleRight: number,
-  quality: GraphicsQuality,
-  options?: {
-    stadium?: StadiumSpec;
-    homeKit?: ClubKit;
-    awayKit?: ClubKit;
-    homeShort?: string;
-    awayShort?: string;
-    homeScore?: number;
-    awayScore?: number;
-    matchMinuteStr?: string;
-    mascot?: MascotId;
-    crowdMood?: CrowdMood;
-    showMosaic?: boolean;
-    mosaicProgress?: number;
-    env?: MatchEnvironment;
-    environmentalEffects?: boolean;
-    effectsIntensity?: number;
-    cameraFlash?: number;
-    fourthOfficialText?: string;
-    scuffMarks?: TurfScuffMark[];
-    ballX?: number;
-    ballY?: number;
-    netImpactLeftY?: number;
-    netImpactRightY?: number;
-  }
+  st: StadiumSpec | undefined,
+  arch: StadiumSpec['architecture'],
+  lightsOn: boolean,
+  quality: GraphicsQuality
 ) {
   const g = PITCH_GEO;
-  const st = options?.stadium;
-  const arch = st?.architecture || 'modern';
-  const homePrimary = options?.homeKit?.primary || '#10B981';
-  const homeSecondary = options?.homeKit?.secondary || '#FFFFFF';
-  const awayPrimary = options?.awayKit?.primary || '#3B82F6';
-  const mood = options?.crowdMood || 'calm';
-  const lightsOn =
-    options?.env?.timeOfDay === 'Noite' || options?.env?.timeOfDay === 'Fim de tarde';
-  const isRain =
-    options?.environmentalEffects !== false &&
-    (options?.env?.weather === 'Chuva fraca' || options?.env?.weather === 'Chuva forte');
 
   // 1. Outer Arena Exterior
   ctx.fillStyle = '#070C14';
@@ -1365,9 +1358,24 @@ export function drawPixelStadium(
     ctx.fillRect(g.worldW - 154, y, 136, 14);
   }
 
+  // VIP Camarotes & Press Cabins along North structure
+  px(ctx, g.worldW / 2 - 120, 6, 240, 16, '#1E293B');
+  for (let c = 0; c < 6; c++) {
+    px(ctx, g.worldW / 2 - 106 + c * 36, 9, 28, 9, lightsOn ? '#FEF08A' : '#38BDF8');
+  }
+  if (arch === 'grand' || arch === 'modern') {
+    for (let v = 0; v < 4; v++) {
+      const vx = g.worldW / 2 - 340 + v * 52;
+      const vx2 = g.worldW / 2 + 150 + v * 52;
+      px(ctx, vx, 8, 40, 12, '#0F172A');
+      px(ctx, vx + 3, 10, 34, 7, lightsOn ? 'rgba(253, 224, 71, 0.55)' : '#1E293B');
+      px(ctx, vx2, 8, 40, 12, '#0F172A');
+      px(ctx, vx2 + 3, 10, 34, 7, lightsOn ? 'rgba(253, 224, 71, 0.55)' : '#1E293B');
+    }
+  }
+
   // Perimeter inner wall & track / apron around pitch
   if (st?.trackBorder || arch === 'traditional') {
-    // Classic Olympic athletics track with white lane lines
     px(ctx, 152, 130, g.worldW - 304, g.worldH - 260, '#7C2D12');
     ctx.strokeStyle = 'rgba(248, 250, 252, 0.32)';
     ctx.lineWidth = 1.5;
@@ -1377,22 +1385,21 @@ export function drawPixelStadium(
     px(ctx, 152, 130, g.worldW - 304, g.worldH - 260, '#111A26');
   }
 
-  // Perimeter security fence / concrete wall + #14 Stadium access gates
+  // Perimeter security fence / concrete wall + Stadium access gates
   ctx.strokeStyle = '#64748B';
   ctx.lineWidth = 3;
   ctx.strokeRect(150, 128, g.worldW - 300, g.worldH - 256);
-  // Concrete corner posts & side access gates
   [210, g.worldW - 224].forEach((gx) => {
     px(ctx, gx, 125, 14, 7, '#94A3B8');
     px(ctx, gx, g.worldH - 132, 14, 7, '#94A3B8');
   });
 
-  // #5: Medical tent & stretcher near tunnel
+  // Medical tent & stretcher near tunnel
   px(ctx, g.worldW / 2 + 64, g.worldH - 130, 38, 20, '#F8FAFC');
   px(ctx, g.worldW / 2 + 80, g.worldH - 126, 6, 12, '#EF4444');
   px(ctx, g.worldW / 2 + 77, g.worldH - 123, 12, 6, '#EF4444');
 
-  // #5: Ball-stop protective catcher nets behind both goals
+  // Ball-stop protective catcher nets behind both goals
   const midNetY = g.pitchY + g.pitchH / 2;
   ctx.strokeStyle = 'rgba(148, 163, 184, 0.25)';
   ctx.lineWidth = 1;
@@ -1402,6 +1409,101 @@ export function drawPixelStadium(
     ctx.lineTo(nx, midNetY + 125);
     ctx.stroke();
   });
+
+  // Pitch Mowed Grass Stripes + Worn Goalkeeper Box Patches
+  const toneA = st?.turfToneA || '#1B6E3A';
+  const toneB = st?.turfToneB || '#1F7A41';
+  const stripes = 14;
+  const sw = g.pitchW / stripes;
+  for (let i = 0; i < stripes; i++) {
+    ctx.fillStyle = i % 2 === 0 ? toneA : toneB;
+    ctx.fillRect(Math.round(g.pitchX + i * sw), g.pitchY, Math.ceil(sw), g.pitchH);
+  }
+
+  // Worn goalkeeper turf/earth patches inside both 6-yard boxes
+  const midY = g.pitchY + g.pitchH / 2;
+  ctx.fillStyle = 'rgba(120, 53, 15, 0.22)';
+  ctx.fillRect(g.pitchX + 4, midY - 46, 36, 92);
+  ctx.fillRect(g.pitchX + g.pitchW - 40, midY - 46, 36, 92);
+
+  if (quality === 'high') {
+    ctx.fillStyle = 'rgba(255,255,255,0.03)';
+    for (let x = g.pitchX + 18; x < g.pitchX + g.pitchW; x += 48) {
+      for (let y = g.pitchY + 18; y < g.pitchY + g.pitchH; y += 48) {
+        ctx.fillRect(x, y, 4, 4);
+      }
+    }
+  }
+}
+
+export function drawPixelStadium(
+  ctx: CanvasRenderingContext2D,
+  crowd: CrowdSpectator[],
+  timeSec: number,
+  goalExcitement: number,
+  netRippleLeft: number,
+  netRippleRight: number,
+  quality: GraphicsQuality,
+  options?: {
+    stadium?: StadiumSpec;
+    homeKit?: ClubKit;
+    awayKit?: ClubKit;
+    homeShort?: string;
+    awayShort?: string;
+    homeScore?: number;
+    awayScore?: number;
+    matchMinuteStr?: string;
+    mascot?: MascotId;
+    crowdMood?: CrowdMood;
+    showMosaic?: boolean;
+    mosaicProgress?: number;
+    env?: MatchEnvironment;
+    environmentalEffects?: boolean;
+    effectsIntensity?: number;
+    cameraFlash?: number;
+    fourthOfficialText?: string;
+    scuffMarks?: TurfScuffMark[];
+    ballX?: number;
+    ballY?: number;
+    netImpactLeftY?: number;
+    netImpactRightY?: number;
+  }
+) {
+  const g = PITCH_GEO;
+  const st = options?.stadium;
+  const arch = st?.architecture || 'modern';
+  const homePrimary = options?.homeKit?.primary || '#10B981';
+  const homeSecondary = options?.homeKit?.secondary || '#FFFFFF';
+  const awayPrimary = options?.awayKit?.primary || '#3B82F6';
+  const mood = options?.crowdMood || 'calm';
+  const lightsOn =
+    options?.env?.timeOfDay === 'Noite' || options?.env?.timeOfDay === 'Fim de tarde';
+  const isRain =
+    options?.environmentalEffects !== false &&
+    (options?.env?.weather === 'Chuva fraca' || options?.env?.weather === 'Chuva forte');
+
+  // 1-2. Static Stadium Architecture + Bleachers + Track + Turf Cache
+  const cacheKey = `${st?.id || 'def'}|${arch}|${st?.standColor || ''}|${st?.turfToneA || ''}|${st?.turfToneB || ''}|${st?.trackBorder ? 1 : 0}|${lightsOn ? 1 : 0}|${quality}`;
+  if (typeof document !== 'undefined') {
+    if (!staticStadiumCache || staticStadiumCache.key !== cacheKey) {
+      const offscreen = document.createElement('canvas');
+      offscreen.width = g.worldW;
+      offscreen.height = g.worldH;
+      const octx = offscreen.getContext('2d');
+      if (octx) {
+        octx.imageSmoothingEnabled = false;
+        drawStaticStadiumGeometry(octx, st, arch, lightsOn, quality);
+        staticStadiumCache = { key: cacheKey, canvas: offscreen };
+      }
+    }
+    if (staticStadiumCache && staticStadiumCache.key === cacheKey) {
+      ctx.drawImage(staticStadiumCache.canvas, 0, 0);
+    } else {
+      drawStaticStadiumGeometry(ctx, st, arch, lightsOn, quality);
+    }
+  } else {
+    drawStaticStadiumGeometry(ctx, st, arch, lightsOn, quality);
+  }
 
   // #3: Ball boys (Gandulas) in bibs around perimeter
   const ballBoys = [
@@ -1417,6 +1519,7 @@ export function drawPixelStadium(
   });
 
   // Sideline Photographers behind both goals + Camera Flash bursts
+  const midNetY = g.pitchY + g.pitchH / 2;
   const flash = options?.cameraFlash ?? 0;
   const photographers = [
     { x: g.pitchX - 58, y: midNetY - 96 },
@@ -1490,18 +1593,12 @@ export function drawPixelStadium(
     ctx.fillText(fb.label, fb.x + fb.w / 2, fb.y + 5);
   });
 
-  // 3. Player Entrance Tunnel (bottom center) + Press Cabins (top center) + Dugouts
+  // 3. Player Entrance Tunnel (bottom center) + Dugouts
   const tunnelX = g.worldW / 2 - 36;
   const tunnelY = g.worldH - 132;
   px(ctx, tunnelX, tunnelY, 72, 28, '#020617');
   px(ctx, tunnelX + 4, tunnelY, 64, 8, homePrimary);
   px(ctx, tunnelX + 12, tunnelY + 2, 48, 4, homeSecondary);
-
-  // Press Cabins (Cabines de Imprensa) in North upper structure
-  px(ctx, g.worldW / 2 - 120, 6, 240, 16, '#1E293B');
-  for (let c = 0; c < 6; c++) {
-    px(ctx, g.worldW / 2 - 106 + c * 36, 9, 28, 9, lightsOn ? '#FEF08A' : '#38BDF8');
-  }
 
   // Home & Away Dugouts (Bancos de Reservas)
   if (options?.homeKit && options?.awayKit) {
@@ -1838,21 +1935,8 @@ export function drawPixelStadium(
     });
   }
 
-  // 11. Pitch Mowed Grass Stripes + Worn Goalkeeper Box Patches
-  const toneA = st?.turfToneA || '#1B6E3A';
-  const toneB = st?.turfToneB || '#1F7A41';
-  const stripes = 14;
-  const sw = g.pitchW / stripes;
-  for (let i = 0; i < stripes; i++) {
-    ctx.fillStyle = i % 2 === 0 ? toneA : toneB;
-    ctx.fillRect(Math.round(g.pitchX + i * sw), g.pitchY, Math.ceil(sw), g.pitchH);
-  }
-
-  // Worn goalkeeper turf/earth patches inside both 6-yard boxes
+  // 11. Dynamic Pitch Atmosphere (Clouds, Rain Puddles, Scuff Marks) over cached turf
   const midY = g.pitchY + g.pitchH / 2;
-  ctx.fillStyle = 'rgba(120, 53, 15, 0.22)';
-  ctx.fillRect(g.pitchX + 4, midY - 46, 36, 92);
-  ctx.fillRect(g.pitchX + g.pitchW - 40, midY - 46, 36, 92);
 
   // Drifting Cloud Shadows during day / overcast matches
   if (!lightsOn && options?.environmentalEffects !== false && quality !== 'low') {
@@ -1898,15 +1982,6 @@ export function drawPixelStadium(
           : `rgba(120, 53, 15, ${mk.alpha * 0.45})`;
       ctx.fillRect(0, -2, mk.length, 4);
       ctx.restore();
-    }
-  }
-
-  if (quality === 'high') {
-    ctx.fillStyle = 'rgba(255,255,255,0.03)';
-    for (let x = g.pitchX + 18; x < g.pitchX + g.pitchW; x += 48) {
-      for (let y = g.pitchY + 18; y < g.pitchY + g.pitchH; y += 48) {
-        ctx.fillRect(x, y, 4, 4);
-      }
     }
   }
 

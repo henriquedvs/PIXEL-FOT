@@ -12,6 +12,7 @@ export type ScreenId =
   | 'STADIUMS_BROWSER'
   | 'COMPETITIONS_BROWSER'
   | 'CALENDAR_BROWSER'
+  | 'SQUAD_BROWSER'
   | 'CUSTOMIZATION';
 
 export type LanguageCode = 'pt-BR' | 'en-US' | 'es-ES';
@@ -136,6 +137,7 @@ export interface PlayerPersonalInfo {
   nickname: string;
   birthDate: string; // YYYY-MM-DD
   nationality: string;
+  secondaryNationality?: string;
   hometown: string;
   heightCm: number;
   weightKg: number;
@@ -169,6 +171,8 @@ export interface SportGear {
   celebrationId?: CelebrationId;
 }
 
+export type AttributeCreationMode = 'livre' | 'balanceado' | 'automatico';
+
 export interface PlayerAttributes {
   velocidade: number;
   aceleracao: number;
@@ -176,9 +180,11 @@ export interface PlayerAttributes {
   forcaFisica: number;
   agilidade: number;
   equilibrio: number;
+  impulsao: number;
   finalizacao: number;
   potenciaChute: number;
   precisaoChute: number;
+  voleio: number;
   passeCurto: number;
   passeLongo: number;
   cruzamento: number;
@@ -190,8 +196,13 @@ export interface PlayerAttributes {
   marcacao: number;
   desarme: number;
   posicionamento: number;
+  posicionamentoDefensivo: number;
   interceptacao: number;
+  decisoes: number;
+  compostura: number;
+  lideranca: number;
   reflexos: number;
+  elasticidade: number;
   posicionamentoGk: number;
   saidasGol: number;
   defesaPenaltis: number;
@@ -304,9 +315,13 @@ export interface ClubSquadMember {
   id: string;
   name: string;
   age?: number;
+  nationality?: string;
+  preferredFoot?: DominantFoot;
   number: number;
   position: PositionId;
   ovr: number;
+  potential?: number;
+  traits?: string[];
   skinColor: string;
   hairColor: string;
   hairStyle: HairStyle;
@@ -581,6 +596,115 @@ export interface CalendarDay {
   kickoffTime?: string;
   resultText?: string;
   note?: string;
+  narrativeEventId?: string;
+}
+
+export interface SimMatchEvent {
+  minute: number;
+  type: 'GOL' | 'AMARELO' | 'VERMELHO' | 'SUBSTITUICAO' | 'DEFESA' | 'LESAO';
+  clubId: string;
+  playerName: string;
+  assistName?: string;
+  detail: string;
+  isUserPlayer?: boolean;
+}
+
+export interface SimPlayerRating {
+  playerId: string;
+  name: string;
+  number: number;
+  position: PositionId;
+  rating: number;
+  goals: number;
+  assists: number;
+  yellowCard?: boolean;
+  redCard?: boolean;
+  subbedOut?: boolean;
+  subbedIn?: boolean;
+  isUser?: boolean;
+}
+
+export interface MatchSimReport {
+  id: string;
+  season: number;
+  round: number;
+  competition: string;
+  homeClubId: string;
+  awayClubId: string;
+  homeScore: number;
+  awayScore: number;
+  penHomeScore?: number;
+  penAwayScore?: number;
+  stadiumName: string;
+  weather: WeatherCondition;
+  attendance: number;
+  userRole: 'Titular' | 'Reserva' | 'Banco' | 'Lesionado' | 'Suspenso';
+  userMinutes: number;
+  userRating: number;
+  motmName: string;
+  motmClubId: string;
+  events: SimMatchEvent[];
+  stats: {
+    possessionHome: number;
+    shotsHome: number;
+    shotsAway: number;
+    shotsOnTargetHome: number;
+    shotsOnTargetAway: number;
+    cornersHome: number;
+    cornersAway: number;
+    foulsHome: number;
+    foulsAway: number;
+    savesHome: number;
+    savesAway: number;
+  };
+  homeRatings: SimPlayerRating[];
+  awayRatings: SimPlayerRating[];
+}
+
+export type NarrativeEventCategory =
+  | 'COLETIVA'
+  | 'VESTIARIO'
+  | 'TREINADOR'
+  | 'ZONA_MISTA'
+  | 'CONTRATO'
+  | 'ESPECIAL';
+
+export interface NarrativeChoice {
+  id: string;
+  label: string;
+  tone: 'Confiante' | 'Diplomático' | 'Autocrítico' | 'Focado';
+  responseText: string;
+  effects: {
+    morale?: number;
+    coachTrust?: number;
+    popularity?: number;
+    pressRelation?: number;
+    teamChemistry?: number;
+    fanSupport?: number;
+    xp?: number;
+    fatigue?: number;
+  };
+}
+
+export interface NarrativeEvent {
+  id: string;
+  category: NarrativeEventCategory;
+  title: string;
+  speakerName: string;
+  speakerRole: string;
+  contextTag: string;
+  prompt: string;
+  choices: NarrativeChoice[];
+}
+
+export interface NarrativeDecisionRecord {
+  eventId: string;
+  dayIndex: number;
+  dateLabel: string;
+  category: NarrativeEventCategory;
+  title: string;
+  choiceLabel: string;
+  summary: string;
 }
 
 export interface CareerHistoryEntry {
@@ -612,12 +736,20 @@ export interface PlayerCareer {
   appearance: PlayerAppearance;
   gear: SportGear;
   position: PositionId;
+  secondaryPositions?: PositionId[];
   playstyle: PlaystyleId;
+  creationMode?: AttributeCreationMode;
   attributes: PlayerAttributes;
   ovr: number;
+  potential?: number;
+  marketValue?: number;
+  traits?: string[];
   xp: number;
   fatigue: number; // 0..100 (100 = exhausted)
   clubId: string;
+  division?: 'Série A' | 'Série B';
+  serieAClubIds?: string[];
+  serieBClubIds?: string[];
   contract: Contract;
   season: number;
   round: number; // 1..38
@@ -628,6 +760,9 @@ export interface PlayerCareer {
   morale: number;
   coachTrust: number;
   popularity: number;
+  pressRelation?: number;
+  teamChemistry?: number;
+  fanSupport?: number;
   nationalTeamCalled: boolean;
   injuryMatchesRemaining: number;
   injuryType: string | null;
@@ -646,7 +781,7 @@ export interface PlayerCareer {
   copaStage: 'Oitavas' | 'Quartas' | 'Semifinal' | 'Final' | 'Eliminado' | 'Campeão';
   estadualStage: 'Fase de Grupos' | 'Semifinal' | 'Final' | 'Campeão';
   schedule: { round: number; homeClubId: string; awayClubId: string; competition?: string }[];
-  serieBSchedule?: { round: number; homeClubId: string; awayClubId: string }[];
+  serieBSchedule?: { round: number; homeClubId: string; awayClubId: string; competition?: string }[];
   copaBracket?: CopaBracketState;
   supercopa?: SupercopaState;
   championsHistory?: CompetitionChampionRecord[];
@@ -654,4 +789,6 @@ export interface PlayerCareer {
   news?: NewsItem[];
   objectives?: SeasonObjective[];
   playedMatchIds?: string[];
+  narrativeHistory?: NarrativeDecisionRecord[];
+  lastSimReport?: MatchSimReport | null;
 }
