@@ -39,12 +39,12 @@ export const NarrativeEventModal: React.FC<NarrativeEventModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-sm flex items-center justify-center p-3 sm:p-5 animate-fadeIn">
-      <div className="max-w-xl w-full bg-[#0E1725] border border-slate-700/80 rounded-2xl shadow-2xl overflow-hidden flex flex-col">
+    <div className="fixed inset-0 z-50 bg-[#050B12]/90 backdrop-blur-sm flex items-center justify-center p-3 sm:p-5 animate-fadeIn">
+      <div className="px-panel max-w-xl w-full overflow-hidden flex flex-col">
         {/* Header */}
-        <header className="px-5 py-4 border-b border-slate-800 bg-[#0A111C] flex items-center justify-between gap-3">
+        <header className="px-header px-5 py-4 flex items-center justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0">
-            <div className="w-10 h-10 rounded-xl bg-emerald-500/15 border border-emerald-500/40 flex items-center justify-center shrink-0 text-emerald-400">
+            <div className="w-10 h-10 rounded-[2px] bg-emerald-500/15 border border-emerald-500/45 flex items-center justify-center shrink-0 text-emerald-400">
               {event.category === 'COLETIVA' || event.category === 'ZONA_MISTA' ? (
                 <Mic size={19} />
               ) : event.category === 'CONTRATO' ? (
@@ -59,7 +59,7 @@ export const NarrativeEventModal: React.FC<NarrativeEventModalProps> = ({
               <div className="text-[10px] font-bold uppercase text-emerald-400 font-mono-num">
                 {CATEGORY_LABEL[event.category]} · {event.contextTag}
               </div>
-              <h2 className="font-display font-extrabold text-base text-white truncate">
+              <h2 className="font-display font-extrabold text-base text-white uppercase truncate">
                 {event.title}
               </h2>
             </div>
@@ -68,16 +68,17 @@ export const NarrativeEventModal: React.FC<NarrativeEventModalProps> = ({
 
         {/* Body */}
         <div className="p-5 space-y-4 overflow-y-auto custom-scroll max-h-[72dvh]">
-          <div className="p-4 rounded-xl bg-[#111B2B] border border-slate-800 space-y-1.5">
-            <div className="text-xs font-bold text-amber-300">
-              {event.speakerName} <span className="text-slate-400 font-normal">· {event.speakerRole}</span>
+          <div className="px-panel-soft p-4 space-y-1.5">
+            <div className="text-xs font-display font-bold text-[#E6B84C] uppercase">
+              {event.speakerName}{' '}
+              <span className="text-slate-400 font-mono-num font-normal">· {event.speakerRole}</span>
             </div>
             <p className="text-sm text-slate-200 leading-relaxed">{event.prompt}</p>
           </div>
 
           {!selected ? (
             <div className="space-y-2.5">
-              <div className="text-[11px] font-bold uppercase text-slate-400 tracking-wider">
+              <div className="text-[11px] font-mono-num font-bold uppercase text-slate-400 tracking-wider">
                 Escolha sua postura
               </div>
               {event.choices.map((ch) => (
@@ -88,7 +89,7 @@ export const NarrativeEventModal: React.FC<NarrativeEventModalProps> = ({
                     soundEngine.play('menu');
                     setSelected(ch);
                   }}
-                  className="w-full min-h-[48px] text-left p-3.5 rounded-xl bg-slate-900/80 hover:bg-slate-800/90 border border-slate-700 hover:border-emerald-500 transition-colors cursor-pointer flex items-center justify-between gap-3"
+                  className="px-panel-soft hover:border-emerald-400 w-full min-h-[48px] text-left p-3.5 transition-colors cursor-pointer flex items-center justify-between gap-3"
                 >
                   <span className="text-xs sm:text-sm font-semibold text-white">{ch.label}</span>
                   <span className="text-[10px] font-mono-num uppercase text-emerald-400 shrink-0">
@@ -99,7 +100,7 @@ export const NarrativeEventModal: React.FC<NarrativeEventModalProps> = ({
             </div>
           ) : (
             <div className="space-y-4 animate-fadeIn">
-              <div className="p-4 rounded-xl bg-emerald-500/12 border border-emerald-500/45 space-y-2">
+              <div className="px-panel-active p-4 space-y-2">
                 <div className="text-[11px] font-bold uppercase text-emerald-400 font-mono-num">
                   Sua Resposta ({selected.tone})
                 </div>
@@ -107,7 +108,7 @@ export const NarrativeEventModal: React.FC<NarrativeEventModalProps> = ({
               </div>
 
               <div className="space-y-2">
-                <div className="text-[11px] font-bold uppercase text-slate-400 tracking-wider">
+                <div className="text-[11px] font-mono-num font-bold uppercase text-slate-400 tracking-wider">
                   Impacto na Carreira
                 </div>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
@@ -116,10 +117,10 @@ export const NarrativeEventModal: React.FC<NarrativeEventModalProps> = ({
                     return (
                       <div
                         key={ef.label}
-                        className="px-3 py-2 rounded-lg bg-slate-900 border border-slate-800 flex items-center justify-between text-xs font-mono-num"
+                        className="px-panel-soft px-3 py-2 flex items-center justify-between text-xs font-mono-num"
                       >
                         <span className="text-slate-300">{ef.label}</span>
-                        <span className={good ? 'text-emerald-400 font-bold' : 'text-amber-300 font-bold'}>
+                        <span className={good ? 'text-emerald-400 font-bold' : 'text-[#E6B84C] font-bold'}>
                           {ef.delta > 0 ? `+${ef.delta}` : ef.delta}
                         </span>
                       </div>
@@ -132,7 +133,7 @@ export const NarrativeEventModal: React.FC<NarrativeEventModalProps> = ({
         </div>
 
         {/* Footer */}
-        <footer className="px-5 py-3.5 border-t border-slate-800 bg-[#0A111C] flex items-center justify-end gap-2">
+        <footer className="px-5 py-3.5 border-t border-[#1E3346] bg-[#081018] flex items-center justify-end gap-2">
           {selected ? (
             <button
               type="button"
@@ -141,7 +142,7 @@ export const NarrativeEventModal: React.FC<NarrativeEventModalProps> = ({
                 onSelectChoice(selected);
                 onClose();
               }}
-              className="min-h-[44px] px-5 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-display font-extrabold text-xs sm:text-sm flex items-center gap-2 cursor-pointer"
+              className="px-btn-primary min-h-[44px] px-5 py-2.5 text-xs sm:text-sm uppercase flex items-center gap-2 cursor-pointer"
             >
               <CheckCircle2 size={16} />
               Continuar
@@ -153,7 +154,7 @@ export const NarrativeEventModal: React.FC<NarrativeEventModalProps> = ({
                 soundEngine.play('menu');
                 onClose();
               }}
-              className="min-h-[44px] px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-300 cursor-pointer"
+              className="px-btn-secondary min-h-[44px] px-4 py-2 text-xs uppercase cursor-pointer"
             >
               Decidir Depois
             </button>

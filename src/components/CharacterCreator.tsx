@@ -46,6 +46,8 @@ import {
   SportGear,
 } from '../types/game';
 import { calculateAge } from '../utils/storage';
+import { PixelBackdrop } from './PixelBackdrop';
+import { PixelFlag } from './PixelIcons';
 
 export interface CreatedCharacterDraft {
   personal: PlayerPersonalInfo;
@@ -470,31 +472,38 @@ export const CharacterCreator: React.FC<CharacterCreatorProps> = ({
       ];
 
   return (
-    <div className="w-full h-[100dvh] bg-[#0B121D] text-slate-100 flex flex-col overflow-hidden">
+    <div className="px-shell animate-fadeIn">
+      <PixelBackdrop
+        homeKit={previewKits[previewKitIdx % previewKits.length]}
+        awayKit={previewKits[(previewKitIdx + 1) % previewKits.length]}
+        dimOpacity={0.86}
+      />
+
       {/* Header */}
-      <header className="px-4 py-2.5 border-b border-slate-800 bg-[#0D1624] flex items-center justify-between gap-3 shrink-0">
-        <div className="flex items-center gap-3">
+      <header className="relative z-10 px-header px-4 py-2.5 flex items-center justify-between gap-3 shrink-0">
+        <div className="flex items-center gap-3 min-w-0">
           <button
             type="button"
             onClick={() => {
               soundEngine.play('menu');
               onBack();
             }}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-medium text-slate-200 cursor-pointer whitespace-nowrap"
+            className="px-btn-secondary flex items-center gap-1.5 px-3 py-1.5 text-xs uppercase cursor-pointer whitespace-nowrap"
           >
             <ArrowLeft size={15} />
             Voltar
           </button>
-          <h1 className="font-display font-bold text-base sm:text-lg text-white whitespace-nowrap">
+          <div className="px-flag-stripe-br shrink-0" />
+          <h1 className="font-display font-bold text-base sm:text-lg text-white uppercase whitespace-nowrap truncate">
             {editMode ? 'Personalização do Atleta' : 'Criação de Personagem'}
           </h1>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 shrink-0">
           <button
             type="button"
             onClick={randomizeCharacter}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-medium text-slate-200 cursor-pointer whitespace-nowrap"
+            className="px-btn-secondary flex items-center gap-1.5 px-3 py-1.5 text-xs uppercase cursor-pointer whitespace-nowrap"
           >
             <Shuffle size={14} />
             Aleatório
@@ -502,7 +511,7 @@ export const CharacterCreator: React.FC<CharacterCreatorProps> = ({
           <button
             type="button"
             onClick={handleSubmit}
-            className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-display font-bold text-xs sm:text-sm cursor-pointer whitespace-nowrap"
+            className="px-btn-primary flex items-center gap-1.5 px-4 py-1.5 text-xs sm:text-sm uppercase cursor-pointer whitespace-nowrap"
           >
             {editMode ? (
               <>
@@ -520,15 +529,15 @@ export const CharacterCreator: React.FC<CharacterCreatorProps> = ({
       </header>
 
       {/* Main Horizontal Split */}
-      <div className="flex-1 grid grid-cols-1 md:grid-cols-12 min-h-0">
+      <div className="relative z-10 flex-1 grid grid-cols-1 md:grid-cols-12 min-h-0">
         {/* Left Live Pixel Art Preview */}
-        <aside className="md:col-span-4 bg-[#0E1826] border-b md:border-b-0 md:border-r border-slate-800 p-3 sm:p-4 flex flex-row md:flex-col items-center justify-between gap-3 shrink-0 overflow-y-auto custom-scroll">
+        <aside className="md:col-span-4 bg-[#071019]/82 border-b md:border-b-0 md:border-r border-[#1E3346] p-3 sm:p-4 flex flex-row md:flex-col items-center justify-between gap-3 shrink-0 overflow-y-auto custom-scroll">
           <div className="relative flex flex-col items-center w-auto md:w-full">
             <canvas
               ref={previewCanvasRef}
               width={220}
               height={220}
-              className="w-[126px] h-[126px] sm:w-[196px] sm:h-[196px] rounded-xl border border-slate-700/80 pixelated bg-[#0F1A2A]"
+              className="w-[126px] h-[126px] sm:w-[196px] sm:h-[196px] rounded-[2px] border border-[#2C465E] pixelated bg-[#0B1522] shadow-[0_8px_22px_rgba(0,0,0,0.6)]"
             />
 
             {/* View Angle & Kit Selector */}
@@ -548,10 +557,10 @@ export const CharacterCreator: React.FC<CharacterCreatorProps> = ({
                     setTestCelebration(false);
                     setViewAngle(v.id);
                   }}
-                  className={`px-2.5 py-1 rounded-md text-[11px] font-semibold cursor-pointer ${
+                  className={`px-2.5 py-1 rounded-[2px] border text-[11px] font-display font-bold uppercase cursor-pointer ${
                     !testCelebration && viewAngle === v.id
-                      ? 'bg-emerald-500 text-slate-950'
-                      : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                      ? 'bg-emerald-500 text-slate-950 border-emerald-400'
+                      : 'bg-[#0C1724] border-[#22384C] text-slate-300 hover:border-[#4b7496]'
                   }`}
                 >
                   {v.label}
@@ -563,7 +572,7 @@ export const CharacterCreator: React.FC<CharacterCreatorProps> = ({
                   soundEngine.play('menu');
                   setPreviewKitIdx((i) => i + 1);
                 }}
-                className="px-2.5 py-1 rounded-md bg-slate-800 hover:bg-slate-700 text-[11px] font-semibold text-sky-300 cursor-pointer"
+                className="px-2.5 py-1 rounded-[2px] border border-[#22384C] bg-[#0C1724] hover:border-sky-400 text-[11px] font-display font-bold uppercase text-sky-300 cursor-pointer"
               >
                 Kit {(previewKitIdx % 3) + 1}
               </button>
@@ -575,10 +584,10 @@ export const CharacterCreator: React.FC<CharacterCreatorProps> = ({
                 soundEngine.play(testCelebration ? 'menu' : 'celebration');
                 setTestCelebration((v) => !v);
               }}
-              className={`mt-1.5 flex items-center gap-1.5 px-3 py-1 rounded-md text-[11px] font-bold cursor-pointer ${
+              className={`mt-1.5 flex items-center gap-1.5 px-3 py-1 rounded-[2px] border text-[11px] font-display font-bold uppercase cursor-pointer ${
                 testCelebration
-                  ? 'bg-amber-400 text-slate-950'
-                  : 'bg-slate-800 hover:bg-slate-700 text-amber-300'
+                  ? 'bg-[#E6B84C] text-slate-950 border-amber-300'
+                  : 'bg-[#0C1724] border-[#22384C] hover:border-[#E6B84C] text-[#E6B84C]'
               }`}
             >
               <Sparkles size={12} />
@@ -586,13 +595,16 @@ export const CharacterCreator: React.FC<CharacterCreatorProps> = ({
             </button>
           </div>
 
-          <div className="flex-1 md:w-full bg-slate-900/75 border border-slate-800 rounded-xl p-3 flex flex-col gap-2">
+          <div className="flex-1 md:w-full px-panel p-3 flex flex-col gap-2">
             <div className="flex items-center justify-between">
               <div className="min-w-0">
-                <div className="font-display font-bold text-base text-white truncate">
-                  {personal.nickname || `${personal.firstName} ${personal.lastName}`}
+                <div className="flex items-center gap-1.5">
+                  <PixelFlag nationality={personal.nationality} width={18} />
+                  <div className="font-display font-bold text-base text-white uppercase truncate">
+                    {personal.nickname || `${personal.firstName} ${personal.lastName}`}
+                  </div>
                 </div>
-                <div className="text-xs text-slate-400 truncate">
+                <div className="text-xs font-mono-num text-slate-400 truncate mt-0.5">
                   {posMeta.name}
                   {secondaryPositions.length > 0
                     ? ` (${secondaryPositions.map((p) => getPositionMeta(p).code).join('/')})`
@@ -601,36 +613,36 @@ export const CharacterCreator: React.FC<CharacterCreatorProps> = ({
                 </div>
               </div>
               <div className="text-right shrink-0 pl-2">
-                <div className="text-[10px] uppercase text-slate-400 font-semibold">OVR</div>
+                <div className="text-[10px] font-mono-num uppercase text-slate-400 font-semibold">OVR</div>
                 <div className="font-mono-num text-2xl font-extrabold text-emerald-400 leading-none">
                   {ovr}
                 </div>
               </div>
             </div>
-            <div className="grid grid-cols-3 gap-1.5 border-t border-slate-800 pt-2 text-[10px] font-mono-num">
-              <div className="bg-slate-950/70 rounded px-2 py-1">
+            <div className="grid grid-cols-3 gap-1.5 border-t border-[#1E3346] pt-2 text-[10px] font-mono-num">
+              <div className="px-panel-soft px-2 py-1">
                 <div className="text-slate-500">POTENCIAL</div>
                 <div className="font-bold text-sky-400">{potential}</div>
               </div>
-              <div className="bg-slate-950/70 rounded px-2 py-1">
+              <div className="px-panel-soft px-2 py-1">
                 <div className="text-slate-500">VALOR</div>
                 <div className="font-bold text-emerald-400">
                   R$ {(marketValue / 1000000).toFixed(1)}M
                 </div>
               </div>
-              <div className="bg-slate-950/70 rounded px-2 py-1">
-                <div className="text-slate-500">SALÁRIO EST.</div>
-                <div className="font-bold text-amber-300">
+              <div className="px-panel-soft px-2 py-1">
+                <div className="text-slate-500">SALÁRIO</div>
+                <div className="font-bold text-[#E6B84C]">
                   R$ {(suggestedSalary / 1000).toFixed(1)}k
                 </div>
               </div>
             </div>
-            <div className="text-[10px] text-slate-400 border-t border-slate-800 pt-1.5 flex justify-between">
+            <div className="text-[10px] font-mono-num text-slate-400 border-t border-[#1E3346] pt-1.5 flex justify-between">
               <span>{personal.heightCm} cm · {personal.weightKg} kg</span>
               <span>Pé: {gear.dominantFoot}</span>
             </div>
             {derivedTraits.length > 0 && (
-              <div className="text-[10px] text-amber-300/90 border-t border-slate-800 pt-1.5 truncate">
+              <div className="text-[10px] text-[#E6B84C] border-t border-[#1E3346] pt-1.5 truncate">
                 Especialidades: {derivedTraits.slice(0, 3).join(' · ')}
               </div>
             )}
@@ -640,7 +652,7 @@ export const CharacterCreator: React.FC<CharacterCreatorProps> = ({
         {/* Right Tabbed Editor */}
         <section className="md:col-span-8 flex flex-col min-h-0">
           {/* Tabs */}
-          <div className="flex items-center gap-1 px-3 py-2 border-b border-slate-800 bg-[#0D1624] overflow-x-auto shrink-0">
+          <div className="flex items-center gap-1 px-3 py-2 border-b border-[#1E3346] bg-[#081018]/95 overflow-x-auto shrink-0">
             {tabs.map((t) => (
               <button
                 key={t.id}
@@ -649,10 +661,10 @@ export const CharacterCreator: React.FC<CharacterCreatorProps> = ({
                   soundEngine.play('menu');
                   setTab(t.id);
                 }}
-                className={`px-3.5 py-2 rounded-lg text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap shrink-0 ${
+                className={`px-3.5 py-2 rounded-[2px] border text-xs font-display font-bold uppercase transition-colors cursor-pointer whitespace-nowrap shrink-0 ${
                   tab === t.id
-                    ? 'bg-emerald-500 text-slate-950'
-                    : 'bg-slate-800/70 text-slate-300 hover:bg-slate-800'
+                    ? 'bg-emerald-500 text-slate-950 border-emerald-400'
+                    : 'bg-[#0C1724] text-slate-300 border-[#22384C] hover:border-[#4b7496]'
                 }`}
               >
                 {t.label}
@@ -663,14 +675,14 @@ export const CharacterCreator: React.FC<CharacterCreatorProps> = ({
           {/* Tab Panel Body */}
           <div className="flex-1 overflow-y-auto custom-scroll p-4 space-y-4">
             {tab === 'PESSOAL' && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+              <div className="px-panel p-4 grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                 <Field label="Nome">
                   <input
                     type="text"
                     maxLength={18}
                     value={personal.firstName}
                     onChange={(e) => setPersonal({ ...personal, firstName: e.target.value })}
-                    className="w-full px-3 py-2 rounded-lg bg-slate-900 border border-slate-700 text-sm text-white focus:border-emerald-500 outline-none"
+                    className="w-full px-3 py-2 rounded-[2px] bg-[#071019] border border-[#22384C] text-sm text-white focus:border-emerald-500 outline-none"
                   />
                 </Field>
                 <Field label="Sobrenome">
@@ -679,7 +691,7 @@ export const CharacterCreator: React.FC<CharacterCreatorProps> = ({
                     maxLength={20}
                     value={personal.lastName}
                     onChange={(e) => setPersonal({ ...personal, lastName: e.target.value })}
-                    className="w-full px-3 py-2 rounded-lg bg-slate-900 border border-slate-700 text-sm text-white focus:border-emerald-500 outline-none"
+                    className="w-full px-3 py-2 rounded-[2px] bg-[#071019] border border-[#22384C] text-sm text-white focus:border-emerald-500 outline-none"
                   />
                 </Field>
                 <Field label="Apelido em campo">
@@ -688,7 +700,7 @@ export const CharacterCreator: React.FC<CharacterCreatorProps> = ({
                     maxLength={14}
                     value={personal.nickname}
                     onChange={(e) => setPersonal({ ...personal, nickname: e.target.value })}
-                    className="w-full px-3 py-2 rounded-lg bg-slate-900 border border-slate-700 text-sm text-white focus:border-emerald-500 outline-none"
+                    className="w-full px-3 py-2 rounded-[2px] bg-[#071019] border border-[#22384C] text-sm text-white focus:border-emerald-500 outline-none"
                   />
                 </Field>
                 <Field label={`Data de nascimento (${age} anos)`}>
@@ -698,7 +710,7 @@ export const CharacterCreator: React.FC<CharacterCreatorProps> = ({
                     max="2010-12-31"
                     value={personal.birthDate}
                     onChange={(e) => setPersonal({ ...personal, birthDate: e.target.value })}
-                    className="w-full px-3 py-2 rounded-lg bg-slate-900 border border-slate-700 text-sm text-white focus:border-emerald-500 outline-none"
+                    className="w-full px-3 py-2 rounded-[2px] bg-[#071019] border border-[#22384C] text-sm text-white focus:border-emerald-500 outline-none font-mono-num"
                   />
                 </Field>
                 <Field label="Nacionalidade Principal">
@@ -707,7 +719,7 @@ export const CharacterCreator: React.FC<CharacterCreatorProps> = ({
                     maxLength={22}
                     value={personal.nationality}
                     onChange={(e) => setPersonal({ ...personal, nationality: e.target.value })}
-                    className="w-full px-3 py-2 rounded-lg bg-slate-900 border border-slate-700 text-sm text-white focus:border-emerald-500 outline-none"
+                    className="w-full px-3 py-2 rounded-[2px] bg-[#071019] border border-[#22384C] text-sm text-white focus:border-emerald-500 outline-none"
                   />
                 </Field>
                 <Field label="Segunda Nacionalidade (Opcional)">
@@ -719,7 +731,7 @@ export const CharacterCreator: React.FC<CharacterCreatorProps> = ({
                         secondaryNationality: e.target.value || undefined,
                       })
                     }
-                    className="w-full px-3 py-2 rounded-lg bg-slate-900 border border-slate-700 text-sm text-white focus:border-emerald-500 outline-none"
+                    className="w-full px-3 py-2 rounded-[2px] bg-[#071019] border border-[#22384C] text-sm text-white focus:border-emerald-500 outline-none"
                   >
                     <option value="">Nenhuma</option>
                     <option value="Portugal">Portugal</option>
@@ -738,7 +750,7 @@ export const CharacterCreator: React.FC<CharacterCreatorProps> = ({
                     maxLength={24}
                     value={personal.hometown}
                     onChange={(e) => setPersonal({ ...personal, hometown: e.target.value })}
-                    className="w-full px-3 py-2 rounded-lg bg-slate-900 border border-slate-700 text-sm text-white focus:border-emerald-500 outline-none"
+                    className="w-full px-3 py-2 rounded-[2px] bg-[#071019] border border-[#22384C] text-sm text-white focus:border-emerald-500 outline-none"
                   />
                 </Field>
                 <Field label={`Altura: ${personal.heightCm} cm`}>
@@ -772,10 +784,10 @@ export const CharacterCreator: React.FC<CharacterCreatorProps> = ({
             )}
 
             {tab === 'APARENCIA' && (
-              <div className="space-y-4">
+              <div className="px-panel p-4 space-y-4">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <div className="text-xs font-semibold text-slate-300 mb-1.5">Cor da pele</div>
+                    <div className="text-[11px] font-mono-num uppercase text-slate-300 mb-1.5">Cor da pele</div>
                     <div className="flex flex-wrap gap-2">
                       {SKIN_TONES.map((c) => (
                         <button
@@ -783,8 +795,8 @@ export const CharacterCreator: React.FC<CharacterCreatorProps> = ({
                           type="button"
                           onClick={() => setAppearance({ ...appearance, skinColor: c })}
                           style={{ backgroundColor: c }}
-                          className={`w-8 h-8 rounded-lg border-2 cursor-pointer ${
-                            appearance.skinColor === c ? 'border-emerald-400 scale-110' : 'border-slate-700'
+                          className={`w-8 h-8 rounded-[2px] border-2 cursor-pointer ${
+                            appearance.skinColor === c ? 'border-emerald-400 scale-110' : 'border-[#22384C]'
                           }`}
                           aria-label={`Tom de pele ${c}`}
                         />
@@ -792,7 +804,7 @@ export const CharacterCreator: React.FC<CharacterCreatorProps> = ({
                     </div>
                   </div>
                   <div>
-                    <div className="text-xs font-semibold text-slate-300 mb-1.5">Cor do cabelo</div>
+                    <div className="text-[11px] font-mono-num uppercase text-slate-300 mb-1.5">Cor do cabelo</div>
                     <div className="flex flex-wrap gap-2">
                       {HAIR_COLORS.map((c) => (
                         <button
@@ -800,8 +812,8 @@ export const CharacterCreator: React.FC<CharacterCreatorProps> = ({
                           type="button"
                           onClick={() => setAppearance({ ...appearance, hairColor: c })}
                           style={{ backgroundColor: c }}
-                          className={`w-8 h-8 rounded-lg border-2 cursor-pointer ${
-                            appearance.hairColor === c ? 'border-emerald-400 scale-110' : 'border-slate-700'
+                          className={`w-8 h-8 rounded-[2px] border-2 cursor-pointer ${
+                            appearance.hairColor === c ? 'border-emerald-400 scale-110' : 'border-[#22384C]'
                           }`}
                           aria-label={`Cor de cabelo ${c}`}
                         />
@@ -886,7 +898,7 @@ export const CharacterCreator: React.FC<CharacterCreatorProps> = ({
             )}
 
             {tab === 'ESPORTIVO' && (
-              <div className="space-y-4">
+              <div className="px-panel p-4 space-y-4">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <Field label="Nome na camisa (visão Costas)">
                     <input
@@ -897,7 +909,7 @@ export const CharacterCreator: React.FC<CharacterCreatorProps> = ({
                         setGear({ ...gear, shirtName: e.target.value.toUpperCase() })
                       }
                       onFocus={() => setViewAngle('back')}
-                      className="w-full px-3 py-2 rounded-lg bg-slate-900 border border-slate-700 text-sm text-white font-mono-num uppercase focus:border-emerald-500 outline-none"
+                      className="w-full px-3 py-2 rounded-[2px] bg-[#071019] border border-[#22384C] text-sm text-white font-mono-num uppercase focus:border-emerald-500 outline-none"
                     />
                   </Field>
                   <Field label={`Número da camisa: #${gear.jerseyNumber}`}>
@@ -937,7 +949,7 @@ export const CharacterCreator: React.FC<CharacterCreatorProps> = ({
                     onChange={(v) => setGear({ ...gear, bootModel: v })}
                   />
                   <div>
-                    <div className="text-xs font-semibold text-slate-300 mb-1.5">Cor da chuteira</div>
+                    <div className="text-[11px] font-mono-num uppercase text-slate-300 mb-1.5">Cor da chuteira</div>
                     <div className="flex flex-wrap gap-2">
                       {BOOT_COLORS.map((c) => (
                         <button
@@ -945,8 +957,8 @@ export const CharacterCreator: React.FC<CharacterCreatorProps> = ({
                           type="button"
                           onClick={() => setGear({ ...gear, bootColor: c })}
                           style={{ backgroundColor: c }}
-                          className={`w-8 h-8 rounded-lg border-2 cursor-pointer ${
-                            gear.bootColor === c ? 'border-emerald-400 scale-110' : 'border-slate-700'
+                          className={`w-8 h-8 rounded-[2px] border-2 cursor-pointer ${
+                            gear.bootColor === c ? 'border-emerald-400 scale-110' : 'border-[#22384C]'
                           }`}
                           aria-label={`Cor de chuteira ${c}`}
                         />
@@ -981,9 +993,9 @@ export const CharacterCreator: React.FC<CharacterCreatorProps> = ({
 
             {tab === 'COMEMORACAO' && (
               <div className="space-y-3">
-                <div className="bg-slate-900/75 border border-slate-800 rounded-xl p-3 flex items-center justify-between gap-3">
+                <div className="px-panel p-3 flex items-center justify-between gap-3">
                   <div>
-                    <div className="text-xs font-bold text-white">
+                    <div className="text-xs font-display font-bold text-white uppercase">
                       Escolha sua Comemoração de Gol
                     </div>
                     <div className="text-[11px] text-slate-400">
@@ -1005,18 +1017,16 @@ export const CharacterCreator: React.FC<CharacterCreatorProps> = ({
                           setViewAngle('front');
                           setTestCelebration(true);
                         }}
-                        className={`p-3 rounded-xl border text-left transition-colors cursor-pointer ${
-                          active
-                            ? 'bg-emerald-500/15 border-emerald-500 text-white'
-                            : 'bg-slate-900/70 border-slate-800 text-slate-300 hover:border-slate-600'
+                        className={`p-3 text-left transition-colors cursor-pointer ${
+                          active ? 'px-panel-active text-white' : 'px-panel-soft text-slate-300 hover:border-[#4b7496]'
                         }`}
                       >
                         <div className="flex items-center justify-between gap-2">
-                          <span className="font-display font-bold text-xs text-white">
+                          <span className="font-display font-bold text-xs text-white uppercase">
                             {opt.label}
                           </span>
                           {active && (
-                            <span className="text-[10px] font-bold text-emerald-400">
+                            <span className="text-[10px] font-mono-num font-bold text-emerald-400">
                               SELECIONADA
                             </span>
                           )}
@@ -1030,15 +1040,15 @@ export const CharacterCreator: React.FC<CharacterCreatorProps> = ({
             )}
 
             {tab === 'POSICAO' && !editMode && (
-              <div className="space-y-4">
+              <div className="px-panel p-4 space-y-4">
                 <div>
-                  <div className="text-xs font-semibold text-slate-300 mb-2">
+                  <div className="text-xs font-display font-bold uppercase text-slate-300 mb-2">
                     Escolha sua Posição Principal
                   </div>
                   <div className="space-y-3">
                     {posGroups.map((grp) => (
                       <div key={grp.id}>
-                        <div className="text-[11px] font-bold text-emerald-400 uppercase tracking-wider mb-1.5">
+                        <div className="text-[11px] font-mono-num font-bold text-emerald-400 uppercase tracking-wider mb-1.5">
                           {grp.label}
                         </div>
                         <div className="flex flex-wrap gap-1.5">
@@ -1050,10 +1060,10 @@ export const CharacterCreator: React.FC<CharacterCreatorProps> = ({
                                 soundEngine.play('menu');
                                 handlePositionOrStyleChange(p.id, playstyle);
                               }}
-                              className={`px-3 py-1.5 rounded-lg border text-xs font-medium cursor-pointer transition-colors ${
+                              className={`px-3 py-1.5 rounded-[2px] border text-xs font-display font-bold uppercase cursor-pointer transition-colors ${
                                 position === p.id
-                                  ? 'bg-emerald-500 text-slate-950 border-emerald-400 font-bold'
-                                  : 'bg-slate-900 border-slate-700 text-slate-300 hover:border-slate-500'
+                                  ? 'bg-emerald-500 text-slate-950 border-emerald-400'
+                                  : 'bg-[#081018] border-[#22384C] text-slate-300 hover:border-[#4b7496]'
                               }`}
                             >
                               {p.name}
@@ -1066,9 +1076,9 @@ export const CharacterCreator: React.FC<CharacterCreatorProps> = ({
                   <p className="mt-2 text-xs text-slate-400">{posMeta.description}</p>
                 </div>
 
-                <div className="border-t border-slate-800 pt-3">
+                <div className="border-t border-[#1E3346] pt-3">
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs font-semibold text-slate-300">
+                    <span className="text-xs font-display font-bold uppercase text-slate-300">
                       Posições Secundárias (até 2)
                     </span>
                     <span className="text-[11px] font-mono-num text-emerald-400">
@@ -1083,10 +1093,10 @@ export const CharacterCreator: React.FC<CharacterCreatorProps> = ({
                           key={p.id}
                           type="button"
                           onClick={() => toggleSecondaryPosition(p.id)}
-                          className={`px-2.5 py-1.5 rounded-lg border text-[11px] font-medium cursor-pointer transition-colors ${
+                          className={`px-2.5 py-1.5 rounded-[2px] border text-[11px] font-mono-num cursor-pointer transition-colors ${
                             active
                               ? 'bg-sky-500 text-slate-950 border-sky-400 font-bold'
-                              : 'bg-slate-900 border-slate-800 text-slate-300 hover:border-slate-600'
+                              : 'bg-[#081018] border-[#22384C] text-slate-300 hover:border-[#4b7496]'
                           }`}
                         >
                           {p.code} · {p.name}
@@ -1096,8 +1106,8 @@ export const CharacterCreator: React.FC<CharacterCreatorProps> = ({
                   </div>
                 </div>
 
-                <div className="border-t border-slate-800 pt-3">
-                  <div className="text-xs font-semibold text-slate-300 mb-2">
+                <div className="border-t border-[#1E3346] pt-3">
+                  <div className="text-xs font-display font-bold uppercase text-slate-300 mb-2">
                     Estilo de Jogo (8 Perfis Táticos)
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -1109,13 +1119,13 @@ export const CharacterCreator: React.FC<CharacterCreatorProps> = ({
                           soundEngine.play('menu');
                           handlePositionOrStyleChange(position, st.id);
                         }}
-                        className={`p-2.5 rounded-lg border text-left transition-colors cursor-pointer ${
+                        className={`p-2.5 text-left transition-colors cursor-pointer ${
                           playstyle === st.id
-                            ? 'bg-emerald-500/15 border-emerald-500 text-white'
-                            : 'bg-slate-900/70 border-slate-800 text-slate-300 hover:border-slate-600'
+                            ? 'px-panel-active text-white'
+                            : 'px-panel-soft text-slate-300 hover:border-[#4b7496]'
                         }`}
                       >
-                        <div className="text-xs font-bold">{st.name}</div>
+                        <div className="text-xs font-display font-bold uppercase text-white">{st.name}</div>
                         <div className="text-[11px] text-slate-400 mt-0.5">{st.description}</div>
                       </button>
                     ))}
@@ -1126,7 +1136,6 @@ export const CharacterCreator: React.FC<CharacterCreatorProps> = ({
 
             {tab === 'ATRIBUTOS' && !editMode && (
               <div className="space-y-4">
-                {/* Creation Mode Selector */}
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                   {(
                     [
@@ -1154,21 +1163,21 @@ export const CharacterCreator: React.FC<CharacterCreatorProps> = ({
                         soundEngine.play('menu');
                         applyCreationMode(m.id);
                       }}
-                      className={`p-3 rounded-xl border text-left cursor-pointer transition-colors ${
+                      className={`p-3 text-left cursor-pointer transition-colors ${
                         creationMode === m.id
-                          ? 'bg-emerald-500/15 border-emerald-500 text-white'
-                          : 'bg-slate-900/70 border-slate-800 text-slate-300 hover:border-slate-600'
+                          ? 'px-panel-active text-white'
+                          : 'px-panel-soft text-slate-300 hover:border-[#4b7496]'
                       }`}
                     >
-                      <div className="text-xs font-bold text-white">{m.title}</div>
+                      <div className="text-xs font-display font-bold uppercase text-white">{m.title}</div>
                       <div className="text-[11px] text-slate-400 mt-0.5">{m.desc}</div>
                     </button>
                   ))}
                 </div>
 
-                <div className="flex flex-wrap items-center justify-between gap-2 bg-slate-900/80 border border-slate-800 rounded-lg px-3.5 py-2.5">
+                <div className="px-panel px-3.5 py-2.5 flex flex-wrap items-center justify-between gap-2">
                   <div>
-                    <div className="text-xs font-bold text-white">
+                    <div className="text-xs font-display font-bold uppercase text-white">
                       Modo {creationMode === 'livre' ? 'Livre' : creationMode === 'balanceado' ? 'Balanceado' : 'Automático'} · OVR {ovr} · Potencial {potential}
                     </div>
                     <div className="text-[11px] text-slate-400">
@@ -1176,7 +1185,7 @@ export const CharacterCreator: React.FC<CharacterCreatorProps> = ({
                     </div>
                   </div>
                   <div className="text-right shrink-0">
-                    <span className="text-xs font-semibold text-emerald-400 font-mono-num">
+                    <span className="text-xs font-bold text-emerald-400 font-mono-num">
                       {creationMode === 'livre'
                         ? 'Edição livre (30–88)'
                         : `${bonusPoints} pontos disponíveis`}
@@ -1184,63 +1193,65 @@ export const CharacterCreator: React.FC<CharacterCreatorProps> = ({
                   </div>
                 </div>
 
-                {ATTRIBUTE_CATEGORIES.map((category) => {
-                  const playerIsGk = position === 'GK_TRAD' || position === 'GK_SWEEPER';
-                  if (category === 'Goleiro' && !playerIsGk && creationMode !== 'livre') return null;
-                  const items = ATTRIBUTE_LABELS.filter((a) => a.category === category);
-                  return (
-                    <div key={category} className="space-y-2">
-                      <h4 className="text-[11px] font-bold uppercase tracking-wider text-emerald-400">
-                        {category}
-                      </h4>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                        {items.map((item) => {
-                          const val = attributes[item.key];
-                          return (
-                            <div
-                              key={item.key}
-                              className="px-3 py-2 rounded-lg bg-slate-900/65 border border-slate-800/80 space-y-1.5"
-                            >
-                              <div className="flex items-center justify-between gap-2">
-                                <span className="text-xs text-slate-200 truncate">{item.label}</span>
-                                <div className="flex items-center gap-1.5 shrink-0">
-                                  <button
-                                    type="button"
-                                    onClick={() => adjustAttr(item.key, -1)}
-                                    className="w-7 h-7 rounded bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-300 cursor-pointer"
-                                  >
-                                    -
-                                  </button>
-                                  <span className="w-7 text-center font-mono-num text-xs font-bold text-emerald-400">
-                                    {val}
-                                  </span>
-                                  <button
-                                    type="button"
-                                    onClick={() => adjustAttr(item.key, 1)}
-                                    className="w-7 h-7 rounded bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-300 cursor-pointer"
-                                  >
-                                    +
-                                  </button>
+                <div className="px-panel p-4 space-y-4">
+                  {ATTRIBUTE_CATEGORIES.map((category) => {
+                    const playerIsGk = position === 'GK_TRAD' || position === 'GK_SWEEPER';
+                    if (category === 'Goleiro' && !playerIsGk && creationMode !== 'livre') return null;
+                    const items = ATTRIBUTE_LABELS.filter((a) => a.category === category);
+                    return (
+                      <div key={category} className="space-y-2">
+                        <h4 className="text-[11px] font-mono-num font-bold uppercase tracking-wider text-emerald-400 border-b border-[#1E3346] pb-1">
+                          {category}
+                        </h4>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          {items.map((item) => {
+                            const val = attributes[item.key];
+                            return (
+                              <div
+                                key={item.key}
+                                className="px-panel-soft px-3 py-2 space-y-1.5"
+                              >
+                                <div className="flex items-center justify-between gap-2">
+                                  <span className="text-xs text-slate-200 truncate">{item.label}</span>
+                                  <div className="flex items-center gap-1.5 shrink-0">
+                                    <button
+                                      type="button"
+                                      onClick={() => adjustAttr(item.key, -1)}
+                                      className="px-btn-secondary w-7 h-7 text-xs font-bold cursor-pointer"
+                                    >
+                                      -
+                                    </button>
+                                    <span className="w-7 text-center font-mono-num text-xs font-bold text-emerald-400">
+                                      {val}
+                                    </span>
+                                    <button
+                                      type="button"
+                                      onClick={() => adjustAttr(item.key, 1)}
+                                      className="px-btn-secondary w-7 h-7 text-xs font-bold cursor-pointer"
+                                    >
+                                      +
+                                    </button>
+                                  </div>
                                 </div>
+                                {creationMode === 'livre' && (
+                                  <input
+                                    type="range"
+                                    min={30}
+                                    max={88}
+                                    value={val}
+                                    onChange={(e) => setLivreAttr(item.key, Number(e.target.value))}
+                                    aria-label={item.label}
+                                    className="w-full accent-emerald-500 cursor-pointer h-1.5"
+                                  />
+                                )}
                               </div>
-                              {creationMode === 'livre' && (
-                                <input
-                                  type="range"
-                                  min={30}
-                                  max={88}
-                                  value={val}
-                                  onChange={(e) => setLivreAttr(item.key, Number(e.target.value))}
-                                  aria-label={item.label}
-                                  className="w-full accent-emerald-500 cursor-pointer h-1.5"
-                                />
-                              )}
-                            </div>
-                          );
-                        })}
+                            );
+                          })}
+                        </div>
                       </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })}
+                </div>
               </div>
             )}
           </div>
@@ -1253,7 +1264,7 @@ export const CharacterCreator: React.FC<CharacterCreatorProps> = ({
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <label className="block space-y-1">
-      <span className="text-xs font-semibold text-slate-300">{label}</span>
+      <span className="text-[11px] font-mono-num uppercase text-slate-300">{label}</span>
       {children}
     </label>
   );
@@ -1272,7 +1283,7 @@ function OptionChips<T extends string>({
 }) {
   return (
     <div className="space-y-1.5">
-      <div className="text-xs font-semibold text-slate-300">{label}</div>
+      <div className="text-[11px] font-mono-num uppercase text-slate-300">{label}</div>
       <div className="flex flex-wrap gap-1.5">
         {options.map((opt) => (
           <button
@@ -1282,10 +1293,10 @@ function OptionChips<T extends string>({
               soundEngine.play('menu');
               onChange(opt);
             }}
-            className={`px-2.5 py-1.5 rounded-lg border text-xs font-medium transition-colors cursor-pointer ${
+            className={`px-2.5 py-1.5 rounded-[2px] border text-xs font-display font-bold uppercase transition-colors cursor-pointer ${
               value === opt
-                ? 'bg-emerald-500 text-slate-950 border-emerald-400 font-bold'
-                : 'bg-slate-900 border-slate-700 text-slate-300 hover:border-slate-500'
+                ? 'bg-emerald-500 text-slate-950 border-emerald-400'
+                : 'bg-[#081018] border-[#22384C] text-slate-300 hover:border-[#4b7496]'
             }`}
           >
             {opt}

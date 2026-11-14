@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Award, CheckCircle2, CloudRain, Shield, Users } from 'lucide-react';
+import { Award, CheckCircle2, CloudRain, Shield } from 'lucide-react';
 import { soundEngine } from '../audio/soundEngine';
 import { getClubById } from '../data/clubs';
 import { getPositionMeta } from '../data/positions';
@@ -19,10 +19,10 @@ export const MatchReportModal: React.FC<MatchReportModalProps> = ({ report, onCl
   const awayClub = getClubById(report.awayClubId);
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-sm flex items-center justify-center p-3 sm:p-5 animate-fadeIn">
-      <div className="max-w-4xl w-full max-h-[92dvh] bg-[#0E1725] border border-slate-700/80 rounded-2xl shadow-2xl flex flex-col overflow-hidden">
+    <div className="fixed inset-0 z-50 bg-[#050B12]/90 backdrop-blur-sm flex items-center justify-center p-3 sm:p-5 animate-fadeIn">
+      <div className="px-panel max-w-4xl w-full max-h-[92dvh] flex flex-col overflow-hidden">
         {/* Header / Scoreboard */}
-        <header className="px-5 py-4 border-b border-slate-800 bg-[#0A111C] space-y-3 shrink-0">
+        <header className="px-header px-5 py-4 space-y-3 shrink-0">
           <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] font-mono-num text-slate-400">
             <span className="font-bold text-emerald-400 uppercase">
               {report.competition} · Rodada {report.round}
@@ -36,10 +36,10 @@ export const MatchReportModal: React.FC<MatchReportModalProps> = ({ report, onCl
           <div className="grid grid-cols-3 items-center gap-3 py-1">
             <div className="flex items-center justify-end gap-2.5 text-right min-w-0">
               <div className="min-w-0">
-                <div className="font-display font-bold text-sm sm:text-base text-white truncate">
+                <div className="font-display font-bold text-sm sm:text-base text-white uppercase truncate">
                   {homeClub.name}
                 </div>
-                <div className="text-[11px] text-slate-400">Mandante</div>
+                <div className="text-[10px] font-mono-num uppercase text-slate-400">Mandante</div>
               </div>
               <ClubCrest club={homeClub} size={44} className="shrink-0" />
             </div>
@@ -51,7 +51,7 @@ export const MatchReportModal: React.FC<MatchReportModalProps> = ({ report, onCl
               {report.penHomeScore !== undefined &&
                 report.penAwayScore !== undefined &&
                 report.homeScore === report.awayScore && (
-                  <div className="text-xs text-amber-300 font-bold">
+                  <div className="text-xs text-[#E6B84C] font-bold">
                     Pênaltis: {report.penHomeScore} - {report.penAwayScore}
                   </div>
                 )}
@@ -60,10 +60,10 @@ export const MatchReportModal: React.FC<MatchReportModalProps> = ({ report, onCl
             <div className="flex items-center gap-2.5 min-w-0">
               <ClubCrest club={awayClub} size={44} className="shrink-0" />
               <div className="min-w-0">
-                <div className="font-display font-bold text-sm sm:text-base text-white truncate">
+                <div className="font-display font-bold text-sm sm:text-base text-white uppercase truncate">
                   {awayClub.name}
                 </div>
-                <div className="text-[11px] text-slate-400">Visitante</div>
+                <div className="text-[10px] font-mono-num uppercase text-slate-400">Visitante</div>
               </div>
             </div>
           </div>
@@ -82,11 +82,11 @@ export const MatchReportModal: React.FC<MatchReportModalProps> = ({ report, onCl
         </header>
 
         {/* Internal Tabs */}
-        <div className="px-5 py-2.5 border-b border-slate-800 bg-[#0D1522] flex items-center gap-1.5 shrink-0">
+        <div className="px-5 py-2.5 border-b border-[#1E3346] bg-[#081018] flex items-center gap-1.5 shrink-0 overflow-x-auto">
           {(
             [
               { id: 'EVENTOS', label: `Lance a Lance (${report.events.length})` },
-              { id: 'ESTATS', label: 'Estatísticas da Partida' },
+              { id: 'ESTATS', label: 'Estatísticas' },
               { id: 'NOTAS', label: 'Notas dos Elencos' },
             ] as { id: ReportTab; label: string }[]
           ).map((t) => (
@@ -97,10 +97,10 @@ export const MatchReportModal: React.FC<MatchReportModalProps> = ({ report, onCl
                 soundEngine.play('menu');
                 setTab(t.id);
               }}
-              className={`px-3.5 py-2 min-h-[38px] rounded-lg text-xs font-semibold cursor-pointer ${
+              className={`px-3.5 py-2 min-h-[38px] rounded-[2px] border text-xs font-display font-bold uppercase cursor-pointer whitespace-nowrap ${
                 tab === t.id
-                  ? 'bg-emerald-500 text-slate-950'
-                  : 'bg-slate-800/80 text-slate-300 hover:bg-slate-800'
+                  ? 'bg-emerald-500 text-slate-950 border-emerald-400'
+                  : 'bg-[#0C1724] text-slate-300 border-[#22384C] hover:border-[#4b7496]'
               }`}
             >
               {t.label}
@@ -113,7 +113,7 @@ export const MatchReportModal: React.FC<MatchReportModalProps> = ({ report, onCl
           {tab === 'EVENTOS' && (
             <div className="space-y-2">
               {report.events.length === 0 ? (
-                <div className="p-5 rounded-xl bg-slate-900/70 border border-slate-800 text-center text-xs text-slate-400">
+                <div className="px-panel-soft p-5 text-center text-xs text-slate-400">
                   Partida equilibrada sem gols ou advertências relevantes.
                 </div>
               ) : (
@@ -132,10 +132,8 @@ export const MatchReportModal: React.FC<MatchReportModalProps> = ({ report, onCl
                   return (
                     <div
                       key={`${ev.minute}_${idx}`}
-                      className={`p-3 rounded-xl border flex items-center justify-between gap-3 text-xs ${
-                        ev.isUserPlayer
-                          ? 'bg-emerald-500/15 border-emerald-500/60'
-                          : 'bg-slate-900/75 border-slate-800'
+                      className={`p-3 flex items-center justify-between gap-3 text-xs ${
+                        ev.isUserPlayer ? 'px-panel-active' : 'px-panel-soft'
                       }`}
                     >
                       <div className="flex items-center gap-3 min-w-0">
@@ -144,14 +142,14 @@ export const MatchReportModal: React.FC<MatchReportModalProps> = ({ report, onCl
                         </span>
                         <ClubCrest club={evClub} size={22} className="shrink-0" />
                         <div className="min-w-0">
-                          <span className={`font-bold uppercase text-[10px] mr-2 ${typeColor}`}>
+                          <span className={`font-display font-bold uppercase text-[10px] mr-2 ${typeColor}`}>
                             {ev.type}
                           </span>
                           <span className="text-slate-100">{ev.detail}</span>
                         </div>
                       </div>
                       {ev.isUserPlayer && (
-                        <span className="text-[10px] font-bold text-emerald-300 shrink-0">VOCÊ</span>
+                        <span className="text-[10px] font-mono-num font-bold text-emerald-300 shrink-0">VOCÊ</span>
                       )}
                     </div>
                   );
@@ -216,9 +214,9 @@ export const MatchReportModal: React.FC<MatchReportModalProps> = ({ report, onCl
         </div>
 
         {/* Footer */}
-        <footer className="px-5 py-3.5 border-t border-slate-800 bg-[#0A111C] flex items-center justify-between gap-3 shrink-0">
-          <div className="flex items-center gap-2 text-xs text-slate-400">
-            <Award size={15} className="text-amber-400" />
+        <footer className="px-5 py-3.5 border-t border-[#1E3346] bg-[#081018] flex items-center justify-between gap-3 shrink-0">
+          <div className="flex items-center gap-2 text-xs font-mono-num text-slate-400">
+            <Award size={15} className="text-[#E6B84C]" />
             <span>Súmula oficial registrada na carreira</span>
           </div>
           <button
@@ -227,7 +225,7 @@ export const MatchReportModal: React.FC<MatchReportModalProps> = ({ report, onCl
               soundEngine.play('menu');
               onClose();
             }}
-            className="min-h-[44px] px-5 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-display font-extrabold text-xs sm:text-sm flex items-center gap-2 cursor-pointer"
+            className="px-btn-primary min-h-[44px] px-5 py-2.5 text-xs sm:text-sm uppercase flex items-center gap-2 cursor-pointer"
           >
             <CheckCircle2 size={16} />
             Continuar Carreira
@@ -250,11 +248,11 @@ function SummaryBox({
   amber?: boolean;
 }) {
   return (
-    <div className="px-3 py-2 rounded-xl bg-[#111B2B] border border-slate-800">
-      <div className="text-[10px] text-slate-400 uppercase">{label}</div>
+    <div className="px-panel-soft px-3 py-2">
+      <div className="text-[10px] font-mono-num text-slate-400 uppercase">{label}</div>
       <div
         className={`text-xs sm:text-sm font-bold truncate font-mono-num mt-0.5 ${
-          amber ? 'text-amber-300' : highlight ? 'text-emerald-400' : 'text-white'
+          amber ? 'text-[#E6B84C]' : highlight ? 'text-emerald-400' : 'text-white'
         }`}
       >
         {value}
@@ -279,13 +277,13 @@ function StatBarRow({
   const sum = Math.max(1, homeVal + awayVal);
   const homePct = Math.round((homeVal / sum) * 100);
   return (
-    <div className="p-3 rounded-xl bg-slate-900/75 border border-slate-800 space-y-1.5">
+    <div className="px-panel-soft p-3 space-y-1.5">
       <div className="flex items-center justify-between text-xs font-mono-num">
         <span className="font-bold text-white">{homeVal}</span>
-        <span className="text-slate-300 font-sans font-semibold">{label}</span>
+        <span className="text-slate-300 font-display uppercase">{label}</span>
         <span className="font-bold text-white">{awayVal}</span>
       </div>
-      <div className="h-2 rounded-full bg-slate-800 overflow-hidden flex">
+      <div className="h-2.5 bg-[#060E17] border border-[#1E3346] overflow-hidden flex">
         <div style={{ width: `${homePct}%`, backgroundColor: homeColor }} />
         <div style={{ width: `${100 - homePct}%`, backgroundColor: awayColor }} />
       </div>
@@ -295,16 +293,16 @@ function StatBarRow({
 
 function RatingsList({ title, ratings }: { title: string; ratings: SimPlayerRating[] }) {
   return (
-    <div className="bg-slate-900/65 border border-slate-800 rounded-xl p-3 space-y-1.5">
-      <div className="font-display font-bold text-xs text-white flex items-center gap-1.5 pb-1 border-b border-slate-800">
+    <div className="px-panel-soft p-3 space-y-1.5">
+      <div className="font-display font-bold text-xs text-white uppercase flex items-center gap-1.5 pb-1.5 border-b border-[#1E3346]">
         <Shield size={13} className="text-emerald-400" />
         {title}
       </div>
       {ratings.map((p) => (
         <div
           key={p.playerId}
-          className={`px-2.5 py-1.5 rounded-lg flex items-center justify-between text-xs ${
-            p.isUser ? 'bg-emerald-500/15 border border-emerald-500/40' : 'bg-slate-950/60'
+          className={`px-2.5 py-1.5 rounded-[2px] flex items-center justify-between text-xs ${
+            p.isUser ? 'px-panel-active' : 'bg-[#071019] border border-[#172838]'
           }`}
         >
           <div className="flex items-center gap-2 min-w-0">
@@ -313,17 +311,17 @@ function RatingsList({ title, ratings }: { title: string; ratings: SimPlayerRati
               {p.name}
               {p.isUser ? ' (Você)' : ''}
             </span>
-            <span className="text-[10px] text-slate-500">{getPositionMeta(p.position).code}</span>
+            <span className="text-[10px] font-mono-num text-slate-500">{getPositionMeta(p.position).code}</span>
           </div>
           <div className="flex items-center gap-2 shrink-0 font-mono-num">
             {p.goals > 0 && <span className="text-[11px] text-emerald-400 font-bold">{p.goals}G</span>}
             {p.assists > 0 && <span className="text-[11px] text-sky-400 font-bold">{p.assists}A</span>}
-            {p.yellowCard && <span className="w-2.5 h-3.5 bg-amber-400 rounded-[2px] inline-block" />}
+            {p.yellowCard && <span className="w-2.5 h-3.5 bg-amber-400 inline-block" />}
             <span
-              className={`font-bold px-1.5 py-0.5 rounded ${
+              className={`font-bold px-1.5 py-0.5 rounded-[2px] ${
                 p.rating >= 7.5
-                  ? 'bg-emerald-500/20 text-emerald-300'
-                  : 'bg-slate-800 text-slate-200'
+                  ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
+                  : 'bg-[#0D1926] text-slate-200 border border-[#22384C]'
               }`}
             >
               {p.rating.toFixed(1)}

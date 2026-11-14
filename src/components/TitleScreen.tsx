@@ -257,26 +257,30 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
             soundEngine.play('menu');
             toggleFullscreen();
           }}
-          className="flex items-center justify-center p-2 rounded-lg bg-slate-900/90 border border-slate-700/80 text-slate-200 hover:border-emerald-400/60 transition-colors cursor-pointer"
+          className="px-btn-secondary flex items-center justify-center p-2 min-w-[38px] min-h-[38px] cursor-pointer"
           aria-label={isFullscreen ? 'Sair da tela cheia' : 'Colocar em tela cheia'}
           title={isFullscreen ? 'Sair da tela cheia' : 'Tela cheia'}
         >
           {isFullscreen ? (
-            <Minimize2 size={17} className="text-emerald-400" />
+            <Minimize2 size={16} className="text-emerald-400" />
           ) : (
-            <Maximize2 size={17} className="text-slate-300" />
+            <Maximize2 size={16} className="text-slate-300" />
           )}
         </button>
 
         <button
           type="button"
           onClick={handleMusicClick}
-          className="flex items-center gap-2 px-3.5 py-2 rounded-lg bg-slate-900/90 border border-slate-700/80 text-slate-200 hover:border-emerald-400/60 transition-colors cursor-pointer whitespace-nowrap"
+          className="px-btn-secondary flex items-center gap-2 px-3.5 py-2 min-h-[38px] cursor-pointer whitespace-nowrap"
           aria-label="Alternar música de abertura"
         >
-          {settings.audio.musicEnabled ? <Volume2 size={18} className="text-emerald-400" /> : <VolumeX size={18} className="text-slate-400" />}
-          <span className="text-xs font-medium">
-            {settings.audio.musicEnabled ? 'Música Ativa' : 'Música Muda'}
+          {settings.audio.musicEnabled ? (
+            <Volume2 size={17} className="text-emerald-400" />
+          ) : (
+            <VolumeX size={17} className="text-slate-400" />
+          )}
+          <span className="text-xs font-display font-semibold tracking-wide">
+            {settings.audio.musicEnabled ? 'MÚSICA ON' : 'MÚSICA OFF'}
           </span>
         </button>
       </div>
@@ -285,8 +289,8 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
       <div className="relative z-10 flex flex-col items-center text-center px-6 max-w-2xl animate-fadeIn">
         {/* Crisp Pixel Football Crest */}
         <svg
-          width="92"
-          height="92"
+          width="88"
+          height="88"
           viewBox="0 0 64 64"
           className="mb-3 drop-shadow-[0_12px_28px_rgba(16,185,129,0.38)] pixelated"
           aria-hidden="true"
@@ -294,10 +298,10 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
           <path
             d="M10 8 H54 V34 C54 46 32 58 32 58 C32 58 10 46 10 34 Z"
             fill="#0F172A"
-            stroke="#10B981"
+            stroke="#22C55E"
             strokeWidth="3.5"
           />
-          <rect x="20" y="16" width="24" height="24" fill="#10B981" />
+          <rect x="20" y="16" width="24" height="24" fill="#22C55E" />
           <rect x="24" y="20" width="16" height="16" fill="#F8FAFC" />
           <rect x="28" y="24" width="8" height="8" fill="#0F172A" />
           <rect x="24" y="20" width="4" height="4" fill="#0F172A" />
@@ -307,24 +311,24 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
           <rect x="29" y="11" width="6" height="3" fill="#FACC15" />
         </svg>
 
-        <h1 className="font-display text-4xl sm:text-6xl font-extrabold tracking-tight text-white drop-shadow-md text-balance">
+        <h1 className="font-display text-5xl sm:text-6xl font-bold tracking-wider text-white drop-shadow-[0_4px_0_rgba(4,9,16,0.9)]">
           PIXEL <span className="text-emerald-400">FOOTBALL</span>
         </h1>
-        <p className="mt-2 text-sm sm:text-base text-slate-200 max-w-lg">
-          Carreira profissional completa, Brasileirão Série A e B, Copa do Brasil, Supercopa e partidas 11v11 em Pixel Art.
+        <p className="mt-2.5 text-xs sm:text-sm text-slate-200 max-w-lg font-medium">
+          Carreira profissional de jogador em Pixel Art · Brasileirão Série A e B, Copa do Brasil, Supercopa e partidas 11v11.
         </p>
 
         <button
           type="button"
           onClick={handlePlayClick}
-          className="mt-6 flex items-center gap-3 px-11 py-3.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 active:scale-[0.98] text-slate-950 font-display font-extrabold text-lg tracking-wide shadow-[0_10px_32px_rgba(16,185,129,0.45)] transition-all cursor-pointer whitespace-nowrap"
+          className="px-btn-primary mt-6 flex items-center gap-3 px-12 py-3.5 text-lg cursor-pointer whitespace-nowrap"
         >
-          <Play size={22} fill="currentColor" />
+          <Play size={20} fill="currentColor" />
           JOGAR
         </button>
 
-        <p className="mt-4 text-xs text-slate-300/90 tracking-wide">
-          Toque e arraste para mover · Toque no companheiro para passar · Mire no gol para finalizar
+        <p className="mt-4 font-mono-num text-[11px] text-slate-300/85 tracking-wide">
+          ANALÓGICO PARA MOVER · PASSE DIRECIONADO · MODO CARREIRA
         </p>
       </div>
     </div>

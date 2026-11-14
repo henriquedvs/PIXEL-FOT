@@ -8,9 +8,9 @@ interface EvolutionChartProps {
 type MetricKey = 'ovr' | 'velocidade' | 'finalizacao' | 'passeCurto' | 'drible' | 'marcacao' | 'reflexos';
 
 const METRICS: { key: MetricKey; label: string; color: string }[] = [
-  { key: 'ovr', label: 'Overall (OVR)', color: '#10B981' },
+  { key: 'ovr', label: 'OVR', color: '#22C55E' },
   { key: 'velocidade', label: 'Velocidade', color: '#38BDF8' },
-  { key: 'finalizacao', label: 'Finalização', color: '#FACC15' },
+  { key: 'finalizacao', label: 'Finalização', color: '#E6B84C' },
   { key: 'passeCurto', label: 'Passe Curto', color: '#A78BFA' },
   { key: 'drible', label: 'Drible', color: '#F472B6' },
   { key: 'marcacao', label: 'Marcação', color: '#FB923C' },
@@ -28,7 +28,7 @@ export const EvolutionChart: React.FC<EvolutionChartProps> = ({ points }) => {
 
   if (data.length === 0) {
     return (
-      <div className="p-4 rounded-xl bg-slate-900/70 border border-slate-800 text-xs text-slate-400">
+      <div className="px-panel p-4 text-xs text-slate-400">
         Jogue partidas ou conclua treinamentos para registrar sua curva de evolução.
       </div>
     );
@@ -54,15 +54,15 @@ export const EvolutionChart: React.FC<EvolutionChartProps> = ({ points }) => {
   const delta = lastVal - firstVal;
 
   return (
-    <div className="bg-[#111B2B] border border-slate-800 rounded-xl p-4 space-y-3">
+    <div className="px-panel p-4 space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <h3 className="font-display font-bold text-sm text-white">
+          <h3 className="font-display font-bold text-sm text-white uppercase">
             Gráfico de Evolução do Atleta
           </h3>
-          <p className="text-[11px] text-slate-400">
+          <p className="text-[11px] font-mono-num text-slate-400">
             Acompanhamento por rodada e temporada ·{' '}
-            <span className="font-mono-num font-bold text-emerald-400">
+            <span className="font-bold text-emerald-400">
               {delta >= 0 ? `+${delta}` : delta} pts ({firstVal} → {lastVal})
             </span>
           </p>
@@ -74,10 +74,10 @@ export const EvolutionChart: React.FC<EvolutionChartProps> = ({ points }) => {
               key={m.key}
               type="button"
               onClick={() => setSelectedMetric(m.key)}
-              className={`px-2 py-1 rounded text-[11px] font-semibold cursor-pointer transition-colors ${
+              className={`px-2.5 py-1 rounded-[2px] border text-[11px] font-display font-bold uppercase cursor-pointer transition-colors ${
                 selectedMetric === m.key
-                  ? 'bg-emerald-500 text-slate-950'
-                  : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                  ? 'bg-emerald-500 text-slate-950 border-emerald-400'
+                  : 'bg-[#081018] text-slate-300 border-[#22384C] hover:border-[#4b7496]'
               }`}
             >
               {m.label}
@@ -87,13 +87,13 @@ export const EvolutionChart: React.FC<EvolutionChartProps> = ({ points }) => {
       </div>
 
       <div className="w-full overflow-x-auto">
-        <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-40 min-w-[320px] bg-slate-950/70 rounded-lg border border-slate-800/80">
+        <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-40 min-w-[320px] bg-[#060E17] rounded-[2px] border border-[#1E3346]">
           {[0, 0.25, 0.5, 0.75, 1].map((pct) => {
             const gy = PAD_Y + pct * (H - PAD_Y * 2);
             const gridVal = Math.round(maxVal - pct * span);
             return (
               <g key={pct}>
-                <line x1={PAD_X} y1={gy} x2={W - PAD_X} y2={gy} stroke="#1E293B" strokeDasharray="3 3" />
+                <line x1={PAD_X} y1={gy} x2={W - PAD_X} y2={gy} stroke="#1B2F42" strokeDasharray="3 3" />
                 <text x={8} y={gy + 3} fill="#64748B" fontSize="9" fontFamily="JetBrains Mono, monospace">
                   {gridVal}
                 </text>
@@ -106,15 +106,23 @@ export const EvolutionChart: React.FC<EvolutionChartProps> = ({ points }) => {
               fill="none"
               stroke={activeMeta.color}
               strokeWidth="2.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
+              strokeLinecap="square"
+              strokeLinejoin="miter"
               points={polylinePoints}
             />
           )}
 
           {coords.map((c, i) => (
             <g key={i}>
-              <circle cx={c.x} cy={c.y} r="4" fill={activeMeta.color} stroke="#0B121D" strokeWidth="1.5" />
+              <rect
+                x={c.x - 3}
+                y={c.y - 3}
+                width="6"
+                height="6"
+                fill={activeMeta.color}
+                stroke="#071019"
+                strokeWidth="1.5"
+              />
               {(i === 0 || i === coords.length - 1 || i % Math.max(1, Math.floor(coords.length / 6)) === 0) && (
                 <>
                   <text

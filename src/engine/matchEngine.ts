@@ -1,6 +1,8 @@
 import { soundEngine } from '../audio/soundEngine';
 import { getPositionMeta } from '../data/positions';
 import {
+  CameraAngleId,
+  CameraZoomPreset,
   Club,
   ClubKit,
   ClubSquadMember,
@@ -43,7 +45,7 @@ export type MatchPhase =
   | 'FULLTIME';
 
 export type TeamTacticId = 'DEFENSIVO' | 'EQUILIBRADO' | 'OFENSIVO' | 'PRESSAO_ALTA';
-export type CameraZoomPreset = 'close' | 'normal' | 'wide';
+export type { CameraAngleId, CameraZoomPreset };
 export type KitSlotChoice = 'home' | 'away' | 'third';
 
 export interface SimPlayer {
@@ -210,6 +212,7 @@ export interface MatchHudSnapshot {
   rating: number;
   tactic: TeamTacticId;
   zoomPreset: CameraZoomPreset;
+  cameraAngle: CameraAngleId;
   subsUsedUser: number;
   benchCountUser: number;
   hasReplayAvailable: boolean;
@@ -424,6 +427,8 @@ export class MatchEngine {
   // Functional features state
   public userTactic: TeamTacticId = 'EQUILIBRADO';
   public zoomPreset: CameraZoomPreset = 'normal';
+  public cameraAngle: CameraAngleId = 'cima';
+  public cameraCustomScale = 1.0;
   private pendingOffsideIds = new Set<string>();
   private giveAndGoMateId: string | null = null;
   private giveAndGoTimer = 0;
@@ -492,6 +497,9 @@ export class MatchEngine {
     this.awayClub = awayClub;
     this.userTeam = career.clubId === homeClub.id ? 'home' : 'away';
     this.settings = settings;
+    this.cameraAngle = settings.cameraAngle || 'cima';
+    this.zoomPreset = settings.cameraZoom || 'normal';
+    this.cameraCustomScale = settings.cameraCustomScale ?? 1.0;
     this.env = env;
 
     const autoResolved = resolveKitSelection(homeClub, awayClub, this.userTeam, 'home');
@@ -725,6 +733,25 @@ export class MatchEngine {
 
   public setZoomPreset(preset: CameraZoomPreset) {
     this.zoomPreset = preset;
+  }
+
+  public setCameraAngle(angle: CameraAngleId) {
+    this.cameraAngle = angle;
+    soundEngine.play('menu');
+  }
+
+  public cycleCameraAngle() {
+    const order: CameraAngleId[] = ['cima', 'lado', 'tv', 'dinamica', 'tatica', 'jogador'];
+    const next = order[(order.indexOf(this.cameraAngle) + 1) % order.length];
+    this.cameraAngle = next;
+    soundEngine.play('menu');
+  }
+
+  public syncCameraFromSettings(nextSettings: GameSettings) {
+    this.settings = nextSettings;
+    this.cameraAngle = nextSettings.cameraAngle || this.cameraAngle;
+    this.zoomPreset = nextSettings.cameraZoom || this.zoomPreset;
+    this.cameraCustomScale = nextSettings.cameraCustomScale ?? 1.0;
   }
 
   public performSubstitution(team: 'home' | 'away', targetPlayerId?: string): boolean {
@@ -2776,12 +2803,45 @@ export class MatchEngine {
 
   private updateCamera(dt: number) {
     const user = this.getUserPlayer();
-    const targetX = this.ball.x * 0.62 + user.x * 0.38;
-    const targetY = this.ball.y * 0.62 + user.y * 0.38;
-    this.camX += (targetX - this.camX) * Math.min(1, dt * 6.5);
-    this.camY += (targetY - this.camY) * Math.min(1, dt * 6.5);
-
     const g = PITCH_GEO;
+    const midX = g.pitchX + g.pitchW / 2;
+    const midY = g.pitchY + g.pitchH / 2;
+    const attackDir = this.getAttackDir(this.userTeam);
+
+    let targetX = this.ball.x * 0.62 + user.x * 0.38;
+    let targetY = this.ball.y * 0.62 + user.y * 0.38;
+    let followRate = 6.5;
+
+    if (this.cameraAngle === 'lado') {
+      // Side touchline broadcast view: tracks horizontally with ball, anchors vertical depth toward pitch centerline
+      targetX = clamp(this.ball.x + this.ball.vx * 0.22, g.pitchX + 120, g.pitchX + g.pitchW - 120);
+      targetY = midY * 0.62 + this.ball.y * 0.38;
+      followRate = 5.4;
+    } else if (this.cameraAngle === 'tv') {
+      // Classic TV broadcast camera: lead ahead of ball travel & gentle framing across midfield
+      targetX = this.ball.x * 0.72 + user.x * 0.16 + midX * 0.12 + this.ball.vx * 0.24;
+      targetY = this.ball.y * 0.56 + midY * 0.44 + this.ball.vy * 0.12;
+      followRate = 5.0;
+    } else if (this.cameraAngle === 'dinamica') {
+      // Action camera: snappy midpoint between athlete and ball
+      targetX = this.ball.x * 0.54 + user.x * 0.46 + (user.vx + this.ball.vx) * 0.08;
+      targetY = this.ball.y * 0.54 + user.y * 0.46 + (user.vy + this.ball.vy) * 0.08;
+      followRate = 8.4;
+    } else if (this.cameraAngle === 'tatica') {
+      // Wide tactical overview: dampened movement around midfield & ball
+      targetX = this.ball.x * 0.52 + midX * 0.48;
+      targetY = this.ball.y * 0.34 + midY * 0.66;
+      followRate = 4.2;
+    } else if (this.cameraAngle === 'jogador') {
+      // Pro player cam: locks closely onto controlled athlete with offensive lookahead
+      targetX = user.x * 0.8 + this.ball.x * 0.2 + attackDir * 36;
+      targetY = user.y * 0.8 + this.ball.y * 0.2;
+      followRate = 8.8;
+    }
+
+    this.camX += (targetX - this.camX) * Math.min(1, dt * followRate);
+    this.camY += (targetY - this.camY) * Math.min(1, dt * followRate);
+
     const inPenaltyBox =
       this.ball.wasShot &&
       (this.ball.x < g.pitchX + 175 || this.ball.x > g.pitchX + g.pitchW - 175);
@@ -2791,22 +2851,47 @@ export class MatchEngine {
   }
 
   public screenToWorld(sx: number, sy: number, canvasW: number, canvasH: number) {
-    const zoom = this.getZoom(canvasW, canvasH);
-    const wx = (sx - canvasW / 2) / zoom + this.camX;
-    const wy = (sy - canvasH / 2) / zoom + this.camY;
+    const { zoomX, zoomY } = this.getZoomXY(canvasW, canvasH);
+    const wx = (sx - canvasW / 2) / zoomX + this.camX;
+    const wy = (sy - canvasH / 2) / zoomY + this.camY;
     return { x: wx, y: wy };
   }
 
-  private getZoom(canvasW: number, canvasH: number): number {
+  private getZoomXY(canvasW: number, canvasH: number): { zoomX: number; zoomY: number } {
     const base = Math.max(canvasW / 980, canvasH / 600);
-    const mult =
+    const presetMult =
       this.zoomPreset === 'close' ? 1.18 : this.zoomPreset === 'wide' ? 0.82 : 1.0;
-    return clamp(base * (mult + this.dynamicCamZoomBoost), 0.66, 1.85);
+    const customMult = clamp(this.cameraCustomScale || 1.0, 0.72, 1.4);
+
+    let angleMultX = 1.0;
+    let angleMultY = 1.0;
+    if (this.cameraAngle === 'lado') {
+      angleMultX = 1.05;
+      angleMultY = 0.78;
+    } else if (this.cameraAngle === 'tv') {
+      angleMultX = 0.96;
+      angleMultY = 0.86;
+    } else if (this.cameraAngle === 'dinamica') {
+      angleMultX = 1.12;
+      angleMultY = 1.12;
+    } else if (this.cameraAngle === 'tatica') {
+      angleMultX = 0.76;
+      angleMultY = 0.76;
+    } else if (this.cameraAngle === 'jogador') {
+      angleMultX = 1.16;
+      angleMultY = 1.16;
+    }
+
+    const combined = (presetMult + this.dynamicCamZoomBoost) * customMult;
+    return {
+      zoomX: clamp(base * combined * angleMultX, 0.54, 2.05),
+      zoomY: clamp(base * combined * angleMultY, 0.48, 2.05),
+    };
   }
 
   public render(ctx: CanvasRenderingContext2D, canvasW: number, canvasH: number) {
     ctx.imageSmoothingEnabled = false;
-    const zoom = this.getZoom(canvasW, canvasH);
+    const { zoomX, zoomY } = this.getZoomXY(canvasW, canvasH);
 
     const shakeX = this.shakeTimer > 0 ? (Math.random() - 0.5) * 9 : 0;
     const shakeY = this.shakeTimer > 0 ? (Math.random() - 0.5) * 9 : 0;
@@ -2819,7 +2904,7 @@ export class MatchEngine {
       Math.round(canvasW / 2 + shakeX),
       Math.round(canvasH / 2 + shakeY)
     );
-    ctx.scale(zoom, zoom);
+    ctx.scale(zoomX, zoomY);
     ctx.translate(Math.round(-this.camX), Math.round(-this.camY));
 
     const rawMin = Math.floor(this.matchSeconds / 60) + (this.half === 2 ? 45 : 0);
@@ -3168,6 +3253,7 @@ export class MatchEngine {
       rating: +this.rating.toFixed(1),
       tactic: this.userTactic,
       zoomPreset: this.zoomPreset,
+      cameraAngle: this.cameraAngle,
       subsUsedUser: userSubsUsed,
       benchCountUser: userBenchCount,
       hasReplayAvailable: this.replayBuffer.length > 20,

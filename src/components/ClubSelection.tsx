@@ -4,6 +4,7 @@ import { soundEngine } from '../audio/soundEngine';
 import { CLUBS, SERIE_B_CLUBS } from '../data/clubs';
 import { Club } from '../types/game';
 import { ClubCrest } from './ClubCrest';
+import { PixelBackdrop } from './PixelBackdrop';
 
 interface ClubSelectionProps {
   playerName: string;
@@ -37,32 +38,35 @@ export const ClubSelection: React.FC<ClubSelectionProps> = ({
       : 'Desafio alto (Reserva inicial)';
 
   return (
-    <div className="w-full h-[100dvh] bg-[#0B121D] text-slate-100 flex flex-col overflow-hidden">
+    <div className="px-shell animate-fadeIn">
+      <PixelBackdrop homeKit={selectedClub.kit} awayKit={selectedClub.awayKit} dimOpacity={0.85} />
+
       {/* Header */}
-      <header className="px-4 py-2.5 border-b border-slate-800 bg-[#0D1624] flex items-center justify-between gap-3 shrink-0">
-        <div className="flex items-center gap-3">
+      <header className="relative z-10 px-header px-4 py-2.5 flex items-center justify-between gap-3 shrink-0">
+        <div className="flex items-center gap-3 min-w-0">
           <button
             type="button"
             onClick={() => {
               soundEngine.play('menu');
               onBack();
             }}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-medium text-slate-200 cursor-pointer whitespace-nowrap"
+            className="px-btn-secondary flex items-center gap-1.5 px-3 py-1.5 text-xs uppercase cursor-pointer whitespace-nowrap"
           >
             <ArrowLeft size={15} />
             Voltar
           </button>
-          <div>
-            <h1 className="font-display font-bold text-base sm:text-lg text-white leading-tight">
+          <div className="px-flag-stripe-br shrink-0" />
+          <div className="min-w-0">
+            <h1 className="font-display font-bold text-base sm:text-lg text-white leading-tight uppercase truncate">
               Escolha do Clube Brasileiro
             </h1>
-            <p className="text-[11px] text-slate-400">
+            <p className="text-[11px] font-mono-num text-slate-400 truncate">
               {playerName} · OVR {playerOvr} · Clubes originais fictícios
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-1 bg-slate-900 p-1 rounded-lg border border-slate-800">
+        <div className="flex items-center gap-1 bg-[#081018] p-1 rounded-[2px] border border-[#22384C] shrink-0">
           {(['Série A', 'Série B', 'TODAS'] as const).map((div) => (
             <button
               key={div}
@@ -71,7 +75,7 @@ export const ClubSelection: React.FC<ClubSelectionProps> = ({
                 soundEngine.play('menu');
                 setDivisionFilter(div);
               }}
-              className={`px-2.5 py-1 rounded text-xs font-semibold cursor-pointer whitespace-nowrap ${
+              className={`px-2.5 py-1 rounded-[2px] text-xs font-display font-bold uppercase cursor-pointer whitespace-nowrap ${
                 divisionFilter === div
                   ? 'bg-emerald-500 text-slate-950'
                   : 'text-slate-400 hover:text-white'
@@ -84,9 +88,9 @@ export const ClubSelection: React.FC<ClubSelectionProps> = ({
       </header>
 
       {/* Main Split */}
-      <div className="flex-1 grid grid-cols-1 md:grid-cols-12 min-h-0">
+      <div className="relative z-10 flex-1 grid grid-cols-1 md:grid-cols-12 min-h-0">
         {/* Club List */}
-        <aside className="md:col-span-5 border-b md:border-b-0 md:border-r border-slate-800 overflow-y-auto custom-scroll p-3 space-y-2 bg-[#0E1623]">
+        <aside className="md:col-span-5 border-b md:border-b-0 md:border-r border-[#1E3346] overflow-y-auto custom-scroll p-3 space-y-2 bg-[#071019]/80">
           {visibleClubs.map((club) => {
             const active = club.id === selectedClub.id;
             return (
@@ -97,19 +101,19 @@ export const ClubSelection: React.FC<ClubSelectionProps> = ({
                   soundEngine.play('menu');
                   setSelectedId(club.id);
                 }}
-                className={`w-full text-left p-2.5 rounded-xl border flex items-center justify-between gap-3 transition-colors cursor-pointer ${
+                className={`w-full text-left p-2.5 flex items-center justify-between gap-3 transition-colors cursor-pointer ${
                   active
-                    ? 'bg-emerald-500/15 border-emerald-500'
-                    : 'bg-[#111B2B] border-slate-800 hover:border-slate-600'
+                    ? 'px-panel-active'
+                    : 'px-panel-soft hover:border-[#4b7496]'
                 }`}
               >
                 <div className="flex items-center gap-3 min-w-0">
                   <ClubCrest club={club} size={40} className="shrink-0" />
                   <div className="min-w-0">
-                    <div className="font-display font-bold text-sm text-white truncate">
+                    <div className="font-display font-bold text-sm text-white uppercase truncate">
                       {club.name}
                     </div>
-                    <div className="text-[11px] text-slate-400 truncate">
+                    <div className="text-[11px] font-mono-num text-slate-400 truncate">
                       {club.city}/{club.state} · {club.division}
                     </div>
                   </div>
@@ -118,7 +122,7 @@ export const ClubSelection: React.FC<ClubSelectionProps> = ({
                   <div className="font-mono-num text-sm font-bold text-emerald-400">
                     {club.squadQuality}
                   </div>
-                  <div className="text-[10px] text-slate-500">Elenco</div>
+                  <div className="text-[10px] font-mono-num uppercase text-slate-500">Elenco</div>
                 </div>
               </button>
             );
@@ -128,46 +132,48 @@ export const ClubSelection: React.FC<ClubSelectionProps> = ({
         {/* Club Dossier */}
         <section className="md:col-span-7 overflow-y-auto custom-scroll p-4 sm:p-5 flex flex-col justify-between gap-4">
           <div className="space-y-4">
-            <div className="flex items-start justify-between gap-4">
-              <div className="flex items-center gap-4">
+            <div className="px-panel p-4 flex items-start justify-between gap-4">
+              <div className="flex items-center gap-4 min-w-0">
                 <ClubCrest club={selectedClub} size={64} className="shrink-0" />
-                <div>
-                  <div className="text-xs font-semibold text-emerald-400">
+                <div className="min-w-0">
+                  <div className="text-xs font-mono-num font-bold uppercase text-emerald-400">
                     {selectedClub.division} · Fundado em {selectedClub.foundedYear}
                   </div>
-                  <h2 className="font-display text-2xl font-extrabold text-white">
+                  <h2 className="font-display text-2xl font-extrabold text-white uppercase truncate">
                     {selectedClub.name}
                   </h2>
                   <div className="text-xs text-slate-400 flex items-center gap-1.5 mt-0.5">
-                    <MapPin size={13} />
+                    <MapPin size={13} className="text-emerald-400 shrink-0" />
                     {selectedClub.city}, {selectedClub.state} · Técnico: {selectedClub.coachName}
                   </div>
                 </div>
               </div>
 
               {/* Uniform 1/2/3 Swatch Preview */}
-              <div className="hidden sm:flex flex-col items-center p-2.5 rounded-lg bg-slate-900 border border-slate-800 shrink-0">
+              <div className="hidden sm:flex flex-col items-center px-panel-soft p-2.5 shrink-0">
                 <div className="flex gap-1.5">
                   {[selectedClub.kit, selectedClub.awayKit, selectedClub.thirdKit]
                     .filter(Boolean)
                     .map((k, idx) => (
                       <div key={idx} className="flex">
                         <span
-                          className="w-3.5 h-6 rounded-l-sm border border-slate-600"
+                          className="w-3.5 h-6 border border-[#2C465E]"
                           style={{ backgroundColor: k!.primary }}
                         />
                         <span
-                          className="w-3.5 h-6 rounded-r-sm border border-slate-600"
+                          className="w-3.5 h-6 border border-[#2C465E]"
                           style={{ backgroundColor: k!.secondary }}
                         />
                       </div>
                     ))}
                 </div>
-                <span className="text-[10px] text-slate-400 mt-1">3 Uniformes</span>
+                <span className="text-[10px] font-mono-num uppercase text-slate-400 mt-1">
+                  3 Uniformes
+                </span>
               </div>
             </div>
 
-            <p className="text-sm text-slate-300 leading-relaxed bg-slate-900/60 border border-slate-800 rounded-xl p-3.5">
+            <p className="px-panel-soft text-sm text-slate-300 leading-relaxed p-3.5">
               {selectedClub.history}
             </p>
 
@@ -184,12 +190,14 @@ export const ClubSelection: React.FC<ClubSelectionProps> = ({
               <MetricBox label="Finanças" value={selectedClub.finances} />
             </div>
 
-            <div className="p-3 rounded-xl bg-slate-900/80 border border-slate-800 flex items-center justify-between gap-3">
+            <div className="px-panel p-3.5 flex items-center justify-between gap-3">
               <div className="flex items-center gap-2.5">
                 <Users size={18} className="text-emerald-400 shrink-0" />
                 <div>
-                  <div className="text-xs font-bold text-white">Projeção na Equipe</div>
-                  <div className="text-xs text-slate-400">
+                  <div className="text-xs font-display font-bold text-white uppercase">
+                    Projeção na Equipe
+                  </div>
+                  <div className="text-xs text-slate-300">
                     {chanceLabel}
                     {selectedClub.division === 'Série B'
                       ? ' · G-4 da Série B sobe para a Série A na próxima temporada'
@@ -207,7 +215,7 @@ export const ClubSelection: React.FC<ClubSelectionProps> = ({
               soundEngine.play('celebration');
               onSelectClub(selectedClub);
             }}
-            className="w-full py-3.5 px-6 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-display font-extrabold text-base flex items-center justify-center gap-2 transition-colors cursor-pointer"
+            className="px-btn-primary w-full py-3.5 px-6 text-base uppercase flex items-center justify-center gap-2 cursor-pointer"
           >
             <CheckCircle2 size={20} />
             Assinar Contrato com {selectedClub.shortName}
@@ -220,8 +228,8 @@ export const ClubSelection: React.FC<ClubSelectionProps> = ({
 
 function MetricBox({ label, value }: { label: string; value: string }) {
   return (
-    <div className="p-2.5 rounded-lg bg-[#111B2B] border border-slate-800">
-      <div className="text-[11px] text-slate-400">{label}</div>
+    <div className="px-panel-soft p-2.5">
+      <div className="text-[10px] font-mono-num uppercase text-slate-400">{label}</div>
       <div className="text-xs sm:text-sm font-bold text-white truncate mt-0.5 font-mono-num">
         {value}
       </div>

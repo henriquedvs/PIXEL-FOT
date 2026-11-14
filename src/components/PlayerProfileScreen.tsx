@@ -8,7 +8,8 @@ import { PlayerCareer } from '../types/game';
 import { calculateAge } from '../utils/storage';
 import { ClubCrest } from './ClubCrest';
 import { EvolutionChart } from './EvolutionChart';
-import { PixelBootIcon, PixelTrophyIcon } from './PixelIcons';
+import { PixelBackdrop } from './PixelBackdrop';
+import { PixelBootIcon, PixelFlag, PixelTrophyIcon } from './PixelIcons';
 import { PixelPortrait } from './PixelPortrait';
 
 interface PlayerProfileScreenProps {
@@ -39,10 +40,12 @@ export const PlayerProfileScreen: React.FC<PlayerProfileScreenProps> = ({
     const render = () => {
       phase += 0.06;
       ctx.imageSmoothingEnabled = false;
-      ctx.fillStyle = '#0D1726';
+      ctx.fillStyle = '#07111B';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
-      ctx.fillStyle = '#186A3B';
-      ctx.fillRect(16, canvas.height - 36, canvas.width - 32, 20);
+      ctx.fillStyle = '#14532D';
+      ctx.fillRect(14, canvas.height - 34, canvas.width - 28, 18);
+      ctx.fillStyle = '#1E7A42';
+      ctx.fillRect(20, canvas.height - 30, canvas.width - 40, 10);
 
       drawPixelPlayerSprite(
         ctx,
@@ -85,29 +88,33 @@ export const PlayerProfileScreen: React.FC<PlayerProfileScreenProps> = ({
 
   if (!career) {
     return (
-      <div className="w-full h-[100dvh] bg-[#0B121D] text-slate-100 flex flex-col overflow-hidden animate-fadeIn">
-        <header className="px-4 py-3 border-b border-slate-800 bg-[#0D1624] flex items-center gap-3 shrink-0">
+      <div className="px-shell animate-fadeIn">
+        <PixelBackdrop dimOpacity={0.86} />
+        <header className="relative z-10 px-header px-4 py-2.5 flex items-center gap-3 shrink-0">
           <button
             type="button"
             onClick={() => {
               soundEngine.play('menu');
               onBack();
             }}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-medium text-slate-200 cursor-pointer"
+            className="px-btn-secondary flex items-center gap-1.5 px-3 py-1.5 text-xs uppercase cursor-pointer"
           >
             <ArrowLeft size={15} />
             Menu
           </button>
-          <h1 className="font-display font-bold text-base sm:text-lg text-white">Meu Jogador</h1>
+          <div className="px-flag-stripe-br" />
+          <h1 className="font-display font-bold text-base sm:text-lg text-white uppercase">
+            Meu Jogador
+          </h1>
         </header>
 
-        <div className="flex-1 flex items-center justify-center p-6">
-          <div className="max-w-md w-full bg-[#111B2B] border border-slate-800 rounded-2xl p-6 text-center space-y-4">
+        <div className="relative z-10 flex-1 flex items-center justify-center p-6">
+          <div className="max-w-md w-full px-panel p-6 text-center space-y-4">
             <UserCheck size={40} className="mx-auto text-emerald-400" />
-            <h2 className="font-display font-bold text-xl text-white">
+            <h2 className="font-display font-bold text-xl text-white uppercase">
               Nenhum Atleta Criado Ainda
             </h2>
-            <p className="text-xs text-slate-400 leading-relaxed">
+            <p className="text-xs text-slate-300 leading-relaxed">
               Inicie sua Carreira de Jogador para personalizar aparência, posição, chuteiras e acompanhar estatísticas e evolução completas.
             </p>
             <button
@@ -116,7 +123,7 @@ export const PlayerProfileScreen: React.FC<PlayerProfileScreenProps> = ({
                 soundEngine.play('menu');
                 onStartNewCareer();
               }}
-              className="w-full py-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-display font-extrabold text-sm flex items-center justify-center gap-2 cursor-pointer"
+              className="px-btn-primary w-full py-3 text-sm uppercase flex items-center justify-center gap-2 cursor-pointer"
             >
               <Play size={16} fill="currentColor" />
               Criar Meu Jogador
@@ -139,25 +146,28 @@ export const PlayerProfileScreen: React.FC<PlayerProfileScreenProps> = ({
   const compEntries = Object.entries(career.competitionStats || {});
 
   return (
-    <div className="w-full h-[100dvh] bg-[#0B121D] text-slate-100 flex flex-col overflow-hidden animate-fadeIn">
-      <header className="px-4 py-2.5 border-b border-slate-800 bg-[#0D1624] flex items-center justify-between gap-3 shrink-0">
-        <div className="flex items-center gap-3">
+    <div className="px-shell animate-fadeIn">
+      <PixelBackdrop homeKit={club.kit} awayKit={club.awayKit} dimOpacity={0.86} />
+
+      <header className="relative z-10 px-header px-4 py-2.5 flex items-center justify-between gap-3 shrink-0">
+        <div className="flex items-center gap-3 min-w-0">
           <button
             type="button"
             onClick={() => {
               soundEngine.play('menu');
               onBack();
             }}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-medium text-slate-200 cursor-pointer"
+            className="px-btn-secondary flex items-center gap-1.5 px-3 py-1.5 text-xs uppercase cursor-pointer shrink-0"
           >
             <ArrowLeft size={15} />
             Menu
           </button>
-          <div>
-            <h1 className="font-display font-bold text-base sm:text-lg text-white leading-tight">
-              Meu Jogador · Perfil Profissional
+          <div className="px-flag-stripe-br shrink-0" />
+          <div className="min-w-0">
+            <h1 className="font-display font-bold text-base sm:text-lg text-white leading-tight uppercase truncate">
+              Meu Jogador · Ficha Profissional
             </h1>
-            <p className="text-[11px] text-slate-400">
+            <p className="text-[11px] font-mono-num text-slate-400 truncate">
               {career.personal.hometown} ({career.personal.nationality}
               {career.personal.secondaryNationality ? ` / ${career.personal.secondaryNationality}` : ''}) ·{' '}
               {career.division || 'Série A'} · Contrato até{' '}
@@ -172,85 +182,94 @@ export const PlayerProfileScreen: React.FC<PlayerProfileScreenProps> = ({
             soundEngine.play('menu');
             onCustomize();
           }}
-          className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-display font-bold text-xs cursor-pointer"
+          className="px-btn-primary flex items-center gap-1.5 px-3.5 py-2 text-xs uppercase cursor-pointer shrink-0"
         >
           <Paintbrush size={14} />
           Editar Aparência & Chuteira
         </button>
       </header>
 
-      <main className="flex-1 overflow-y-auto custom-scroll p-4 space-y-4">
+      <main className="relative z-10 flex-1 overflow-y-auto custom-scroll p-4 space-y-4">
         <div className="max-w-6xl mx-auto space-y-4">
           {/* Identity & Advanced KPI Hero Card */}
-          <section className="bg-[#111B2B] border border-slate-800 rounded-2xl p-4 grid grid-cols-1 md:grid-cols-12 gap-4 items-center">
-            <div className="md:col-span-4 flex items-center gap-3">
+          <section className="px-panel p-4 grid grid-cols-1 md:grid-cols-12 gap-4 items-center">
+            <div className="md:col-span-5 flex items-center gap-3.5">
+              <PixelPortrait
+                variant="bust"
+                skinColor={career.appearance.skinColor}
+                hairColor={career.appearance.hairColor}
+                hairStyle={career.appearance.hairStyle}
+                shirtPrimary={club.kit.primary}
+                shirtSecondary={club.kit.secondary}
+                beard={career.appearance.beardStyle !== 'Nenhuma'}
+                jerseyNumber={career.gear.jerseyNumber}
+                crestBg={club.kit.primary}
+                crestAccent={club.kit.secondary}
+                size={88}
+              />
               <canvas
                 ref={spriteCanvasRef}
-                width={150}
-                height={150}
-                className="w-28 h-28 rounded-xl border border-slate-700 pixelated bg-[#0D1726] shrink-0"
+                width={120}
+                height={140}
+                className="hidden sm:block w-24 h-28 border border-[#243B4F] rounded-[2px] pixelated bg-[#07111B] shrink-0"
               />
               <div className="min-w-0 space-y-1">
                 <div className="flex items-center gap-2">
-                  <PixelPortrait
-                    skinColor={career.appearance.skinColor}
-                    hairColor={career.appearance.hairColor}
-                    hairStyle={career.appearance.hairStyle}
-                    shirtPrimary={club.kit.primary}
-                    shirtSecondary={club.kit.secondary}
-                    size={36}
-                  />
-                  <ClubCrest club={club} size={34} />
+                  <PixelFlag nationality={career.personal.nationality} width={22} />
+                  <ClubCrest club={club} size={26} />
+                  <span className="font-mono-num text-xs font-bold text-[#E6B84C]">
+                    #{career.gear.jerseyNumber}
+                  </span>
                 </div>
-                <div className="font-display font-extrabold text-lg text-white truncate">
+                <div className="font-display font-extrabold text-xl text-white truncate uppercase">
                   {career.personal.nickname || career.personal.firstName}
                 </div>
-                <div className="text-xs text-slate-400 truncate">
-                  {career.personal.firstName} {career.personal.lastName} · #{career.gear.jerseyNumber}
+                <div className="text-[11px] font-mono-num text-slate-400 truncate">
+                  {career.personal.firstName} {career.personal.lastName}
                 </div>
-                <div className="text-[11px] text-emerald-400 font-semibold">
-                  {club.name} · {posMeta.code} · {career.contract.role}
+                <div className="text-xs text-emerald-400 font-display uppercase tracking-wide font-bold">
+                  {club.shortName} · {posMeta.code} · {career.contract.role}
                 </div>
                 {career.secondaryPositions && career.secondaryPositions.length > 0 && (
-                  <div className="text-[10px] text-slate-400">
-                    Secundárias: {career.secondaryPositions.map((p) => getPositionMeta(p).code).join(' · ')}
+                  <div className="text-[10px] font-mono-num text-slate-400">
+                    SEC: {career.secondaryPositions.map((p) => getPositionMeta(p).code).join(' / ')}
                   </div>
                 )}
               </div>
             </div>
 
-            <div className="md:col-span-8 grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+            <div className="md:col-span-7 grid grid-cols-2 sm:grid-cols-4 gap-2">
               <StatCard
                 label="OVR / Potencial"
                 value={`${career.ovr} / ${career.potential ?? career.ovr}`}
                 accent
               />
-              <StatCard label="Idade / País" value={`${age} anos · ${career.personal.nationality}`} />
+              <StatCard label="Idade / País" value={`${age}a · ${career.personal.nationality}`} />
               <StatCard
-                label="Valor de Mercado"
+                label="Valor Mercado"
                 value={formatCurrency(career.marketValue ?? 950000)}
                 accent
               />
               <StatCard
-                label="Salário Semanal"
+                label="Salário Sem."
                 value={`R$ ${career.contract.weeklySalary.toLocaleString('pt-BR')}`}
               />
-              <StatCard label="Jogos (Titular)" value={`${career.careerStats.matches} (${startsCount})`} />
+              <StatCard label="Jogos (Tit.)" value={`${career.careerStats.matches} (${startsCount})`} />
               <StatCard label="Gols · Assist." value={`${career.careerStats.goals}G · ${career.careerStats.assists}A`} accent />
-              <StatCard label="Partic. em Gol" value={String(goalInvolvements)} accent />
-              <StatCard label="Nota Média / Aprov." value={`${avgRating} · ${winRatePct}`} />
+              <StatCard label="Partic. Gol" value={String(goalInvolvements)} accent />
+              <StatCard label="Nota · Aprov." value={`${avgRating} · ${winRatePct}`} />
             </div>
           </section>
 
           {/* Traits & Relationships Strip */}
           <section className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-            <div className="lg:col-span-5 bg-[#111B2B] border border-slate-800 rounded-xl p-4 space-y-2.5">
-              <h2 className="font-display font-bold text-sm text-white">
+            <div className="lg:col-span-5 px-panel p-4 space-y-2.5">
+              <h2 className="font-display font-bold text-sm text-white uppercase">
                 Especialidades & Perfil Técnico
               </h2>
-              <div className="text-xs text-slate-400">
-                Estilo: <span className="text-white font-semibold">{career.playstyle}</span> · Físico:{' '}
-                <span className="text-white font-semibold">
+              <div className="text-xs text-slate-300 font-mono-num">
+                Estilo: <span className="text-emerald-400 font-bold">{career.playstyle}</span> ·{' '}
+                <span>
                   {career.personal.heightCm}cm · Pé {career.gear.dominantFoot}
                 </span>
               </div>
@@ -258,7 +277,7 @@ export const PlayerProfileScreen: React.FC<PlayerProfileScreenProps> = ({
                 {(career.traits && career.traits.length > 0 ? career.traits : [career.playstyle]).map((tr) => (
                   <span
                     key={tr}
-                    className="px-2.5 py-1 rounded-md bg-emerald-500/15 border border-emerald-500/35 text-[11px] font-semibold text-emerald-300"
+                    className="px-2.5 py-1 rounded-[2px] bg-emerald-500/12 border border-emerald-500/40 text-[11px] font-display font-bold uppercase text-emerald-300"
                   >
                     {tr}
                   </span>
@@ -266,29 +285,29 @@ export const PlayerProfileScreen: React.FC<PlayerProfileScreenProps> = ({
               </div>
             </div>
 
-            <div className="lg:col-span-7 bg-[#111B2B] border border-slate-800 rounded-xl p-4 space-y-2.5">
-              <h2 className="font-display font-bold text-sm text-white">
+            <div className="lg:col-span-7 px-panel p-4 space-y-2.5">
+              <h2 className="font-display font-bold text-sm text-white uppercase">
                 Status no Clube & Reputação
               </h2>
-              <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5">
+              <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
                 <RelationBar label="Moral" value={career.morale} color="bg-emerald-500" />
                 <RelationBar label="Treinador" value={career.coachTrust} color="bg-sky-500" />
-                <RelationBar label="Entrosamento" value={career.teamChemistry ?? 70} color="bg-indigo-500" />
-                <RelationBar label="Imprensa" value={career.pressRelation ?? 65} color="bg-amber-500" />
+                <RelationBar label="Entros." value={career.teamChemistry ?? 70} color="bg-indigo-500" />
+                <RelationBar label="Imprensa" value={career.pressRelation ?? 65} color="bg-amber-400" />
                 <RelationBar label="Torcida" value={career.fanSupport ?? 65} color="bg-teal-400" />
               </div>
             </div>
           </section>
 
           {/* Per-Competition Stats Breakdown */}
-          <section className="bg-[#111B2B] border border-slate-800 rounded-xl p-4 space-y-3">
-            <div className="flex items-center justify-between">
-              <h2 className="font-display font-bold text-sm text-white flex items-center gap-2">
+          <section className="px-panel p-4 space-y-3">
+            <div className="flex items-center justify-between gap-2">
+              <h2 className="font-display font-bold text-sm text-white uppercase flex items-center gap-2">
                 <PixelTrophyIcon size={17} />
                 Desempenho por Competição (Temporada {career.season})
               </h2>
               <span className="text-[11px] text-slate-400 font-mono-num">
-                {career.careerStats.minutesPlayed} min totais na carreira
+                {career.careerStats.minutesPlayed} min totais
               </span>
             </div>
 
@@ -299,7 +318,7 @@ export const PlayerProfileScreen: React.FC<PlayerProfileScreenProps> = ({
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-xs text-left">
-                  <thead className="text-[11px] text-slate-400 border-b border-slate-800">
+                  <thead className="text-[10px] font-mono-num uppercase text-slate-400 border-b border-[#1E3346]">
                     <tr>
                       <th className="py-2">Competição</th>
                       <th className="py-2 text-center">Jogos</th>
@@ -310,12 +329,12 @@ export const PlayerProfileScreen: React.FC<PlayerProfileScreenProps> = ({
                       <th className="py-2 text-right">Nota Média</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-800/70">
+                  <tbody className="divide-y divide-[#1A2D3E]">
                     {compEntries.map(([comp, st]) => {
                       const compAvg = st.matches > 0 ? (st.ratingSum / st.matches).toFixed(2) : '—';
                       return (
                         <tr key={comp} className="text-slate-200">
-                          <td className="py-2 font-semibold text-white">{comp}</td>
+                          <td className="py-2 font-display font-bold text-white uppercase">{comp}</td>
                           <td className="py-2 text-center font-mono-num">{st.matches}</td>
                           <td className="py-2 text-center font-mono-num text-emerald-400 font-bold">{st.goals}</td>
                           <td className="py-2 text-center font-mono-num text-sky-400 font-bold">{st.assists}</td>
@@ -338,8 +357,8 @@ export const PlayerProfileScreen: React.FC<PlayerProfileScreenProps> = ({
 
           {/* Attributes + Club History + Trophies */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-            <section className="lg:col-span-7 bg-[#111B2B] border border-slate-800 rounded-xl p-4">
-              <h2 className="font-display font-bold text-sm text-white mb-3 flex items-center gap-2">
+            <section className="lg:col-span-7 px-panel p-4">
+              <h2 className="font-display font-bold text-sm text-white uppercase mb-3 flex items-center gap-2">
                 <Shield size={16} className="text-emerald-400" />
                 Atributos Atuais ({posMeta.name} · {career.playstyle})
               </h2>
@@ -348,20 +367,20 @@ export const PlayerProfileScreen: React.FC<PlayerProfileScreenProps> = ({
                   const items = ATTRIBUTE_LABELS.filter((a) => a.category === category);
                   return (
                     <div key={category} className="space-y-1.5">
-                      <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-800/80 pb-1">
+                      <div className="text-[10px] font-mono-num font-bold uppercase tracking-wider text-emerald-400 border-b border-[#1E3346] pb-1">
                         {category}
                       </div>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                         {items.map((item) => {
                           const val = career.attributes[item.key];
                           return (
-                            <div key={item.key} className="p-2 rounded-lg bg-slate-900/70 border border-slate-800/80">
+                            <div key={item.key} className="px-panel-soft p-2">
                               <div className="flex justify-between text-xs mb-1">
                                 <span className="text-slate-300">{item.label}</span>
                                 <span className="font-mono-num font-bold text-emerald-400">{val}</span>
                               </div>
-                              <div className="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
-                                <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${val}%` }} />
+                              <div className="w-full h-2 bg-[#060E17] border border-[#1E3346] overflow-hidden">
+                                <div className="h-full bg-emerald-500" style={{ width: `${val}%` }} />
                               </div>
                             </div>
                           );
@@ -374,8 +393,8 @@ export const PlayerProfileScreen: React.FC<PlayerProfileScreenProps> = ({
             </section>
 
             <section className="lg:col-span-5 space-y-4">
-              <div className="bg-[#111B2B] border border-slate-800 rounded-xl p-4 space-y-3">
-                <h2 className="font-display font-bold text-sm text-white flex items-center gap-2">
+              <div className="px-panel p-4 space-y-3">
+                <h2 className="font-display font-bold text-sm text-white uppercase flex items-center gap-2">
                   <Award size={16} className="text-amber-400" />
                   Títulos & Prêmios ({career.awards.length})
                 </h2>
@@ -386,23 +405,23 @@ export const PlayerProfileScreen: React.FC<PlayerProfileScreenProps> = ({
                 ) : (
                   <div className="space-y-1.5">
                     {career.awards.map((aw) => (
-                      <div key={aw.id} className="text-xs text-amber-300 bg-amber-500/10 border border-amber-500/30 rounded-lg p-2.5">
-                        <div className="font-bold">{aw.title}</div>
-                        <div className="text-[11px] text-amber-200/80">{aw.clubName}</div>
+                      <div key={aw.id} className="text-xs text-amber-300 bg-amber-500/10 border border-amber-500/40 rounded-[2px] p-2.5">
+                        <div className="font-display font-bold uppercase">{aw.title}</div>
+                        <div className="text-[11px] font-mono-num text-amber-200/80">{aw.clubName}</div>
                       </div>
                     ))}
                   </div>
                 )}
               </div>
 
-              <div className="bg-[#111B2B] border border-slate-800 rounded-xl p-4 space-y-2.5">
-                <h2 className="font-display font-bold text-sm text-white flex items-center gap-2">
+              <div className="px-panel p-4 space-y-2.5">
+                <h2 className="font-display font-bold text-sm text-white uppercase flex items-center gap-2">
                   <TrendingUp size={16} className="text-sky-400" />
                   Histórico por Temporada
                 </h2>
                 {career.history.length === 0 ? (
-                  <div className="p-2.5 rounded-lg bg-slate-900/75 border border-slate-800 flex items-center justify-between text-xs">
-                    <span className="flex items-center gap-2 text-white font-semibold">
+                  <div className="px-panel-soft p-2.5 flex items-center justify-between text-xs">
+                    <span className="flex items-center gap-2 text-white font-display font-bold uppercase">
                       <PixelBootIcon size={16} />
                       {career.season} · {club.shortName} (Em curso)
                     </span>
@@ -413,8 +432,8 @@ export const PlayerProfileScreen: React.FC<PlayerProfileScreenProps> = ({
                 ) : (
                   <div className="space-y-1.5">
                     {career.history.map((h, i) => (
-                      <div key={i} className="p-2.5 rounded-lg bg-slate-900/75 border border-slate-800 flex items-center justify-between text-xs">
-                        <span className="text-white font-semibold">
+                      <div key={i} className="px-panel-soft p-2.5 flex items-center justify-between text-xs">
+                        <span className="text-white font-display font-bold uppercase">
                           {h.season} · {h.clubName}
                         </span>
                         <span className="font-mono-num text-emerald-400">
@@ -435,8 +454,8 @@ export const PlayerProfileScreen: React.FC<PlayerProfileScreenProps> = ({
 
 function StatCard({ label, value, accent = false }: { label: string; value: string; accent?: boolean }) {
   return (
-    <div className="p-2.5 rounded-xl bg-slate-900/75 border border-slate-800">
-      <div className="text-[11px] text-slate-400">{label}</div>
+    <div className="px-panel-soft p-2.5">
+      <div className="text-[10px] font-mono-num uppercase text-slate-400 truncate">{label}</div>
       <div className={`font-mono-num text-sm font-bold truncate mt-0.5 ${accent ? 'text-emerald-400' : 'text-white'}`}>
         {value}
       </div>
@@ -446,13 +465,13 @@ function StatCard({ label, value, accent = false }: { label: string; value: stri
 
 function RelationBar({ label, value, color }: { label: string; value: number; color: string }) {
   return (
-    <div className="p-2.5 rounded-xl bg-slate-900/75 border border-slate-800 space-y-1.5">
-      <div className="flex items-center justify-between text-[11px]">
-        <span className="text-slate-400 truncate">{label}</span>
-        <span className="font-mono-num font-bold text-white">{value}</span>
+    <div className="px-panel-soft p-2.5 space-y-1.5">
+      <div className="flex items-center justify-between text-[10px] font-mono-num">
+        <span className="text-slate-400 uppercase truncate">{label}</span>
+        <span className="font-bold text-white">{value}</span>
       </div>
-      <div className="h-1.5 rounded-full bg-slate-800 overflow-hidden">
-        <div className={`h-full rounded-full ${color}`} style={{ width: `${Math.max(0, Math.min(100, value))}%` }} />
+      <div className="h-2 bg-[#060E17] border border-[#1E3346] overflow-hidden">
+        <div className={`h-full ${color}`} style={{ width: `${Math.max(0, Math.min(100, value))}%` }} />
       </div>
     </div>
   );

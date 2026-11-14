@@ -1,10 +1,8 @@
 import React, { useMemo, useState } from 'react';
 import {
   ArrowLeft,
-  Calendar as CalendarIcon,
   CheckCircle2,
   FastForward,
-  List,
   MessageSquare,
   Play,
   SkipForward,
@@ -14,6 +12,7 @@ import { soundEngine } from '../audio/soundEngine';
 import { getClubById } from '../data/clubs';
 import { CalendarDay, PlayerCareer } from '../types/game';
 import { ClubCrest } from './ClubCrest';
+import { PixelBackdrop } from './PixelBackdrop';
 import { PixelCalendarIcon } from './PixelIcons';
 
 interface SeasonCalendarViewProps {
@@ -62,27 +61,27 @@ function getDayStyle(day: CalendarDay): {
   if (day.activity === 'PARTIDA') {
     if (day.isSupercopa || day.competition?.includes('Supercopa')) {
       return {
-        badge: 'text-amber-300',
-        card: 'border-amber-500/50 bg-amber-500/12',
+        badge: 'text-[#E6B84C]',
+        card: 'border-amber-500/50 bg-amber-500/10',
         tag: 'Supercopa',
       };
     }
     if (day.competition?.includes('Copa do Brasil')) {
       return {
         badge: 'text-yellow-300',
-        card: 'border-yellow-500/50 bg-yellow-500/12',
+        card: 'border-yellow-500/50 bg-yellow-500/10',
         tag: 'Copa do Brasil',
       };
     }
     return {
-      badge: 'text-emerald-300',
-      card: 'border-emerald-500/50 bg-emerald-500/12',
+      badge: 'text-emerald-400',
+      card: 'border-emerald-500/55 bg-emerald-500/12',
       tag: 'Brasileirão',
     };
   }
   if (day.activity === 'TREINO') {
     return {
-      badge: 'text-sky-300',
+      badge: 'text-sky-400',
       card: 'border-sky-500/35 bg-sky-500/10',
       tag: 'Treino',
     };
@@ -158,32 +157,34 @@ export const SeasonCalendarView: React.FC<SeasonCalendarViewProps> = ({
 
   if (!career) {
     return (
-      <div className="w-full h-[100dvh] bg-[#0B121D] text-slate-100 flex flex-col overflow-hidden">
+      <div className={onBack ? 'px-shell animate-fadeIn' : 'w-full h-full flex flex-col overflow-hidden'}>
+        {onBack && <PixelBackdrop dimOpacity={0.86} />}
         {onBack && (
-          <header className="px-4 py-2.5 border-b border-slate-800 bg-[#0D1624] flex items-center gap-3 shrink-0">
+          <header className="relative z-10 px-header px-4 py-2.5 flex items-center gap-3 shrink-0">
             <button
               type="button"
               onClick={() => {
                 soundEngine.play('menu');
                 onBack();
               }}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-medium text-slate-200 cursor-pointer"
+              className="px-btn-secondary flex items-center gap-1.5 px-3 py-1.5 text-xs uppercase cursor-pointer"
             >
               <ArrowLeft size={15} />
               Menu
             </button>
-            <h1 className="font-display font-bold text-base text-white">
+            <div className="px-flag-stripe-br" />
+            <h1 className="font-display font-bold text-base text-white uppercase">
               Calendário da Temporada
             </h1>
           </header>
         )}
-        <div className="flex-1 flex items-center justify-center p-6">
-          <div className="max-w-md w-full bg-[#111B2B] border border-slate-800 rounded-2xl p-6 text-center space-y-4">
+        <div className="relative z-10 flex-1 flex items-center justify-center p-6">
+          <div className="max-w-md w-full px-panel p-6 text-center space-y-4">
             <PixelCalendarIcon size={40} className="mx-auto" />
-            <h2 className="font-display font-bold text-xl text-white">
+            <h2 className="font-display font-bold text-xl text-white uppercase">
               Calendário Disponível na Carreira
             </h2>
-            <p className="text-xs text-slate-400 leading-relaxed">
+            <p className="text-xs text-slate-300 leading-relaxed">
               Inicie uma Carreira de Jogador para gerar sua agenda completa com Supercopa do Brasil, 38 rodadas do Brasileirão, Copa do Brasil e treinos.
             </p>
             {onStartNewCareer && (
@@ -193,7 +194,7 @@ export const SeasonCalendarView: React.FC<SeasonCalendarViewProps> = ({
                   soundEngine.play('menu');
                   onStartNewCareer();
                 }}
-                className="w-full py-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-display font-extrabold text-sm flex items-center justify-center gap-2 cursor-pointer"
+                className="px-btn-primary w-full py-3 text-sm uppercase flex items-center justify-center gap-2 cursor-pointer"
               >
                 <UserPlus size={16} />
                 Iniciar Carreira Agora
@@ -266,40 +267,45 @@ export const SeasonCalendarView: React.FC<SeasonCalendarViewProps> = ({
 
   return (
     <div
-      className={`w-full ${
-        onBack ? 'h-[100dvh]' : 'h-full'
-      } bg-[#0B121D] text-slate-100 flex flex-col overflow-hidden animate-fadeIn`}
+      className={
+        onBack
+          ? 'px-shell animate-fadeIn'
+          : 'w-full h-full flex flex-col overflow-hidden animate-fadeIn'
+      }
     >
+      {onBack && <PixelBackdrop homeKit={userClub.kit} awayKit={userClub.awayKit} dimOpacity={0.86} />}
+
       {onBack && (
-        <header className="px-4 py-2.5 border-b border-slate-800 bg-[#0D1624] flex items-center justify-between gap-3 shrink-0">
-          <div className="flex items-center gap-3">
+        <header className="relative z-10 px-header px-4 py-2.5 flex items-center justify-between gap-3 shrink-0">
+          <div className="flex items-center gap-3 min-w-0">
             <button
               type="button"
               onClick={() => {
                 soundEngine.play('menu');
                 onBack();
               }}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-medium text-slate-200 cursor-pointer"
+              className="px-btn-secondary flex items-center gap-1.5 px-3 py-1.5 text-xs uppercase cursor-pointer"
             >
               <ArrowLeft size={15} />
               Menu
             </button>
-            <div>
-              <h1 className="font-display font-bold text-base sm:text-lg text-white leading-tight">
+            <div className="px-flag-stripe-br shrink-0" />
+            <div className="min-w-0">
+              <h1 className="font-display font-bold text-base sm:text-lg text-white leading-tight uppercase truncate">
                 Calendário Oficial · Temporada {career.season}
               </h1>
-              <p className="text-[11px] text-slate-400">
+              <p className="text-[11px] font-mono-num text-slate-400 truncate">
                 {userClub.name} · Hoje: {currentDay?.weekday} {currentDay?.dateLabel} ({currentDay?.title})
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-1 bg-slate-900 p-1 rounded-lg border border-slate-800">
+          <div className="flex items-center gap-1 bg-[#081018] p-1 border border-[#22384C] rounded-[2px]">
             {(
               [
                 { id: 'MENSAL', label: 'Mensal' },
                 { id: 'SEMANAL', label: 'Semana' },
-                { id: 'LISTA', label: 'Compromissos' },
+                { id: 'LISTA', label: 'Jogos' },
               ] as { id: CalendarMode; label: string }[]
             ).map((m) => (
               <button
@@ -309,7 +315,7 @@ export const SeasonCalendarView: React.FC<SeasonCalendarViewProps> = ({
                   soundEngine.play('menu');
                   setMode(m.id);
                 }}
-                className={`px-3 py-1 rounded text-xs font-semibold cursor-pointer ${
+                className={`px-3 py-1 rounded-[2px] text-xs font-display font-bold uppercase cursor-pointer ${
                   mode === m.id
                     ? 'bg-emerald-500 text-slate-950'
                     : 'text-slate-400 hover:text-white'
@@ -322,19 +328,19 @@ export const SeasonCalendarView: React.FC<SeasonCalendarViewProps> = ({
         </header>
       )}
 
-      <div className="flex-1 overflow-y-auto custom-scroll p-4">
+      <div className={`relative z-10 flex-1 overflow-y-auto custom-scroll ${onBack ? 'p-4' : 'p-1'}`}>
         <div className="max-w-6xl mx-auto space-y-4">
           {/* Today Action & Mode Switcher Bar */}
-          <section className="bg-[#111B2B] border border-slate-800 rounded-2xl p-4 flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+          <section className="px-panel p-4 flex flex-col lg:flex-row lg:items-center justify-between gap-3">
             <div className="flex items-center gap-3 min-w-0">
-              <div className="w-11 h-11 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-center shrink-0">
+              <div className="px-panel-soft w-11 h-11 flex items-center justify-center shrink-0">
                 <PixelCalendarIcon size={24} />
               </div>
               <div className="min-w-0">
                 <div className="text-[11px] font-bold uppercase text-emerald-400 font-mono-num">
                   Hoje · {currentDay?.weekday} {currentDay?.dateLabel} · Rodada {career.round}/38
                 </div>
-                <h2 className="font-display font-bold text-base sm:text-lg text-white truncate">
+                <h2 className="font-display font-bold text-base sm:text-lg text-white uppercase truncate">
                   {currentDay?.title || 'Temporada em Andamento'}
                 </h2>
                 <p className="text-xs text-slate-400 truncate">{currentDay?.note}</p>
@@ -343,12 +349,12 @@ export const SeasonCalendarView: React.FC<SeasonCalendarViewProps> = ({
 
             <div className="flex flex-wrap items-center gap-2 shrink-0">
               {!onBack && (
-                <div className="flex items-center gap-1 bg-slate-900 p-1 rounded-lg border border-slate-800 mr-1">
+                <div className="flex items-center gap-1 bg-[#081018] p-1 border border-[#22384C] rounded-[2px] mr-1">
                   {(
                     [
-                      { id: 'MENSAL', label: 'Mensal', icon: CalendarIcon },
-                      { id: 'SEMANAL', label: 'Semana', icon: FastForward },
-                      { id: 'LISTA', label: 'Lista', icon: List },
+                      { id: 'MENSAL', label: 'Mensal' },
+                      { id: 'SEMANAL', label: 'Semana' },
+                      { id: 'LISTA', label: 'Lista' },
                     ] as const
                   ).map((m) => (
                     <button
@@ -358,7 +364,7 @@ export const SeasonCalendarView: React.FC<SeasonCalendarViewProps> = ({
                         soundEngine.play('menu');
                         setMode(m.id);
                       }}
-                      className={`px-2.5 py-1 rounded text-xs font-semibold cursor-pointer ${
+                      className={`px-2.5 py-1 rounded-[2px] text-xs font-display font-bold uppercase cursor-pointer ${
                         mode === m.id
                           ? 'bg-emerald-500 text-slate-950'
                           : 'text-slate-400 hover:text-white'
@@ -376,7 +382,7 @@ export const SeasonCalendarView: React.FC<SeasonCalendarViewProps> = ({
                     <button
                       type="button"
                       onClick={() => launchMatchForDay(currentDay)}
-                      className="min-h-[42px] px-4 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-display font-extrabold text-xs sm:text-sm flex items-center gap-2 cursor-pointer shadow-lg"
+                      className="px-btn-primary min-h-[42px] px-4 py-2 text-xs sm:text-sm uppercase flex items-center gap-2 cursor-pointer"
                     >
                       <Play size={15} fill="currentColor" />
                       Ir para o Estádio
@@ -386,7 +392,7 @@ export const SeasonCalendarView: React.FC<SeasonCalendarViewProps> = ({
                     <button
                       type="button"
                       onClick={() => simulateMatchForDay(currentDay)}
-                      className="min-h-[42px] px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-100 font-display font-bold text-xs flex items-center gap-1.5 cursor-pointer"
+                      className="px-btn-secondary min-h-[42px] px-4 py-2 text-xs uppercase flex items-center gap-1.5 cursor-pointer"
                     >
                       <FastForward size={14} />
                       Simular Partida
@@ -402,7 +408,7 @@ export const SeasonCalendarView: React.FC<SeasonCalendarViewProps> = ({
                         soundEngine.play('menu');
                         onTriggerNarrativeEvent?.(currentDay);
                       }}
-                      className="min-h-[42px] px-3.5 py-2.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-display font-extrabold text-xs flex items-center gap-1.5 cursor-pointer"
+                      className="px-btn-gold min-h-[42px] px-3.5 py-2 text-xs uppercase flex items-center gap-1.5 cursor-pointer"
                     >
                       <MessageSquare size={14} />
                       Participar do Evento
@@ -420,7 +426,7 @@ export const SeasonCalendarView: React.FC<SeasonCalendarViewProps> = ({
                           setSelectedMonth(career.calendar[nextIdx].monthIndex ?? activeMonth);
                         }
                       }}
-                      className="min-h-[42px] px-3.5 py-2.5 rounded-xl bg-sky-500 hover:bg-sky-400 text-slate-950 font-display font-bold text-xs flex items-center gap-1.5 cursor-pointer"
+                      className="px-btn-secondary min-h-[42px] px-3.5 py-2 text-xs uppercase flex items-center gap-1.5 cursor-pointer"
                     >
                       <FastForward size={14} />
                       Avançar Dia
@@ -433,7 +439,7 @@ export const SeasonCalendarView: React.FC<SeasonCalendarViewProps> = ({
                         soundEngine.play('menu');
                         onAdvanceToNextMatch();
                       }}
-                      className="min-h-[42px] px-3.5 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-display font-extrabold text-xs flex items-center gap-1.5 cursor-pointer"
+                      className="px-btn-primary min-h-[42px] px-3.5 py-2 text-xs uppercase flex items-center gap-1.5 cursor-pointer"
                     >
                       <SkipForward size={14} />
                       Ir até Próximo Jogo
@@ -445,21 +451,21 @@ export const SeasonCalendarView: React.FC<SeasonCalendarViewProps> = ({
           </section>
 
           {/* Competition Color Legend */}
-          <div className="flex flex-wrap items-center gap-3 text-[11px] text-slate-300 px-1">
+          <div className="flex flex-wrap items-center gap-4 text-[11px] font-mono-num uppercase text-slate-300 px-1">
             <span className="flex items-center gap-1.5">
-              <span className="w-2.5 h-2.5 rounded-sm bg-emerald-400 inline-block" /> Brasileirão {activeDivision}
+              <span className="w-2.5 h-2.5 bg-emerald-400 inline-block" /> Brasileirão {activeDivision}
             </span>
             <span className="flex items-center gap-1.5">
-              <span className="w-2.5 h-2.5 rounded-sm bg-yellow-400 inline-block" /> Copa do Brasil
+              <span className="w-2.5 h-2.5 bg-yellow-400 inline-block" /> Copa do Brasil
             </span>
             <span className="flex items-center gap-1.5">
-              <span className="w-2.5 h-2.5 rounded-sm bg-amber-400 inline-block" /> Supercopa
+              <span className="w-2.5 h-2.5 bg-amber-400 inline-block" /> Supercopa
             </span>
             <span className="flex items-center gap-1.5">
-              <span className="w-2.5 h-2.5 rounded-sm bg-sky-400 inline-block" /> Treinos
+              <span className="w-2.5 h-2.5 bg-sky-400 inline-block" /> Treinos
             </span>
             <span className="flex items-center gap-1.5">
-              <span className="w-2.5 h-2.5 rounded-sm bg-teal-400 inline-block" /> Descanso & Recuperação
+              <span className="w-2.5 h-2.5 bg-teal-400 inline-block" /> Descanso
             </span>
           </div>
 
@@ -467,7 +473,7 @@ export const SeasonCalendarView: React.FC<SeasonCalendarViewProps> = ({
             {/* Left/Main Calendar Display */}
             <div className="lg:col-span-8 space-y-3">
               {mode === 'MENSAL' && (
-                <div className="bg-[#111B2B] border border-slate-800 rounded-2xl p-4 space-y-3">
+                <div className="px-panel p-4 space-y-3">
                   <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
                     {availableMonths.map((mIdx) => (
                       <button
@@ -477,10 +483,10 @@ export const SeasonCalendarView: React.FC<SeasonCalendarViewProps> = ({
                           soundEngine.play('menu');
                           setSelectedMonth(mIdx);
                         }}
-                        className={`px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer whitespace-nowrap ${
+                        className={`px-3 py-1.5 rounded-[2px] text-xs font-display font-bold uppercase cursor-pointer whitespace-nowrap border ${
                           activeMonth === mIdx
-                            ? 'bg-emerald-500 text-slate-950'
-                            : 'bg-slate-900 text-slate-400 hover:text-white border border-slate-800'
+                            ? 'bg-emerald-500 text-slate-950 border-emerald-400'
+                            : 'bg-[#081018] text-slate-400 hover:text-white border-[#22384C]'
                         }`}
                       >
                         {MONTH_NAMES[mIdx]?.slice(0, 3) || `M${mIdx + 1}`}
@@ -489,11 +495,11 @@ export const SeasonCalendarView: React.FC<SeasonCalendarViewProps> = ({
                   </div>
 
                   <div className="flex items-center justify-between">
-                    <h3 className="font-display font-bold text-sm text-white">
+                    <h3 className="font-display font-bold text-sm text-white uppercase">
                       {MONTH_NAMES[activeMonth]} {career.season}
                     </h3>
                     <span className="text-[11px] text-slate-400 font-mono-num">
-                      {monthDays.length} compromissos no mês
+                      {monthDays.length} eventos
                     </span>
                   </div>
 
@@ -510,10 +516,8 @@ export const SeasonCalendarView: React.FC<SeasonCalendarViewProps> = ({
                             soundEngine.play('menu');
                             setSelectedDayIdx(day.dayIndex);
                           }}
-                          className={`text-left p-2.5 rounded-xl border transition-colors cursor-pointer relative ${
-                            isSelected
-                              ? 'ring-2 ring-emerald-400 ' + style.card
-                              : style.card
+                          className={`text-left p-2.5 rounded-[2px] border transition-colors cursor-pointer relative ${
+                            isSelected ? 'ring-2 ring-emerald-400 ' + style.card : style.card
                           } ${day.completed ? 'opacity-65' : ''}`}
                         >
                           <div className="flex items-center justify-between text-[10px] font-mono-num">
@@ -521,14 +525,14 @@ export const SeasonCalendarView: React.FC<SeasonCalendarViewProps> = ({
                               {day.dateLabel} · {day.weekday}
                             </span>
                             {isToday ? (
-                              <span className="px-1.5 py-0.5 rounded bg-emerald-500 text-slate-950 font-extrabold text-[9px]">
+                              <span className="px-1.5 py-0.5 bg-emerald-500 text-slate-950 font-extrabold text-[9px]">
                                 HOJE
                               </span>
                             ) : day.completed ? (
                               <CheckCircle2 size={12} className="text-emerald-400" />
                             ) : null}
                           </div>
-                          <div className={`text-[10px] font-bold uppercase mt-1 ${style.badge}`}>
+                          <div className={`text-[10px] font-mono-num font-bold uppercase mt-1 ${style.badge}`}>
                             {style.tag}
                           </div>
                           <div className="font-display font-bold text-xs text-white truncate mt-0.5">
@@ -547,8 +551,8 @@ export const SeasonCalendarView: React.FC<SeasonCalendarViewProps> = ({
               )}
 
               {mode === 'SEMANAL' && (
-                <div className="bg-[#111B2B] border border-slate-800 rounded-2xl p-4 space-y-3">
-                  <h3 className="font-display font-bold text-sm text-white">
+                <div className="px-panel p-4 space-y-3">
+                  <h3 className="font-display font-bold text-sm text-white uppercase">
                     Planejamento da Semana Atual
                   </h3>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
@@ -563,7 +567,7 @@ export const SeasonCalendarView: React.FC<SeasonCalendarViewProps> = ({
                             soundEngine.play('menu');
                             setSelectedDayIdx(day.dayIndex);
                           }}
-                          className={`text-left p-3.5 rounded-xl border cursor-pointer ${style.card} ${
+                          className={`text-left p-3.5 rounded-[2px] border cursor-pointer ${style.card} ${
                             isToday ? 'ring-2 ring-emerald-400' : ''
                           } ${day.completed ? 'opacity-65' : ''}`}
                         >
@@ -576,7 +580,7 @@ export const SeasonCalendarView: React.FC<SeasonCalendarViewProps> = ({
                               {style.tag}
                             </span>
                           </div>
-                          <div className="font-display font-bold text-sm text-white mt-1">
+                          <div className="font-display font-bold text-sm text-white mt-1 uppercase">
                             {day.title}
                           </div>
                           <div className="text-[11px] text-slate-300 mt-0.5">{day.note}</div>
@@ -593,8 +597,8 @@ export const SeasonCalendarView: React.FC<SeasonCalendarViewProps> = ({
               )}
 
               {mode === 'LISTA' && (
-                <div className="bg-[#111B2B] border border-slate-800 rounded-2xl p-4 space-y-2.5">
-                  <h3 className="font-display font-bold text-sm text-white">
+                <div className="px-panel p-4 space-y-2.5">
+                  <h3 className="font-display font-bold text-sm text-white uppercase">
                     Próximos Jogos & Datas Decisivas
                   </h3>
                   <div className="space-y-2">
@@ -610,7 +614,7 @@ export const SeasonCalendarView: React.FC<SeasonCalendarViewProps> = ({
                             soundEngine.play('menu');
                             setSelectedDayIdx(day.dayIndex);
                           }}
-                          className={`w-full text-left p-3 rounded-xl border flex items-center justify-between gap-3 cursor-pointer ${style.card} ${
+                          className={`w-full text-left p-3 rounded-[2px] border flex items-center justify-between gap-3 cursor-pointer ${style.card} ${
                             isToday ? 'ring-2 ring-emerald-400' : ''
                           }`}
                         >
@@ -621,11 +625,11 @@ export const SeasonCalendarView: React.FC<SeasonCalendarViewProps> = ({
                             </div>
                             {opp && <ClubCrest club={opp} size={28} className="shrink-0" />}
                             <div className="min-w-0">
-                              <div className={`text-[10px] font-bold uppercase ${style.badge}`}>
+                              <div className={`text-[10px] font-mono-num font-bold uppercase ${style.badge}`}>
                                 {day.competition || style.tag}
                                 {day.kickoffTime ? ` · ${day.kickoffTime}` : ''}
                               </div>
-                              <div className="font-display font-bold text-sm text-white truncate">
+                              <div className="font-display font-bold text-sm text-white uppercase truncate">
                                 {day.title}
                               </div>
                             </div>
@@ -635,11 +639,11 @@ export const SeasonCalendarView: React.FC<SeasonCalendarViewProps> = ({
                               {day.resultText}
                             </span>
                           ) : isToday ? (
-                            <span className="px-2 py-1 rounded bg-emerald-500 text-slate-950 font-bold text-[10px] shrink-0">
+                            <span className="px-2 py-1 bg-emerald-500 text-slate-950 font-mono-num font-bold text-[10px] shrink-0">
                               HOJE
                             </span>
                           ) : (
-                            <span className="text-[11px] text-slate-400 shrink-0">
+                            <span className="text-[11px] font-mono-num uppercase text-slate-400 shrink-0">
                               {day.isHome === true ? 'Casa' : day.isHome === false ? 'Fora' : 'Evento'}
                             </span>
                           )}
@@ -652,22 +656,22 @@ export const SeasonCalendarView: React.FC<SeasonCalendarViewProps> = ({
             </div>
 
             {/* Right: Selected Day Details Panel */}
-            <aside className="lg:col-span-4 bg-[#111B2B] border border-slate-800 rounded-2xl p-4 space-y-3">
-              <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+            <aside className="lg:col-span-4 px-panel p-4 space-y-3">
+              <div className="text-[11px] font-mono-num font-bold uppercase tracking-wider text-slate-400">
                 Detalhes da Data Selecionada
               </div>
               {inspectedDay ? (
                 <>
-                  <div className="flex items-center justify-between border-b border-slate-800 pb-2.5">
+                  <div className="flex items-center justify-between border-b border-[#1E3346] pb-2.5">
                     <div>
                       <div className="font-mono-num text-sm font-bold text-emerald-400">
                         {inspectedDay.weekday} · {inspectedDay.dateLabel}/{career.season}
                       </div>
-                      <div className="font-display font-bold text-base text-white mt-0.5">
+                      <div className="font-display font-bold text-base text-white uppercase mt-0.5">
                         {inspectedDay.title}
                       </div>
                     </div>
-                    <span className="text-[10px] font-bold uppercase px-2 py-1 rounded bg-slate-900 border border-slate-700 text-slate-300">
+                    <span className="px-panel-soft text-[10px] font-mono-num font-bold uppercase px-2 py-1 text-slate-300">
                       {inspectedDay.completed
                         ? 'Concluído'
                         : inspectedDay.dayIndex === career.currentDayIndex
@@ -677,17 +681,17 @@ export const SeasonCalendarView: React.FC<SeasonCalendarViewProps> = ({
                   </div>
 
                   {inspectedOpp && (
-                    <div className="p-3 rounded-xl bg-slate-900/80 border border-slate-800 flex items-center justify-around gap-2">
+                    <div className="px-panel-soft p-3 flex items-center justify-around gap-2">
                       <div className="flex flex-col items-center text-center">
                         <ClubCrest club={inspectedDay.isHome ? userClub : inspectedOpp} size={40} />
-                        <span className="text-xs font-bold text-white mt-1">
+                        <span className="text-xs font-display font-bold text-white uppercase mt-1">
                           {(inspectedDay.isHome ? userClub : inspectedOpp).shortName}
                         </span>
                       </div>
                       <span className="font-display font-extrabold text-sm text-emerald-400">VS</span>
                       <div className="flex flex-col items-center text-center">
                         <ClubCrest club={inspectedDay.isHome ? inspectedOpp : userClub} size={40} />
-                        <span className="text-xs font-bold text-white mt-1">
+                        <span className="text-xs font-display font-bold text-white uppercase mt-1">
                           {(inspectedDay.isHome ? inspectedOpp : userClub).shortName}
                         </span>
                       </div>
@@ -711,7 +715,7 @@ export const SeasonCalendarView: React.FC<SeasonCalendarViewProps> = ({
                       <span className="text-slate-400">Resumo:</span> {inspectedDay.note}
                     </div>
                     {inspectedDay.resultText && (
-                      <div className="p-2.5 rounded-lg bg-emerald-500/15 border border-emerald-500/40 font-mono-num text-xs font-bold text-emerald-300">
+                      <div className="p-2.5 rounded-[2px] bg-emerald-500/15 border border-emerald-500/40 font-mono-num text-xs font-bold text-emerald-300">
                         Resultado Oficial: {inspectedDay.resultText}
                       </div>
                     )}
@@ -725,7 +729,7 @@ export const SeasonCalendarView: React.FC<SeasonCalendarViewProps> = ({
                           <button
                             type="button"
                             onClick={() => launchMatchForDay(inspectedDay)}
-                            className="w-full min-h-[44px] py-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-display font-extrabold text-xs flex items-center justify-center gap-2 cursor-pointer"
+                            className="px-btn-primary w-full min-h-[44px] py-2.5 text-xs uppercase flex items-center justify-center gap-2 cursor-pointer"
                           >
                             <Play size={15} fill="currentColor" />
                             Entrar em Campo Hoje
@@ -735,7 +739,7 @@ export const SeasonCalendarView: React.FC<SeasonCalendarViewProps> = ({
                           <button
                             type="button"
                             onClick={() => simulateMatchForDay(inspectedDay)}
-                            className="w-full min-h-[42px] py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white font-display font-bold text-xs flex items-center justify-center gap-2 cursor-pointer"
+                            className="px-btn-secondary w-full min-h-[42px] py-2 text-xs uppercase flex items-center justify-center gap-2 cursor-pointer"
                           >
                             <FastForward size={14} />
                             Simular Partida

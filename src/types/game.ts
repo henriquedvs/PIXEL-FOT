@@ -20,6 +20,8 @@ export type GraphicsQuality = 'high' | 'medium' | 'low';
 export type OrientationPref = 'landscape-auto' | 'landscape-locked';
 export type ButtonSizePref = 'normal' | 'large';
 export type ControlPositionPref = 'standard' | 'compact';
+export type CameraAngleId = 'cima' | 'lado' | 'tv' | 'dinamica' | 'tatica' | 'jogador';
+export type CameraZoomPreset = 'close' | 'normal' | 'wide';
 
 export interface AudioSettings {
   musicEnabled: boolean;
@@ -48,7 +50,14 @@ export interface GameSettings {
   controlPosition: ControlPositionPref;
   aimAssist: boolean;
   highContrastHud: boolean;
+  cameraAngle: CameraAngleId;
+  cameraZoom: CameraZoomPreset;
+  cameraCustomScale: number; // 0.75..1.35
+  showMatchCommentary: boolean;
+  showMatchRadar: boolean;
+  showMatchPlayerBar: boolean;
   showMatchHints: boolean;
+  hudCleanV2?: boolean;
   vibration: boolean;
   language: LanguageCode;
   orientation: OrientationPref;

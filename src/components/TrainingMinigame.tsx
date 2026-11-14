@@ -393,24 +393,26 @@ export const TrainingMinigame: React.FC<TrainingMinigameProps> = ({
       : 'Arraste verticalmente na esquerda para defender/interceptar as bolas!';
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-950/90 flex items-center justify-center p-3 sm:p-5">
-      <div className="bg-[#111B2B] border border-slate-700 rounded-2xl max-w-3xl w-full overflow-hidden flex flex-col">
-        <header className="px-4 py-3 border-b border-slate-800 flex items-center justify-between">
+    <div className="fixed inset-0 z-50 bg-[#050B12]/92 flex items-center justify-center p-3 sm:p-5">
+      <div className="px-panel max-w-3xl w-full overflow-hidden flex flex-col">
+        <header className="px-header px-4 py-3 flex items-center justify-between">
           <div>
-            <div className="text-xs font-bold text-emerald-400">{drill.category} · Minijogo</div>
-            <h3 className="font-display font-bold text-base text-white">{drill.name}</h3>
+            <div className="text-xs font-mono-num uppercase font-bold text-emerald-400">
+              {drill.category} · Minijogo
+            </div>
+            <h3 className="font-display font-bold text-base text-white uppercase">{drill.name}</h3>
           </div>
-          <div className="flex items-center gap-4">
-            <div className="font-mono-num text-sm font-bold text-amber-300">
+          <div className="flex items-center gap-3">
+            <div className="font-mono-num text-sm font-bold text-[#E6B84C]">
               Pontos: {score}
             </div>
-            <div className="font-mono-num text-sm font-bold text-white bg-slate-800 px-2.5 py-1 rounded">
+            <div className="px-panel-soft font-mono-num text-sm font-bold text-white px-2.5 py-1">
               {timeLeft}s
             </div>
             <button
               type="button"
               onClick={onCancel}
-              className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 cursor-pointer"
+              className="px-btn-secondary p-1.5 cursor-pointer"
               aria-label="Fechar treino"
             >
               <X size={16} />
@@ -418,7 +420,7 @@ export const TrainingMinigame: React.FC<TrainingMinigameProps> = ({
           </div>
         </header>
 
-        <div className="relative p-3 bg-[#0B121D] flex flex-col items-center">
+        <div className="relative p-3 bg-[#060D15] flex flex-col items-center">
           <canvas
             ref={canvasRef}
             width={620}
@@ -427,27 +429,27 @@ export const TrainingMinigame: React.FC<TrainingMinigameProps> = ({
             onPointerMove={(e) => {
               if (e.buttons > 0 || e.pointerType === 'touch') handlePointer(e);
             }}
-            className="w-full max-w-[620px] aspect-[620/320] rounded-xl border border-slate-700 pixelated touch-none cursor-crosshair"
+            className="w-full max-w-[620px] aspect-[620/320] rounded-[2px] border border-[#243B4F] pixelated touch-none cursor-crosshair"
           />
-          <p className="text-xs text-slate-300 mt-2">{hintText}</p>
+          <p className="text-xs font-mono-num text-slate-300 mt-2">{hintText}</p>
 
           {finished && (
-            <div className="absolute inset-0 bg-slate-950/85 flex flex-col items-center justify-center p-6 text-center space-y-3">
+            <div className="absolute inset-0 bg-[#050B12]/90 flex flex-col items-center justify-center p-6 text-center space-y-3">
               <Trophy
                 size={40}
                 className={
                   medal === 'Ouro'
-                    ? 'text-amber-400'
+                    ? 'text-[#E6B84C]'
                     : medal === 'Prata'
                     ? 'text-slate-300'
                     : 'text-orange-400'
                 }
               />
-              <h4 className="font-display text-2xl font-extrabold text-white">
+              <h4 className="font-display text-2xl font-extrabold text-white uppercase">
                 Treino Concluído · Medalha {medal}
               </h4>
               <p className="text-sm text-slate-300">
-                Pontuação: {score} · Recompensa de experiência e evolução aplicada aos atributos.
+                Pontuação: <strong className="font-mono-num text-emerald-400">{score}</strong> · Recompensa de experiência e evolução aplicada aos atributos.
               </p>
               <button
                 type="button"
@@ -455,7 +457,7 @@ export const TrainingMinigame: React.FC<TrainingMinigameProps> = ({
                   soundEngine.play('celebration');
                   onComplete(medal, score);
                 }}
-                className="px-6 py-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-display font-extrabold text-sm cursor-pointer"
+                className="px-btn-primary px-6 py-3 text-sm uppercase cursor-pointer"
               >
                 Registrar Evolução
               </button>

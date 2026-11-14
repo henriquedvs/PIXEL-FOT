@@ -6,6 +6,7 @@ import { getPositionMeta } from '../data/positions';
 import { drawPixelPlayerSprite } from '../engine/pixelRenderer';
 import { Club } from '../types/game';
 import { ClubCrest } from './ClubCrest';
+import { PixelBackdrop } from './PixelBackdrop';
 import { PixelPortrait } from './PixelPortrait';
 
 interface ClubsBrowserScreenProps {
@@ -46,10 +47,12 @@ export const ClubsBrowserScreen: React.FC<ClubsBrowserScreenProps> = ({ onBack }
     const render = () => {
       phase += 0.055;
       ctx.imageSmoothingEnabled = false;
-      ctx.fillStyle = '#0D1726';
+      ctx.fillStyle = '#07111B';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
-      ctx.fillStyle = '#186A3B';
+      ctx.fillStyle = '#14532D';
       ctx.fillRect(14, canvas.height - 30, canvas.width - 28, 16);
+      ctx.fillStyle = '#1E7A42';
+      ctx.fillRect(20, canvas.height - 26, canvas.width - 40, 8);
 
       drawPixelPlayerSprite(
         ctx,
@@ -99,32 +102,35 @@ export const ClubsBrowserScreen: React.FC<ClubsBrowserScreenProps> = ({ onBack }
   }, [club, activeKit]);
 
   return (
-    <div className="w-full h-[100dvh] bg-[#0B121D] text-slate-100 flex flex-col overflow-hidden animate-fadeIn">
-      <header className="px-4 py-2.5 border-b border-slate-800 bg-[#0D1624] flex flex-wrap items-center justify-between gap-3 shrink-0">
-        <div className="flex items-center gap-3">
+    <div className="px-shell animate-fadeIn">
+      <PixelBackdrop homeKit={club.kit} awayKit={club.awayKit} dimOpacity={0.86} />
+
+      <header className="relative z-10 px-header px-4 py-2.5 flex flex-wrap items-center justify-between gap-3 shrink-0">
+        <div className="flex items-center gap-3 min-w-0">
           <button
             type="button"
             onClick={() => {
               soundEngine.play('menu');
               onBack();
             }}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-medium text-slate-200 cursor-pointer"
+            className="px-btn-secondary flex items-center gap-1.5 px-3 py-1.5 text-xs uppercase cursor-pointer"
           >
             <ArrowLeft size={15} />
             Menu
           </button>
-          <div>
-            <h1 className="font-display font-bold text-base sm:text-lg text-white leading-tight">
+          <div className="px-flag-stripe-br shrink-0" />
+          <div className="min-w-0">
+            <h1 className="font-display font-bold text-base sm:text-lg text-white leading-tight uppercase truncate">
               Clubes do Futebol Brasileiro (40 Equipes)
             </h1>
-            <p className="text-[11px] text-slate-400">
+            <p className="text-[11px] font-mono-num text-slate-400 truncate">
               Série A (20) e Série B (20) com escudos em Pixel Art, uniformes e elencos completos
             </p>
           </div>
         </div>
 
         <div className="flex items-center gap-2">
-          <div className="flex items-center gap-1 bg-slate-900 p-1 rounded-lg border border-slate-800">
+          <div className="flex items-center gap-1 bg-[#081018] p-1 rounded-[2px] border border-[#22384C]">
             <button
               type="button"
               onClick={() => {
@@ -133,7 +139,7 @@ export const ClubsBrowserScreen: React.FC<ClubsBrowserScreenProps> = ({ onBack }
                 setSelectedId(CLUBS[0].id);
                 setKitSlot('home');
               }}
-              className={`px-3 py-1 rounded text-xs font-semibold cursor-pointer ${
+              className={`px-3 py-1 rounded-[2px] text-xs font-display font-bold uppercase cursor-pointer ${
                 division === 'SERIE_A' ? 'bg-emerald-500 text-slate-950' : 'text-slate-400 hover:text-white'
               }`}
             >
@@ -147,7 +153,7 @@ export const ClubsBrowserScreen: React.FC<ClubsBrowserScreenProps> = ({ onBack }
                 setSelectedId(SERIE_B_CLUBS[0].id);
                 setKitSlot('home');
               }}
-              className={`px-3 py-1 rounded text-xs font-semibold cursor-pointer ${
+              className={`px-3 py-1 rounded-[2px] text-xs font-display font-bold uppercase cursor-pointer ${
                 division === 'SERIE_B' ? 'bg-sky-500 text-slate-950' : 'text-slate-400 hover:text-white'
               }`}
             >
@@ -160,14 +166,14 @@ export const ClubsBrowserScreen: React.FC<ClubsBrowserScreenProps> = ({ onBack }
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Buscar clube, cidade..."
-            className="hidden md:block w-48 px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-xs text-white focus:border-emerald-500 outline-none"
+            className="hidden md:block w-48 px-3 py-1.5 rounded-[2px] bg-[#081018] border border-[#22384C] text-xs text-white focus:border-emerald-500 outline-none"
           />
         </div>
       </header>
 
-      <div className="flex-1 grid grid-cols-1 md:grid-cols-12 min-h-0">
+      <div className="relative z-10 flex-1 grid grid-cols-1 md:grid-cols-12 min-h-0">
         {/* Left List */}
-        <aside className="md:col-span-4 border-b md:border-b-0 md:border-r border-slate-800 overflow-y-auto custom-scroll p-3 space-y-1.5 bg-[#0E1623]">
+        <aside className="md:col-span-4 border-b md:border-b-0 md:border-r border-[#1E3346] overflow-y-auto custom-scroll p-3 space-y-1.5 bg-[#071019]/80">
           {visibleClubs.map((c) => {
             const active = c.id === club.id;
             return (
@@ -179,17 +185,17 @@ export const ClubsBrowserScreen: React.FC<ClubsBrowserScreenProps> = ({ onBack }
                   setSelectedId(c.id);
                   setKitSlot('home');
                 }}
-                className={`w-full text-left p-2.5 rounded-xl border flex items-center justify-between gap-3 cursor-pointer transition-colors ${
-                  active
-                    ? 'bg-emerald-500/15 border-emerald-500'
-                    : 'bg-[#111B2B] border-slate-800 hover:border-slate-600'
+                className={`w-full text-left p-2.5 flex items-center justify-between gap-3 cursor-pointer transition-colors ${
+                  active ? 'px-panel-active' : 'px-panel-soft hover:border-[#4b7496]'
                 }`}
               >
                 <div className="flex items-center gap-3 min-w-0">
                   <ClubCrest club={c} size={36} className="shrink-0" />
                   <div className="min-w-0">
-                    <div className="font-display font-bold text-sm text-white truncate">{c.name}</div>
-                    <div className="text-[11px] text-slate-400 truncate">
+                    <div className="font-display font-bold text-sm text-white uppercase truncate">
+                      {c.name}
+                    </div>
+                    <div className="text-[11px] font-mono-num text-slate-400 truncate">
                       {c.city}/{c.state} · {c.stadiumName}
                     </div>
                   </div>
@@ -204,18 +210,18 @@ export const ClubsBrowserScreen: React.FC<ClubsBrowserScreenProps> = ({ onBack }
 
         {/* Right Details */}
         <section className="md:col-span-8 overflow-y-auto custom-scroll p-4 space-y-4">
-          <div className="bg-[#111B2B] border border-slate-800 rounded-2xl p-4 grid grid-cols-1 sm:grid-cols-12 gap-4 items-center">
+          <div className="px-panel p-4 grid grid-cols-1 sm:grid-cols-12 gap-4 items-center">
             <div className="sm:col-span-8 flex items-start gap-4">
               <ClubCrest club={club} size={68} className="shrink-0" />
               <div className="min-w-0 space-y-1">
-                <div className="text-xs font-semibold text-emerald-400">
+                <div className="text-xs font-mono-num font-bold uppercase text-emerald-400">
                   {club.division} · Fundado em {club.foundedYear} · Formação {club.formation}
                 </div>
-                <h2 className="font-display text-2xl font-extrabold text-white truncate">
+                <h2 className="font-display text-2xl font-extrabold text-white uppercase truncate">
                   {club.name}
                 </h2>
                 <div className="text-xs text-slate-400 flex items-center gap-1.5">
-                  <MapPin size={13} />
+                  <MapPin size={13} className="text-emerald-400 shrink-0" />
                   {club.city}/{club.state} · Técnico: {club.coachName} · Mascote: {club.mascotName}
                 </div>
                 <p className="text-xs text-slate-300 pt-1 leading-relaxed">{club.history}</p>
@@ -223,12 +229,12 @@ export const ClubsBrowserScreen: React.FC<ClubsBrowserScreenProps> = ({ onBack }
             </div>
 
             {/* Live Pixel Player in Kit 1 / 2 / 3 */}
-            <div className="sm:col-span-4 flex flex-col items-center gap-2 bg-slate-900/75 border border-slate-800 rounded-xl p-2.5">
+            <div className="sm:col-span-4 px-panel-soft flex flex-col items-center gap-2 p-2.5">
               <canvas
                 ref={kitCanvasRef}
                 width={130}
                 height={130}
-                className="w-24 h-24 rounded-lg pixelated bg-[#0D1726]"
+                className="w-24 h-24 rounded-[2px] border border-[#243B4F] pixelated bg-[#07111B]"
               />
               <div className="flex gap-1">
                 {(['home', 'away', 'third'] as const).map((slot, idx) => {
@@ -245,10 +251,10 @@ export const ClubsBrowserScreen: React.FC<ClubsBrowserScreenProps> = ({ onBack }
                         soundEngine.play('menu');
                         setKitSlot(slot);
                       }}
-                      className={`px-2 py-1 rounded text-[11px] font-bold cursor-pointer ${
+                      className={`px-2 py-1 rounded-[2px] text-[11px] font-display font-bold uppercase cursor-pointer ${
                         kitSlot === slot
                           ? 'bg-emerald-500 text-slate-950'
-                          : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                          : 'bg-[#081018] border border-[#22384C] text-slate-300 hover:border-[#4b7496]'
                       }`}
                     >
                       Kit {idx + 1}
@@ -267,13 +273,13 @@ export const ClubsBrowserScreen: React.FC<ClubsBrowserScreenProps> = ({ onBack }
           </div>
 
           {/* Full 16-Player Squad */}
-          <div className="bg-[#111B2B] border border-slate-800 rounded-xl p-4 space-y-3">
+          <div className="px-panel p-4 space-y-3">
             <div className="flex items-center justify-between">
-              <h3 className="font-display font-bold text-sm text-white flex items-center gap-2">
+              <h3 className="font-display font-bold text-sm text-white uppercase flex items-center gap-2">
                 <Users size={16} className="text-emerald-400" />
                 Elenco Completo ({club.squad.length} Jogadores)
               </h3>
-              <span className="text-[11px] text-slate-400 flex items-center gap-1">
+              <span className="text-[11px] font-mono-num text-slate-400 flex items-center gap-1">
                 <Shield size={13} className="text-emerald-400" /> 11 Titulares + 5 Reservas
               </span>
             </div>
@@ -284,7 +290,7 @@ export const ClubsBrowserScreen: React.FC<ClubsBrowserScreenProps> = ({ onBack }
                 return (
                   <div
                     key={m.id}
-                    className="flex items-center justify-between gap-2 p-2 rounded-lg bg-slate-900/75 border border-slate-800"
+                    className="px-panel-soft flex items-center justify-between gap-2 p-2"
                   >
                     <div className="flex items-center gap-2 min-w-0">
                       <PixelPortrait
@@ -296,11 +302,11 @@ export const ClubsBrowserScreen: React.FC<ClubsBrowserScreenProps> = ({ onBack }
                         size={30}
                       />
                       <div className="min-w-0">
-                        <div className="text-xs font-bold text-white truncate">
+                        <div className="text-xs font-display font-bold text-white truncate">
                           #{m.number} {m.name}
                         </div>
-                        <div className="text-[10px] text-slate-400">
-                          {posCode} · {m.age ?? 24} anos · {idx < 11 ? 'Titular' : 'Reserva'}
+                        <div className="text-[10px] font-mono-num text-slate-400">
+                          {posCode} · {m.age ?? 24}a · {idx < 11 ? 'Titular' : 'Reserva'}
                         </div>
                       </div>
                     </div>
@@ -320,8 +326,8 @@ export const ClubsBrowserScreen: React.FC<ClubsBrowserScreenProps> = ({ onBack }
 
 function InfoBox({ label, value }: { label: string; value: string }) {
   return (
-    <div className="p-2.5 rounded-xl bg-[#111B2B] border border-slate-800">
-      <div className="text-[11px] text-slate-400">{label}</div>
+    <div className="px-panel-soft p-2.5">
+      <div className="text-[10px] font-mono-num uppercase text-slate-400">{label}</div>
       <div className="font-mono-num text-xs sm:text-sm font-bold text-white truncate mt-0.5">
         {value}
       </div>

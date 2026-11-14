@@ -1,10 +1,11 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Eye, Pause, Play, RefreshCw, Settings, Shield, Trophy, ZoomIn } from 'lucide-react';
+import { Menu, Play, RefreshCw, Settings, Trophy } from 'lucide-react';
 import { soundEngine } from '../audio/soundEngine';
 import { getClubById } from '../data/clubs';
 import { getPositionMeta } from '../data/positions';
 import { generateMatchEnvironment } from '../data/stadiums';
 import {
+  CameraAngleId,
   CameraZoomPreset,
   MatchEngine,
   MatchHudSnapshot,
@@ -14,6 +15,7 @@ import { PITCH_GEO } from '../engine/pixelRenderer';
 import { ClubKit, GameSettings, MatchStatLine, PlayerCareer, WeatherCondition } from '../types/game';
 import { ClubCrest } from './ClubCrest';
 import { PreMatchPresentation } from './PreMatchPresentation';
+import { CAMERA_ANGLE_OPTIONS } from './SettingsScreen';
 
 interface MatchViewProps {
   career: PlayerCareer;
@@ -22,6 +24,7 @@ interface MatchViewProps {
   competitionName?: string;
   fixtureId?: string;
   settings: GameSettings;
+  onUpdateSettings?: (next: GameSettings) => void;
   onOpenSettings: () => void;
   onMatchFinished: (result: {
     homeClubId: string;
@@ -48,6 +51,7 @@ export const MatchView: React.FC<MatchViewProps> = ({
   competitionName = 'Brasileirão Série A',
   fixtureId,
   settings,
+  onUpdateSettings,
   onOpenSettings,
   onMatchFinished,
   onAbandonMatch,
@@ -98,7 +102,6 @@ export const MatchView: React.FC<MatchViewProps> = ({
 
   const [hud, setHud] = useState<MatchHudSnapshot | null>(null);
   const [pauseModal, setPauseModal] = useState(false);
-  const [showRadar, setShowRadar] = useState(true);
   const [kitOverrides, setKitOverrides] = useState<{
     homeKitOverride: ClubKit;
     awayKitOverride: ClubKit;
@@ -217,6 +220,8 @@ export const MatchView: React.FC<MatchViewProps> = ({
         eng.setTeamTactic('PRESSAO_ALTA');
       } else if (e.code === 'KeyZ') {
         eng.cycleZoomPreset();
+      } else if (e.code === 'KeyC') {
+        eng.cycleCameraAngle();
       }
     };
     const onKeyUp = (e: KeyboardEvent) => {
@@ -240,6 +245,13 @@ export const MatchView: React.FC<MatchViewProps> = ({
       window.removeEventListener('blur', onBlur);
     };
   }, []);
+
+  useEffect(() => {
+    const eng = engineRef.current;
+    if (!eng) return;
+    eng.syncCameraFromSettings(settings);
+    setHud(eng.getHudSnapshot());
+  }, [settings]);
 
   useEffect(() => {
     if (!introDone) return;
@@ -651,168 +663,118 @@ export const MatchView: React.FC<MatchViewProps> = ({
 
       {hud && (
         <div className="pointer-events-none absolute top-2.5 inset-x-3 z-20 flex items-start justify-between gap-2">
+          {/* Top-left Scoreboard ONLY (optional live bar if enabled in Settings) */}
           <div className="pointer-events-auto flex flex-col gap-1">
-            <div className={`flex items-center gap-2.5 border rounded-lg px-2.5 py-1.5 shadow-lg ${hudBg}`}>
+            <div className={`flex items-center gap-2 border rounded-[3px] px-2.5 py-1.5 shadow-lg ${hudBg}`}>
               <span
-                className="w-1.5 h-5 rounded-sm shrink-0"
+                className="w-1.5 h-5 rounded-[1px] shrink-0"
                 style={{ backgroundColor: engineRef.current?.activeHomeKit.primary || homeClub.kit.primary }}
               />
               <div className="flex items-center gap-1.5">
-                <ClubCrest club={homeClub} size={22} />
-                <span className="font-display font-bold text-xs text-white whitespace-nowrap">{homeClub.shortName}</span>
+                <ClubCrest club={homeClub} size={20} />
+                <span className="font-display font-bold text-xs text-white whitespace-nowrap">
+                  {homeClub.shortName}
+                </span>
               </div>
-              <div className="font-mono-num text-base font-extrabold text-white px-2 py-0.5 rounded bg-slate-900 border border-slate-700 whitespace-nowrap">
+              <div className="font-mono-num text-sm sm:text-base font-extrabold text-white px-2 py-0.5 rounded-[2px] bg-slate-900 border border-slate-700 whitespace-nowrap">
                 {hud.homeScore} - {hud.awayScore}
               </div>
               <div className="flex items-center gap-1.5">
-                <span className="font-display font-bold text-xs text-white whitespace-nowrap">{awayClub.shortName}</span>
-                <ClubCrest club={awayClub} size={22} />
+                <span className="font-display font-bold text-xs text-white whitespace-nowrap">
+                  {awayClub.shortName}
+                </span>
+                <ClubCrest club={awayClub} size={20} />
               </div>
               <span
-                className="w-1.5 h-5 rounded-sm shrink-0"
+                className="w-1.5 h-5 rounded-[1px] shrink-0"
                 style={{ backgroundColor: engineRef.current?.activeAwayKit.primary || awayClub.kit.primary }}
               />
               <div className="border-l border-slate-700 pl-2 font-mono-num text-xs font-bold text-emerald-400 whitespace-nowrap">
                 {hud.matchMinute}&apos;
                 {hud.addedTime > 0 ? `+${hud.addedTime}` : ''}
               </div>
-              <div className="hidden sm:block border-l border-slate-700 pl-2 text-[11px] text-slate-300 font-mono-num whitespace-nowrap">
-                POSSE {hud.possessionHomePct}%
-              </div>
-              <div className="hidden lg:block border-l border-slate-700 pl-2 text-[11px] text-slate-300 font-mono-num whitespace-nowrap">
-                {env.weather} · {env.temperatureC}°C
-              </div>
             </div>
 
-            {/* Live Match Momentum Bar */}
-            <div className="flex items-center gap-1.5 px-1">
-              <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400">Ritmo</span>
-              <div className="flex-1 h-1.5 rounded-full overflow-hidden bg-slate-900/90 border border-slate-700/80 flex">
-                <div
-                  className="h-full transition-all duration-300"
-                  style={{
-                    width: `${Math.max(8, Math.min(92, 50 + hud.momentum * 0.5))}%`,
-                    backgroundColor: engineRef.current?.activeHomeKit.primary || homeClub.kit.primary,
-                  }}
-                />
-                <div
-                  className="h-full flex-1 transition-all duration-300"
-                  style={{
-                    backgroundColor: engineRef.current?.activeAwayKit.primary || awayClub.kit.primary,
-                  }}
-                />
+            {settings.showMatchPlayerBar && (
+              <div className="flex items-center gap-1.5 px-1">
+                <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400">Ritmo</span>
+                <div className="flex-1 h-1.5 rounded-[1px] overflow-hidden bg-slate-900/90 border border-slate-700/80 flex">
+                  <div
+                    className="h-full transition-all duration-300"
+                    style={{
+                      width: `${Math.max(8, Math.min(92, 50 + hud.momentum * 0.5))}%`,
+                      backgroundColor: engineRef.current?.activeHomeKit.primary || homeClub.kit.primary,
+                    }}
+                  />
+                  <div
+                    className="h-full flex-1 transition-all duration-300"
+                    style={{
+                      backgroundColor: engineRef.current?.activeAwayKit.primary || awayClub.kit.primary,
+                    }}
+                  />
+                </div>
+                {hud.advantageActive && (
+                  <span className="px-1.5 py-0.5 rounded-[2px] bg-amber-400 text-slate-950 font-display font-extrabold text-[9px] tracking-wide uppercase">
+                    Vantagem
+                  </span>
+                )}
               </div>
-              {hud.advantageActive && (
-                <span className="px-1.5 py-0.5 rounded bg-amber-400 text-slate-950 font-display font-extrabold text-[9px] tracking-wide uppercase">
-                  Vantagem
-                </span>
-              )}
-            </div>
+            )}
           </div>
 
-          {hud.eventBanner && (
-            <div className={`px-4 py-1.5 rounded-lg font-display font-extrabold text-xs sm:text-sm tracking-wide whitespace-nowrap ${bannerStyle}`}>
+          {/* Commentary / Event Banner ONLY if enabled in Settings */}
+          {settings.showMatchCommentary && hud.eventBanner && (
+            <div
+              className={`px-4 py-1.5 rounded-[3px] font-display font-extrabold text-xs sm:text-sm tracking-wide whitespace-nowrap ${bannerStyle}`}
+            >
               {hud.eventBanner}
             </div>
           )}
 
+          {/* Top-right Corner Menu Button (+ Optional Player Bar if toggled in Settings) */}
           <div className="pointer-events-auto flex items-center gap-1.5">
-            {/* Live Team Tactic Quick Toggle */}
-            <button
-              type="button"
-              onClick={() => {
-                const eng = engineRef.current;
-                if (!eng) return;
-                const order: TeamTacticId[] = ['DEFENSIVO', 'EQUILIBRADO', 'OFENSIVO', 'PRESSAO_ALTA'];
-                const next = order[(order.indexOf(eng.userTactic) + 1) % order.length];
-                eng.setTeamTactic(next);
-                setHud(eng.getHudSnapshot());
-              }}
-              className={`px-2.5 py-2 rounded-lg border text-[10px] font-bold text-slate-200 hover:border-emerald-400 cursor-pointer hidden md:flex items-center gap-1 whitespace-nowrap ${hudBg}`}
-              title="Alterar Tática da Equipe (Teclas 1-4)"
-            >
-              <Shield size={13} className="text-emerald-400" />
-              {hud.tactic === 'DEFENSIVO'
-                ? 'DEF'
-                : hud.tactic === 'OFENSIVO'
-                ? 'OFN'
-                : hud.tactic === 'PRESSAO_ALTA'
-                ? 'PRS'
-                : 'EQL'}
-            </button>
-
-            {/* Camera Zoom Cycle */}
-            <button
-              type="button"
-              onClick={() => {
-                const eng = engineRef.current;
-                if (!eng) return;
-                eng.cycleZoomPreset();
-                setHud(eng.getHudSnapshot());
-              }}
-              className={`p-2 rounded-lg border text-slate-200 hover:border-emerald-400 cursor-pointer hidden sm:flex items-center gap-1 text-[10px] font-bold ${hudBg}`}
-              title="Zoom da Câmera (Tecla Z)"
-            >
-              <ZoomIn size={13} className="text-sky-400" />
-              <span className="hidden lg:inline">
-                {hud.zoomPreset === 'close' ? 'Próxima' : hud.zoomPreset === 'wide' ? 'Ampla' : 'Padrão'}
-              </span>
-            </button>
-
-            {/* Minimap Radar Toggle */}
-            <button
-              type="button"
-              onClick={() => {
-                soundEngine.play('menu');
-                setShowRadar((r) => !r);
-              }}
-              className={`p-2 rounded-lg border cursor-pointer hidden sm:flex items-center gap-1 text-[10px] font-bold ${
-                showRadar ? 'text-emerald-300' : 'text-slate-400'
-              } ${hudBg}`}
-              title="Mostrar/Ocultar Radar Tático"
-            >
-              <Eye size={13} />
-            </button>
-
-            <div className={`border rounded-lg px-2.5 py-1.5 flex items-center gap-2 ${hudBg}`}>
-              <div className="text-right">
-                <div className="text-[11px] font-bold text-white leading-none whitespace-nowrap">
-                  #{career.gear.jerseyNumber} {career.personal.nickname}
+            {settings.showMatchPlayerBar && (
+              <div className={`border rounded-[3px] px-2.5 py-1.5 flex items-center gap-2 ${hudBg}`}>
+                <div className="text-right">
+                  <div className="text-[11px] font-bold text-white leading-none whitespace-nowrap">
+                    #{career.gear.jerseyNumber} {career.personal.nickname}
+                  </div>
+                  <div className="w-20 h-1.5 bg-slate-800 rounded-[1px] overflow-hidden mt-1">
+                    <div
+                      className={`h-full transition-all ${
+                        hud.userStamina > 30 ? 'bg-emerald-400' : 'bg-amber-400'
+                      }`}
+                      style={{ width: `${hud.userStamina}%` }}
+                    />
+                  </div>
                 </div>
-                <div className="w-20 h-1.5 bg-slate-800 rounded-full overflow-hidden mt-1">
-                  <div
-                    className={`h-full transition-all ${
-                      hud.userStamina > 30 ? 'bg-emerald-400' : 'bg-amber-400'
-                    }`}
-                    style={{ width: `${hud.userStamina}%` }}
-                  />
-                </div>
+                <span className="font-mono-num text-xs font-bold text-amber-300">
+                  {hud.rating.toFixed(1)}
+                </span>
               </div>
-              <span className="font-mono-num text-xs font-bold text-amber-300">
-                {hud.rating.toFixed(1)}
-              </span>
-            </div>
+            )}
 
             <button
               type="button"
               onClick={togglePause}
-              className={`p-2.5 rounded-lg border text-white hover:border-emerald-400 cursor-pointer ${hudBg}`}
-              aria-label="Pausar partida"
+              className={`w-10 h-10 rounded-[3px] border text-white hover:border-emerald-400 cursor-pointer flex items-center justify-center shadow-lg ${hudBg}`}
+              aria-label="Abrir menu da partida"
+              title="Menu da Partida (ESC)"
             >
-              <Pause size={16} />
+              <Menu size={18} />
             </button>
           </div>
         </div>
       )}
 
-      {/* Live Tactical Radar / Minimap */}
-      {showRadar &&
+      {/* Live Tactical Radar / Minimap ONLY if enabled in Settings */}
+      {settings.showMatchRadar &&
         hud &&
         (hud.phase === 'PLAYING' || hud.phase === 'KICKOFF' || hud.phase === 'SET_PIECE') && (
           <div className="pointer-events-none absolute bottom-3 left-1/2 -translate-x-1/2 z-15 hidden sm:block">
             <svg
               viewBox="0 0 140 82"
-              className="w-[146px] h-[86px] rounded-lg border border-slate-600/80 bg-[#0A2F1C]/85 shadow-lg"
+              className="w-[146px] h-[86px] rounded-[3px] border border-slate-600/80 bg-[#0A2F1C]/85 shadow-lg"
             >
               <rect x="4" y="4" width="132" height="74" fill="none" stroke="rgba(248,250,252,0.45)" strokeWidth="1" />
               <line x1="70" y1="4" x2="70" y2="78" stroke="rgba(248,250,252,0.35)" strokeWidth="1" />
@@ -1183,14 +1145,90 @@ export const MatchView: React.FC<MatchViewProps> = ({
       )}
 
       {pauseModal && hud && (
-        <div className="absolute inset-0 z-40 bg-slate-950/85 flex items-center justify-center p-3 overflow-y-auto">
-          <div className="bg-[#111B2B] border border-slate-700 rounded-2xl p-4 sm:p-5 max-w-3xl w-full grid grid-cols-1 md:grid-cols-12 gap-4">
-            <div className="md:col-span-5 space-y-3">
-              <h2 className="font-display text-xl font-bold text-white">Partida Pausada</h2>
+        <div className="absolute inset-0 z-40 bg-[#040910]/85 flex items-center justify-center p-3 overflow-y-auto">
+          <div className="px-panel p-4 sm:p-5 max-w-4xl w-full grid grid-cols-1 md:grid-cols-12 gap-4">
+            <div className="md:col-span-6 space-y-3">
+              <div className="flex items-center justify-between border-b border-[#1E3346] pb-2">
+                <h2 className="font-display text-lg font-bold text-white tracking-wide">
+                  MENU DA PARTIDA
+                </h2>
+                <span className="font-mono-num text-xs font-bold text-emerald-400">
+                  {homeClub.shortName} {hud.homeScore} x {hud.awayScore} {awayClub.shortName} · {hud.matchMinute}&apos;
+                </span>
+              </div>
+
+              {/* Camera Angle Switcher (6 cameras directly inside Match Menu) */}
+              <div className="space-y-1.5">
+                <div className="text-[11px] font-bold text-sky-300 uppercase font-mono-num">
+                  Câmera da Partida
+                </div>
+                <div className="grid grid-cols-3 gap-1.5">
+                  {CAMERA_ANGLE_OPTIONS.map((cam) => {
+                    const active = hud.cameraAngle === cam.id;
+                    return (
+                      <button
+                        key={cam.id}
+                        type="button"
+                        onClick={() => {
+                          const eng = engineRef.current;
+                          if (!eng) return;
+                          eng.setCameraAngle(cam.id as CameraAngleId);
+                          setHud(eng.getHudSnapshot());
+                          onUpdateSettings?.({ ...settings, cameraAngle: cam.id });
+                        }}
+                        className={`py-2 px-2 rounded-[2px] border text-[11px] font-display font-bold cursor-pointer truncate ${
+                          active
+                            ? 'bg-sky-500/25 border-sky-400 text-sky-200'
+                            : 'bg-[#0B1420] border-[#22384C] text-slate-300 hover:border-[#395b79]'
+                        }`}
+                      >
+                        {cam.label.replace('Câmera ', '')}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Camera Zoom Preset */}
+              <div className="space-y-1.5">
+                <div className="text-[11px] font-bold text-slate-400 uppercase font-mono-num">
+                  Zoom da Câmera
+                </div>
+                <div className="grid grid-cols-3 gap-1.5">
+                  {(
+                    [
+                      { id: 'close', label: 'Próxima' },
+                      { id: 'normal', label: 'Padrão' },
+                      { id: 'wide', label: 'Ampla' },
+                    ] as { id: CameraZoomPreset; label: string }[]
+                  ).map((z) => (
+                    <button
+                      key={z.id}
+                      type="button"
+                      onClick={() => {
+                        const eng = engineRef.current;
+                        if (!eng) return;
+                        eng.setZoomPreset(z.id);
+                        setHud(eng.getHudSnapshot());
+                        onUpdateSettings?.({ ...settings, cameraZoom: z.id });
+                      }}
+                      className={`py-1.5 rounded-[2px] border text-xs font-display font-semibold cursor-pointer ${
+                        hud.zoomPreset === z.id
+                          ? 'bg-sky-500/20 border-sky-400 text-sky-300'
+                          : 'bg-[#0B1420] border-[#22384C] text-slate-300'
+                      }`}
+                    >
+                      {z.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
 
               {/* Live Team Tactics Selector */}
               <div className="space-y-1.5">
-                <div className="text-[11px] font-bold text-slate-400">Tática da Equipe</div>
+                <div className="text-[11px] font-bold text-slate-400 uppercase font-mono-num">
+                  Tática da Equipe
+                </div>
                 <div className="grid grid-cols-2 gap-1.5">
                   {(
                     [
@@ -1209,45 +1247,13 @@ export const MatchView: React.FC<MatchViewProps> = ({
                         eng.setTeamTactic(t.id);
                         setHud(eng.getHudSnapshot());
                       }}
-                      className={`py-2 px-2.5 rounded-lg border text-xs font-semibold cursor-pointer ${
+                      className={`py-1.5 px-2.5 rounded-[2px] border text-xs font-semibold cursor-pointer ${
                         hud.tactic === t.id
                           ? 'bg-emerald-500/20 border-emerald-400 text-emerald-300'
-                          : 'bg-slate-900 border-slate-700 text-slate-300'
+                          : 'bg-[#0B1420] border-[#22384C] text-slate-300'
                       }`}
                     >
                       {t.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Camera Zoom Preset */}
-              <div className="space-y-1.5">
-                <div className="text-[11px] font-bold text-slate-400">Zoom da Câmera</div>
-                <div className="grid grid-cols-3 gap-1.5">
-                  {(
-                    [
-                      { id: 'close', label: 'Próxima' },
-                      { id: 'normal', label: 'Padrão' },
-                      { id: 'wide', label: 'Ampla' },
-                    ] as { id: CameraZoomPreset; label: string }[]
-                  ).map((z) => (
-                    <button
-                      key={z.id}
-                      type="button"
-                      onClick={() => {
-                        const eng = engineRef.current;
-                        if (!eng) return;
-                        eng.setZoomPreset(z.id);
-                        setHud(eng.getHudSnapshot());
-                      }}
-                      className={`py-1.5 rounded-lg border text-xs font-semibold cursor-pointer ${
-                        hud.zoomPreset === z.id
-                          ? 'bg-sky-500/20 border-sky-400 text-sky-300'
-                          : 'bg-slate-900 border-slate-700 text-slate-300'
-                      }`}
-                    >
-                      {z.label}
                     </button>
                   ))}
                 </div>
@@ -1263,44 +1269,46 @@ export const MatchView: React.FC<MatchViewProps> = ({
                   eng.performSubstitution(eng.userTeam);
                   setHud(eng.getHudSnapshot());
                 }}
-                className="w-full py-2.5 rounded-xl bg-sky-500/20 hover:bg-sky-500/30 disabled:opacity-40 border border-sky-400/50 text-sky-200 font-semibold text-xs flex items-center justify-center gap-2 cursor-pointer"
+                className="w-full py-2 px-btn-secondary disabled:opacity-40 text-sky-200 text-xs flex items-center justify-center gap-2 cursor-pointer"
               >
                 <RefreshCw size={14} />
                 Substituir Cansado ({5 - hud.subsUsedUser} rest.)
               </button>
 
-              <button
-                type="button"
-                onClick={togglePause}
-                className="w-full py-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-display font-bold text-sm cursor-pointer"
-              >
-                Continuar Partida
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  soundEngine.play('menu');
-                  onOpenSettings();
-                }}
-                className="w-full py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold text-sm flex items-center justify-center gap-2 cursor-pointer"
-              >
-                <Settings size={15} />
-                Configurações e Controles
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  soundEngine.play('menu');
-                  onAbandonMatch();
-                }}
-                className="w-full py-2.5 rounded-xl bg-red-500/15 hover:bg-red-500/25 border border-red-500/40 text-red-300 font-semibold text-sm cursor-pointer"
-              >
-                Sair da Partida
-              </button>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={togglePause}
+                  className="sm:col-span-2 w-full py-2.5 px-btn-primary text-sm cursor-pointer"
+                >
+                  Continuar Partida
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    soundEngine.play('menu');
+                    onOpenSettings();
+                  }}
+                  className="w-full py-2 px-btn-secondary text-xs flex items-center justify-center gap-1.5 cursor-pointer"
+                >
+                  <Settings size={14} />
+                  Configurações
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    soundEngine.play('menu');
+                    onAbandonMatch();
+                  }}
+                  className="w-full py-2 rounded-[3px] bg-red-500/15 hover:bg-red-500/25 border border-red-500/45 text-red-300 font-display font-bold text-xs cursor-pointer"
+                >
+                  Sair da Partida
+                </button>
+              </div>
             </div>
 
             {/* Live Match Telemetry & Starting XI Stamina/Ratings */}
-            <div className="md:col-span-7 space-y-3 border-t md:border-t-0 md:border-l border-slate-800 pt-3 md:pt-0 md:pl-4">
+            <div className="md:col-span-6 space-y-3 border-t md:border-t-0 md:border-l border-[#1E3346] pt-3 md:pt-0 md:pl-4">
               <div className="text-xs font-bold text-slate-300">Estatísticas ao Vivo</div>
               <div className="grid grid-cols-2 gap-1.5 text-xs">
                 <StatCompare label="Posse" left={`${hud.possessionHomePct}%`} right={`${100 - hud.possessionHomePct}%`} />

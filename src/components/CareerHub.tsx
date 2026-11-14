@@ -35,12 +35,15 @@ import {
   TrainingDrill,
   TransferOffer,
 } from '../types/game';
-import { calculateAge } from '../utils/storage';
 import { ClubCrest } from './ClubCrest';
 import { CompetitionsBrowserScreen } from './CompetitionsBrowserScreen';
 import { EvolutionChart } from './EvolutionChart';
 import { CareerHubTab } from './MainMenu';
+import { PixelBackdrop } from './PixelBackdrop';
 import {
+  PixelBrazilMap,
+  PixelCalendarIcon,
+  PixelFlag,
   PixelNewspaperIcon,
   PixelStadiumIcon,
   PixelTargetIcon,
@@ -103,7 +106,6 @@ export const CareerHub: React.FC<CareerHubProps> = ({
 
   const club = getClubById(career.clubId);
   const posMeta = getPositionMeta(career.position);
-  const age = calculateAge(career.personal.birthDate);
   const activeDivision = career.division || 'Série A';
   const activeStandings =
     activeDivision === 'Série B' && career.serieBStandings?.length
@@ -116,7 +118,6 @@ export const CareerHub: React.FC<CareerHubProps> = ({
   const maxRound = activeSchedule.reduce((m, f) => Math.max(m, f.round), 38);
   const currentDay = career.calendar[career.currentDayIndex];
 
-  // Resolve next fixture dynamically for Série A, Série B, Copa do Brasil, or Supercopa
   const nextCalendarMatch = useMemo(() => {
     return career.calendar.find(
       (d, idx) => idx >= career.currentDayIndex && !d.completed && d.activity === 'PARTIDA'
@@ -184,14 +185,15 @@ export const CareerHub: React.FC<CareerHubProps> = ({
   const highlights = useMemo(() => buildAutoHighlights(career), [career]);
   const leaguePos = activeStandings.findIndex((s) => s.clubId === career.clubId) + 1;
 
-  // Compact table slice around user's club or Top 6
+  // 5-row standings slice centered around user's club (like #11–15 in reference)
   const quickTableRows = useMemo(() => {
-    const top6 = activeStandings.slice(0, 6);
-    if (leaguePos > 6) {
-      const myRow = activeStandings[leaguePos - 1];
-      if (myRow) return [...top6.slice(0, 5), myRow];
+    if (activeStandings.length <= 5) return activeStandings;
+    const myIdx = Math.max(0, leaguePos - 1);
+    let start = Math.max(0, myIdx - 2);
+    if (start + 5 > activeStandings.length) {
+      start = Math.max(0, activeStandings.length - 5);
     }
-    return top6;
+    return activeStandings.slice(start, start + 5);
   }, [activeStandings, leaguePos]);
 
   const activeStats: MatchStatLine =
@@ -227,448 +229,466 @@ export const CareerHub: React.FC<CareerHubProps> = ({
 
   return (
     <div className="career-hub-shell animate-fadeIn">
+      <PixelBackdrop homeKit={club.kit} awayKit={awayClub.kit} dimOpacity={0.78} />
+
+      {/* Top Reference Header Bar */}
       <header className="career-topbar">
         <div className="career-club-identity">
           <ClubCrest club={club} size={32} />
-          <div className="career-club-copy">
-            <strong>{club.shortName || club.name}</strong>
-            <span>
-              {club.name} · {career.contract.role} · {activeDivision}
-            </span>
+          <span className="career-club-name">{club.shortName || club.name}</span>
+          <div className="px-divider-v h-7 hidden sm:block" />
+          <div className="career-club-motto hidden sm:block">
+            <div>MAIS QUE FUTEBOL</div>
+            <div>{club.city.toUpperCase()} · {activeDivision.toUpperCase()}</div>
           </div>
         </div>
-        <div className="career-date-chip">
-          <Calendar size={15} />
-          <span>
-            {currentDay
-              ? `${currentDay.dateLabel} · ${currentDay.weekday} · T${career.season}`
-              : `TEMPORADA ${career.season}`}
-          </span>
-        </div>
-        <div className="career-top-actions">
+
+        <div className="career-top-right">
+          <div className="career-date-meta hidden md:flex">
+            <PixelCalendarIcon size={18} />
+            <div>
+              <span>
+                {currentDay ? `${currentDay.dateLabel} ${career.season}` : `TEMPORADA ${career.season}`}
+              </span>
+              <small>{currentDay ? currentDay.weekday : `RODADA ${career.round}`}</small>
+            </div>
+          </div>
+
+          <div className="px-divider-v h-7 hidden lg:block" />
+          <div className="career-mode-stamp hidden lg:block">
+            <div>CARREIRA</div>
+            <div>JOGADOR</div>
+          </div>
+
           <button
             type="button"
-            className="career-icon-button"
             onClick={() => {
               clickSfx();
               onOpenSettings();
             }}
+            className="px-btn-secondary w-[36px] h-[36px] flex items-center justify-center cursor-pointer"
             aria-label="Configurações"
             title="Configurações"
           >
-            <Settings size={17} />
+            <Settings size={16} />
           </button>
           <button
             type="button"
-            className="career-menu-button"
             onClick={() => {
               clickSfx();
               onBackToMenu();
             }}
+            className="px-btn-secondary px-3 h-[36px] text-xs flex items-center gap-1.5 cursor-pointer"
           >
-            <Home size={15} /> <span>Menu</span>
+            <Home size={14} />
+            <span className="hidden sm:inline">Menu</span>
           </button>
         </div>
       </header>
 
       <main className="career-main custom-scroll">
         {tab === 'CENTRAL' && (
-          <div className="career-overview">
-            <section className="career-panel career-player-panel">
-              <div className="career-panel-kicker">
-                TEMPORADA {career.season} <span>·</span> {career.contract.role.toUpperCase()}
-              </div>
-              <div className="career-player-heading">
-                <div className="career-player-avatar">
+          <div className="career-overview-wrap">
+            {/* 3-Column Reference Hero */}
+            <div className="career-hero-3col">
+              {/* LEFT: Player Bust Portrait + Vitals + Season Stats + Motto */}
+              <section className="career-card">
+                <div className="career-player-top">
                   <PixelPortrait
+                    variant="bust"
+                    size={98}
                     skinColor={career.appearance.skinColor}
                     hairColor={career.appearance.hairColor}
                     hairStyle={career.appearance.hairStyle}
                     shirtPrimary={club.kit.primary}
                     shirtSecondary={club.kit.secondary}
-                    size={74}
+                    beard={career.appearance.beardStyle !== 'Nenhuma'}
+                    jerseyNumber={career.gear.jerseyNumber}
+                    crestBg={club.kit.primary}
+                    crestAccent={club.kit.secondary}
                   />
-                </div>
-                <div className="career-player-nameblock">
-                  <h1>
-                    {career.personal.nickname ||
-                      `${career.personal.firstName} ${career.personal.lastName}`}
-                  </h1>
-                  <p>
-                    #{career.gear.jerseyNumber} <span>·</span> {posMeta.name}
-                    {career.secondaryPositions && career.secondaryPositions.length > 0
-                      ? ` (${career.secondaryPositions.map((p) => getPositionMeta(p).code).join('/')})`
-                      : ''}
-                  </p>
-                  <small>
-                    {age} anos <span>·</span> {career.personal.nationality}
-                    {career.personal.secondaryNationality
-                      ? ` / ${career.personal.secondaryNationality}`
-                      : ''}
-                  </small>
-                </div>
-              </div>
+                  <div className="career-player-vitals">
+                    <PixelFlag nationality={career.personal.nationality} width={22} className="mb-1" />
+                    <h1 className="career-player-nick">
+                      {career.personal.nickname || career.personal.firstName}
+                    </h1>
+                    <div className="career-player-num">#{career.gear.jerseyNumber}</div>
+                    <div className="career-player-pos">{posMeta.name}</div>
 
-              <div className="career-player-rating-row">
-                <div className="career-overall">
-                  <small>OVR / POT</small>
-                  <strong>
-                    {career.ovr}
-                    <em>/{career.potential ?? career.ovr}</em>
-                  </strong>
+                    <div className="career-ovr-block">
+                      <div className="career-ovr-label">OVR</div>
+                      <div className="career-ovr-num">{career.ovr}</div>
+                    </div>
+                  </div>
                 </div>
-                <div className="career-stat">
-                  <small>GOLS / ASS.</small>
-                  <strong>
-                    {career.seasonStats.goals}/{career.seasonStats.assists}
-                  </strong>
-                </div>
-                <div className="career-stat">
-                  <small>MERCADO</small>
-                  <strong>{marketValueM}</strong>
-                </div>
-              </div>
 
-              <div className="career-club-row">
-                <ClubCrest club={club} size={21} />
-                <span>{club.name}</span>
-                <b>
-                  {leaguePos || 1}º na {activeDivision}
-                </b>
-              </div>
+                <div className="career-season-rule">TEMPORADA {career.season}</div>
 
-              {career.traits && career.traits.length > 0 && (
-                <div className="career-traits-line">
-                  {career.traits.slice(0, 2).join(' · ')}
+                <div className="career-goals-split">
+                  <div className="career-goals-cell">
+                    <strong>{career.seasonStats.goals}</strong>
+                    <span>GOLS</span>
+                  </div>
+                  <div className="career-goals-cell">
+                    <strong>{career.seasonStats.assists}</strong>
+                    <span>ASSIST.</span>
+                  </div>
                 </div>
-              )}
 
-              <div className="career-fatigue-row">
-                <span>FADIGA</span>
-                <div>
-                  <i style={{ width: `${Math.max(0, Math.min(100, career.fatigue))}%` }} />
-                </div>
-                <b>{career.fatigue}%</b>
-              </div>
-            </section>
-
-            <section className="career-panel career-match-panel">
-              <div className="career-panel-heading">
-                <div>
-                  <span className="career-eyebrow">
-                    {nextEnv.competitionName} · {nextFixture.dateLabel}
+                {/* Compact Club & Fatigue Bar */}
+                <div className="pt-2.5 flex items-center justify-between text-[11px] font-mono-num text-slate-300">
+                  <span className="flex items-center gap-1.5 truncate">
+                    <ClubCrest club={club} size={16} />
+                    {club.name}
                   </span>
-                  <h2>PRÓXIMO JOGO</h2>
+                  <span className={career.fatigue > 75 ? 'text-amber-400 font-bold' : 'text-emerald-400'}>
+                    FADIGA {career.fatigue}%
+                  </span>
                 </div>
-                <span className="career-weather">
-                  {nextEnv.weather} · {nextEnv.temperatureC}°
-                </span>
-              </div>
-              <div className="career-fixture">
-                <div className="career-team">
-                  <ClubCrest club={homeClub} size={43} />
-                  <strong>{homeClub.shortName || homeClub.name}</strong>
-                  <small>{homeClub.name}</small>
+
+                <div className="career-motto-quote">
+                  <div>DISCIPLINA</div>
+                  <div>HOJE,</div>
+                  <div>GRANDES CONQUISTAS</div>
+                  <div>AMANHÃ.</div>
                 </div>
-                <div className="career-versus">
-                  VS<span>{stadium.name}</span>
+              </section>
+
+              {/* CENTER: PRÓXIMO JOGO */}
+              <section className="career-card career-match-card">
+                {/* Faint Stadium Pitch Watermark */}
+                <svg
+                  viewBox="0 0 400 220"
+                  className="career-pitch-watermark"
+                  aria-hidden="true"
+                >
+                  <rect x="8" y="8" width="384" height="204" fill="none" stroke="#4ADE80" strokeWidth="2" />
+                  <line x1="200" y1="8" x2="200" y2="212" stroke="#4ADE80" strokeWidth="2" />
+                  <circle cx="200" cy="110" r="36" fill="none" stroke="#4ADE80" strokeWidth="2" />
+                  <rect x="8" y="56" width="54" height="108" fill="none" stroke="#4ADE80" strokeWidth="2" />
+                  <rect x="338" y="56" width="54" height="108" fill="none" stroke="#4ADE80" strokeWidth="2" />
+                </svg>
+
+                <div className="career-next-header">
+                  <div className="career-next-title">
+                    <PixelCalendarIcon size={20} />
+                    <span>PRÓXIMO JOGO</span>
+                  </div>
+                  <div className="career-next-badge">
+                    <span className="px-flag-stripe-br" />
+                    <div>
+                      <div>BRASILEIRÃO</div>
+                      <div>É PAIXÃO</div>
+                    </div>
+                  </div>
                 </div>
-                <div className="career-team">
-                  <ClubCrest club={awayClub} size={43} />
-                  <strong>{awayClub.shortName || awayClub.name}</strong>
-                  <small>{awayClub.name}</small>
+
+                <div className="career-fixture-stage">
+                  <div className="career-comp-line">
+                    {nextEnv.competitionName} · {nextFixture.dateLabel}
+                  </div>
+
+                  <div className="career-crests-vs">
+                    <div className="career-crest-side">
+                      <ClubCrest club={homeClub} size={74} />
+                      <strong>{homeClub.shortName || homeClub.name}</strong>
+                    </div>
+                    <div className="career-vs-x">X</div>
+                    <div className="career-crest-side">
+                      <ClubCrest club={awayClub} size={74} />
+                      <strong>{awayClub.shortName || awayClub.name}</strong>
+                    </div>
+                  </div>
+
+                  <div className="career-match-details">
+                    <div className="career-match-detail-row">
+                      <PixelStadiumIcon size={18} />
+                      <div>
+                        <span>{stadium.name}</span>
+                        <small>
+                          {stadium.city} - {stadium.state}
+                        </small>
+                      </div>
+                    </div>
+                    <div className="career-match-detail-row">
+                      <PixelCalendarIcon size={17} />
+                      <span>
+                        {nextFixture.dateLabel} · {nextEnv.kickoffTime} · {nextEnv.weather} ({nextEnv.temperatureC}°)
+                      </span>
+                    </div>
+                  </div>
                 </div>
-              </div>
-              <div className="career-match-meta">
-                <PixelStadiumIcon size={17} />
-                <span>
-                  {stadium.city || homeClub.city} · {nextEnv.kickoffTime}
-                  {currentDay && !isTodayMatchDay ? ` · Hoje: ${currentDay.title}` : ''}
-                </span>
-              </div>
-              {career.injuryMatchesRemaining > 0 && (
-                <div className="career-injury-note">
-                  <Activity size={14} /> Departamento Médico: {career.injuryType} ·{' '}
-                  {career.injuryMatchesRemaining} jogo(s)
+
+                {career.injuryMatchesRemaining > 0 && (
+                  <div className="relative z-10 mb-2 p-2.5 px-panel-soft border-amber-500/50 flex items-center gap-2 text-xs text-amber-300">
+                    <Activity size={14} />
+                    Departamento Médico: {career.injuryType} ({career.injuryMatchesRemaining} jogo(s))
+                  </div>
+                )}
+
+                <div className="career-actions-bar">
+                  {career.injuryMatchesRemaining > 0 ? (
+                    <button
+                      type="button"
+                      className="px-btn-gold flex-1 py-3 px-4 text-xs flex items-center justify-center gap-2 cursor-pointer"
+                      onClick={() => {
+                        clickSfx();
+                        onSimulateInjurySkip(nextFixture.homeClubId, nextFixture.awayClubId);
+                      }}
+                    >
+                      RECUPERAR E AVANÇAR <ChevronRight size={15} />
+                    </button>
+                  ) : (
+                    <>
+                      <button
+                        type="button"
+                        className="px-btn-primary flex-1 min-w-[165px] py-3 px-4 text-sm flex items-center justify-center gap-2 cursor-pointer"
+                        onClick={() => {
+                          soundEngine.play('whistle');
+                          onPlayMatch(
+                            nextFixture.homeClubId,
+                            nextFixture.awayClubId,
+                            nextEnv.competitionName,
+                            nextFixture.fixtureId
+                          );
+                        }}
+                      >
+                        <Play size={14} fill="currentColor" /> JOGAR PARTIDA
+                      </button>
+
+                      {!isTodayMatchDay && canTriggerTodayEvent && currentDay ? (
+                        <button
+                          type="button"
+                          className="px-btn-gold py-3 px-4 text-xs flex items-center justify-center gap-1.5 cursor-pointer"
+                          onClick={() => {
+                            clickSfx();
+                            onTriggerNarrativeEvent(currentDay);
+                          }}
+                        >
+                          <MessageSquare size={14} /> EVENTO
+                        </button>
+                      ) : !isTodayMatchDay ? (
+                        <button
+                          type="button"
+                          className="px-btn-secondary py-3 px-4 text-xs flex items-center justify-center gap-1.5 cursor-pointer"
+                          onClick={() => {
+                            clickSfx();
+                            onAdvanceDay();
+                          }}
+                        >
+                          <FastForward size={14} /> AVANÇAR DIA
+                        </button>
+                      ) : null}
+
+                      <button
+                        type="button"
+                        className="px-btn-secondary py-3 px-3.5 text-xs flex items-center justify-center gap-1.5 cursor-pointer"
+                        onClick={() => {
+                          clickSfx();
+                          onSimulateMatch(
+                            nextFixture.homeClubId,
+                            nextFixture.awayClubId,
+                            nextEnv.competitionName,
+                            nextFixture.fixtureId
+                          );
+                        }}
+                      >
+                        <FastForward size={13} /> SIMULAR
+                      </button>
+
+                      {!isTodayMatchDay && (
+                        <button
+                          type="button"
+                          className="px-btn-secondary py-3 px-3.5 text-xs flex items-center justify-center gap-1.5 cursor-pointer"
+                          onClick={() => {
+                            clickSfx();
+                            onAdvanceToNextMatch();
+                          }}
+                        >
+                          <SkipForward size={13} /> IR AO JOGO
+                        </button>
+                      )}
+                    </>
+                  )}
                 </div>
-              )}
-              <div className="career-match-actions">
-                {career.injuryMatchesRemaining > 0 ? (
+              </section>
+
+              {/* RIGHT: CLASSIFICAÇÃO + Brazil Pixel Map Footer */}
+              <section className="career-card">
+                <div className="career-standings-head">
+                  <div className="career-standings-title">
+                    <PixelTrophyIcon size={20} />
+                    <span>CLASSIFICAÇÃO</span>
+                  </div>
                   <button
                     type="button"
-                    className="career-action-primary is-warning"
                     onClick={() => {
                       clickSfx();
-                      onSimulateInjurySkip(nextFixture.homeClubId, nextFixture.awayClubId);
+                      setTab('COMPETICOES');
                     }}
+                    className="font-mono-num text-[11px] font-bold text-slate-300 hover:text-emerald-400 cursor-pointer flex items-center gap-1"
                   >
-                    RECUPERAR E AVANÇAR <ChevronRight size={16} />
+                    {activeDivision} <ChevronRight size={12} />
                   </button>
-                ) : isTodayMatchDay ? (
-                  <>
-                    <button
-                      type="button"
-                      className="career-action-primary"
-                      onClick={() => {
-                        soundEngine.play('whistle');
-                        onPlayMatch(
-                          nextFixture.homeClubId,
-                          nextFixture.awayClubId,
-                          nextEnv.competitionName,
-                          nextFixture.fixtureId
-                        );
-                      }}
-                    >
-                      <Play size={15} fill="currentColor" /> JOGAR PARTIDA
-                    </button>
-                    <button
-                      type="button"
-                      className="career-action-secondary"
-                      onClick={() => {
-                        clickSfx();
-                        onSimulateMatch(
-                          nextFixture.homeClubId,
-                          nextFixture.awayClubId,
-                          nextEnv.competitionName,
-                          nextFixture.fixtureId
-                        );
-                      }}
-                    >
-                      <FastForward size={15} /> SIMULAR PARTIDA
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    <button
-                      type="button"
-                      className="career-action-primary"
-                      onClick={() => {
-                        soundEngine.play('whistle');
-                        onPlayMatch(
-                          nextFixture.homeClubId,
-                          nextFixture.awayClubId,
-                          nextEnv.competitionName,
-                          nextFixture.fixtureId
-                        );
-                      }}
-                    >
-                      <Play size={15} fill="currentColor" /> JOGAR
-                    </button>
-                    <button
-                      type="button"
-                      className="career-action-secondary"
-                      onClick={() => {
-                        clickSfx();
-                        onSimulateMatch(
-                          nextFixture.homeClubId,
-                          nextFixture.awayClubId,
-                          nextEnv.competitionName,
-                          nextFixture.fixtureId
-                        );
-                      }}
-                    >
-                      <FastForward size={14} /> SIMULAR
-                    </button>
-                    {canTriggerTodayEvent && currentDay ? (
-                      <button
-                        type="button"
-                        className="career-action-event"
-                        onClick={() => {
-                          clickSfx();
-                          onTriggerNarrativeEvent(currentDay);
-                        }}
-                      >
-                        <MessageSquare size={14} /> EVENTO
-                      </button>
-                    ) : (
-                      <button
-                        type="button"
-                        className="career-action-tertiary"
-                        onClick={() => {
-                          clickSfx();
-                          onAdvanceDay();
-                        }}
-                      >
-                        <FastForward size={14} /> AVANÇAR DIA
-                      </button>
-                    )}
-                    <button
-                      type="button"
-                      className="career-action-tertiary"
-                      onClick={() => {
-                        clickSfx();
-                        onAdvanceToNextMatch();
-                      }}
-                    >
-                      <SkipForward size={14} /> DIA DO JOGO
-                    </button>
-                  </>
-                )}
-              </div>
-            </section>
-
-            <section className="career-panel career-standings-panel">
-              <div className="career-standings-heading">
-                <div>
-                  <Trophy size={17} />
-                  <h2>CLASSIFICAÇÃO</h2>
                 </div>
+
+                <div className="career-table-head">
+                  <span>#</span>
+                  <span>TIME</span>
+                  <span>PTS</span>
+                </div>
+
+                <div className="career-table-body">
+                  {quickTableRows.map((row) => {
+                    const rank = activeStandings.findIndex((s) => s.clubId === row.clubId) + 1;
+                    const rowClub = getClubById(row.clubId);
+                    const isMine = row.clubId === career.clubId;
+                    return (
+                      <div
+                        key={row.clubId}
+                        className={`career-table-row${isMine ? ' is-current' : ''}`}
+                      >
+                        <span>{rank}</span>
+                        <div className="career-table-club">
+                          <ClubCrest club={rowClub} size={18} />
+                          <span>{(rowClub.shortName || rowClub.name).toUpperCase()}</span>
+                        </div>
+                        <span className="career-table-pts">{row.points}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+
                 <button
                   type="button"
+                  className="career-standings-foot text-left"
                   onClick={() => {
                     clickSfx();
                     setTab('COMPETICOES');
                   }}
                 >
-                  {activeDivision.toUpperCase()} <ChevronRight size={13} />
+                  <PixelBrazilMap size={34} />
+                  <div className="career-standings-foot-copy flex-1">
+                    <div>BRASILEIRÃO {activeDivision.toUpperCase()}</div>
+                    <div>JUNTOS POR UM FUTEBOL MAIOR</div>
+                  </div>
+                  <ChevronRight size={14} className="text-slate-500 shrink-0" />
                 </button>
-              </div>
-              <div className="career-table-head">
-                <span>#</span>
-                <span>CLUBE</span>
-                <span>J</span>
-                <span>SG</span>
-                <span>PTS</span>
-              </div>
-              <div className="career-table-body">
-                {quickTableRows.map((row) => {
-                  const rank = activeStandings.findIndex((s) => s.clubId === row.clubId) + 1;
-                  const rowClub = getClubById(row.clubId);
-                  const isMine = row.clubId === career.clubId;
-                  return (
-                    <div
-                      key={row.clubId}
-                      className={`career-table-row${isMine ? ' is-current' : ''}`}
-                    >
-                      <span>{rank}</span>
-                      <span className="career-table-team">
-                        <ClubCrest club={rowClub} size={18} />
-                        <b>{rowClub.shortName || rowClub.name}</b>
-                      </span>
-                      <span>{row.played}</span>
-                      <span>{row.gf - row.ga}</span>
-                      <strong>{row.points}</strong>
-                    </div>
-                  );
-                })}
-              </div>
-              <button
-                type="button"
-                className="career-full-table"
-                onClick={() => {
-                  clickSfx();
-                  setTab('COMPETICOES');
-                }}
-              >
-                VER TABELA COMPLETA <ChevronRight size={14} />
-              </button>
-            </section>
+              </section>
+            </div>
 
-            <section className="career-activity-strip">
-              <article className="career-activity-panel">
+            {/* Secondary Pixel Activity Row */}
+            <section className="career-secondary-strip">
+              <article className="px-panel p-3.5 space-y-2">
                 <button
                   type="button"
-                  className="career-activity-title"
                   onClick={() => {
                     clickSfx();
                     setTab('NOTICIAS');
                   }}
+                  className="w-full flex items-center justify-between text-xs font-display font-bold text-emerald-400 tracking-wide cursor-pointer"
                 >
-                  <span>
+                  <span className="flex items-center gap-2">
                     <PixelTrophyIcon size={15} /> DESTAQUES DA SEMANA
                   </span>
                   <ChevronRight size={14} />
                 </button>
-                <ul>
-                  {highlights.map((highlight, index) => (
-                    <li key={`${index}-${highlight}`}>
-                      <i />
-                      {highlight}
+                <ul className="space-y-1.5 text-xs text-slate-300">
+                  {highlights.slice(0, 3).map((highlight, index) => (
+                    <li key={`${index}-${highlight}`} className="flex items-start gap-2">
+                      <span className="w-1.5 h-1.5 bg-emerald-400 mt-1.5 shrink-0" />
+                      <span>{highlight}</span>
                     </li>
                   ))}
                 </ul>
               </article>
-              <article className="career-activity-panel">
+
+              <article className="px-panel p-3.5 space-y-2">
                 <button
                   type="button"
-                  className="career-activity-title"
                   onClick={() => {
                     clickSfx();
                     setTab('OBJETIVOS');
                   }}
+                  className="w-full flex items-center justify-between text-xs font-display font-bold text-amber-300 tracking-wide cursor-pointer"
                 >
-                  <span>
+                  <span className="flex items-center gap-2">
                     <PixelTargetIcon size={15} /> OBJETIVOS DA TEMPORADA
                   </span>
-                  <small>
+                  <span className="font-mono-num text-[11px] text-slate-300">
                     {completedObjectivesCount}/{(career.objectives || []).length}
-                  </small>
+                  </span>
                 </button>
-                {(career.objectives || []).slice(0, 3).map((objective) => {
-                  const progress =
-                    objective.kind === 'LEAGUE_POS'
-                      ? objective.current <= objective.target
-                        ? 100
-                        : Math.max(
-                            10,
-                            Math.round((objective.target / Math.max(1, objective.current)) * 100)
-                          )
-                      : Math.min(
-                          100,
-                          Math.round((objective.current / Math.max(1, objective.target)) * 100)
-                        );
-                  return (
-                    <div className="career-objective-mini" key={objective.id}>
-                      <div>
-                        <span>{objective.title}</span>
-                        <b>
-                          {objective.completed
-                            ? 'OK'
-                            : objective.kind === 'LEAGUE_POS'
-                            ? `${objective.current}º / Top ${objective.target}`
-                            : `${objective.current}/${objective.target}`}
-                        </b>
+                <div className="space-y-2">
+                  {(career.objectives || []).slice(0, 3).map((objective) => {
+                    const progress =
+                      objective.kind === 'LEAGUE_POS'
+                        ? objective.current <= objective.target
+                          ? 100
+                          : Math.max(
+                              10,
+                              Math.round((objective.target / Math.max(1, objective.current)) * 100)
+                            )
+                        : Math.min(
+                            100,
+                            Math.round((objective.current / Math.max(1, objective.target)) * 100)
+                          );
+                    return (
+                      <div key={objective.id} className="space-y-1">
+                        <div className="flex items-center justify-between text-[11px]">
+                          <span className="text-slate-200 truncate">{objective.title}</span>
+                          <span className="font-mono-num font-bold text-emerald-400 shrink-0 pl-2">
+                            {objective.completed
+                              ? 'OK'
+                              : objective.kind === 'LEAGUE_POS'
+                              ? `${objective.current}º`
+                              : `${objective.current}/${objective.target}`}
+                          </span>
+                        </div>
+                        <div className="w-full h-1.5 bg-[#060D14] border border-[#1B2F41]">
+                          <div className="h-full bg-emerald-500" style={{ width: `${progress}%` }} />
+                        </div>
                       </div>
-                      <i>
-                        <em style={{ width: `${progress}%` }} />
-                      </i>
-                    </div>
-                  );
-                })}
+                    );
+                  })}
+                </div>
               </article>
-              <article className="career-activity-panel">
+
+              <article className="px-panel p-3.5 space-y-2">
                 <button
                   type="button"
-                  className="career-activity-title"
                   onClick={() => {
                     clickSfx();
                     setTab('NOTICIAS');
                   }}
+                  className="w-full flex items-center justify-between text-xs font-display font-bold text-sky-300 tracking-wide cursor-pointer"
                 >
-                  <span>
+                  <span className="flex items-center gap-2">
                     <PixelNewspaperIcon size={15} /> NOTÍCIAS RECENTES
                   </span>
                   <ChevronRight size={14} />
                 </button>
-                {(career.news || []).slice(0, 3).map((item) => (
-                  <button
-                    type="button"
-                    className="career-news-mini"
-                    key={item.id}
-                    onClick={() => {
-                      clickSfx();
-                      setTab('NOTICIAS');
-                    }}
-                  >
-                    <small>
-                      {item.category} · {item.dateLabel}
-                    </small>
-                    <span>{item.headline}</span>
-                  </button>
-                ))}
-                {(career.news || []).length === 0 && (
-                  <p className="career-empty-mini">As notícias da temporada aparecerão aqui.</p>
-                )}
+                <div className="space-y-1.5">
+                  {(career.news || []).slice(0, 3).map((item) => (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => {
+                        clickSfx();
+                        setTab('NOTICIAS');
+                      }}
+                      className="w-full text-left p-1.5 px-panel-soft hover:border-emerald-400/60 cursor-pointer"
+                    >
+                      <div className="font-mono-num text-[9px] text-emerald-400">
+                        {item.category} · {item.dateLabel}
+                      </div>
+                      <div className="text-[11px] text-slate-200 truncate">{item.headline}</div>
+                    </button>
+                  ))}
+                  {(career.news || []).length === 0 && (
+                    <p className="text-xs text-slate-400">As notícias da temporada aparecerão aqui.</p>
+                  )}
+                </div>
               </article>
             </section>
           </div>
@@ -688,14 +708,14 @@ export const CareerHub: React.FC<CareerHubProps> = ({
         )}
 
         {tab === 'TREINO' && (
-          <div className="max-w-6xl mx-auto p-4 space-y-4">
-            <div className="bg-[#111B2B] border border-slate-800 rounded-xl p-4 flex flex-wrap items-center justify-between gap-3">
+          <div className="max-w-6xl mx-auto space-y-4">
+            <div className="px-panel p-4 flex flex-wrap items-center justify-between gap-3">
               <div>
                 <h2 className="font-display font-bold text-base text-white">
-                  Centro de Treinamento & Minijogos em Pixel Art
+                  CENTRO DE TREINAMENTO &amp; MINIJOGOS PIXEL
                 </h2>
                 <p className="text-xs text-slate-400">
-                  Seu desempenho nos minijogos gera XP gradual para evolução equilibrada. Descanse no calendário se a fadiga passar de 75%.
+                  Treinos geram XP para evolução gradual. Descanse no calendário se a fadiga passar de 75%.
                 </p>
               </div>
               <div className="flex items-center gap-4">
@@ -727,8 +747,8 @@ export const CareerHub: React.FC<CareerHubProps> = ({
                     clickSfx();
                     setDrillCat(cat);
                   }}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer ${
-                    drillCat === cat ? 'bg-emerald-500 text-slate-950' : 'bg-slate-800 text-slate-300'
+                  className={`px-3 py-1.5 text-xs font-display font-semibold cursor-pointer ${
+                    drillCat === cat ? 'px-btn-primary' : 'px-btn-secondary'
                   }`}
                 >
                   {cat === 'TODAS' ? 'Todas Categorias' : cat}
@@ -740,10 +760,7 @@ export const CareerHub: React.FC<CareerHubProps> = ({
               {visibleDrills.map((drill) => {
                 const blocked = career.trainingPoints <= 0 || career.fatigue >= 90;
                 return (
-                  <div
-                    key={drill.id}
-                    className="p-4 rounded-xl bg-[#111B2B] border border-slate-800 flex flex-col justify-between gap-3"
-                  >
+                  <div key={drill.id} className="px-panel p-4 flex flex-col justify-between gap-3">
                     <div>
                       <div className="flex items-center justify-between text-[11px]">
                         <span className="font-bold text-emerald-400">{drill.category}</span>
@@ -751,9 +768,7 @@ export const CareerHub: React.FC<CareerHubProps> = ({
                           {drill.durationMin} min · {drill.difficulty}
                         </span>
                       </div>
-                      <h3 className="font-display font-bold text-sm text-white mt-1">
-                        {drill.name}
-                      </h3>
+                      <h3 className="font-display font-bold text-sm text-white mt-1">{drill.name}</h3>
                       <p className="text-xs text-slate-400 mt-1">{drill.description}</p>
                       <div className="mt-2.5 text-[11px] text-slate-300 space-y-0.5">
                         <div>
@@ -772,7 +787,7 @@ export const CareerHub: React.FC<CareerHubProps> = ({
                         clickSfx();
                         setActiveDrill(drill);
                       }}
-                      className="w-full min-h-[42px] py-2.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 disabled:opacity-45 disabled:cursor-not-allowed text-slate-950 font-display font-bold text-xs cursor-pointer"
+                      className="px-btn-primary w-full min-h-[40px] py-2 text-xs disabled:opacity-45 disabled:cursor-not-allowed cursor-pointer"
                     >
                       {career.fatigue >= 90
                         ? 'Fadiga Alta — Descanse'
@@ -786,15 +801,15 @@ export const CareerHub: React.FC<CareerHubProps> = ({
             </div>
 
             {career.trainingLog.length > 0 && (
-              <div className="bg-[#111B2B] border border-slate-800 rounded-xl p-4">
+              <div className="px-panel p-4">
                 <h3 className="font-display font-bold text-sm text-white mb-2">
-                  Treinamentos Realizados
+                  TREINAMENTOS REALIZADOS
                 </h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   {career.trainingLog.slice(0, 6).map((log, i) => (
                     <div
                       key={i}
-                      className="flex items-center justify-between text-xs px-3 py-2 rounded-lg bg-slate-900/70 border border-slate-800"
+                      className="flex items-center justify-between text-xs px-3 py-2 px-panel-soft"
                     >
                       <span className="text-slate-300 truncate">
                         {log.dayLabel} · {log.drillName}
@@ -813,13 +828,13 @@ export const CareerHub: React.FC<CareerHubProps> = ({
         {tab === 'COMPETICOES' && <CompetitionsBrowserScreen career={career} />}
 
         {tab === 'NOTICIAS' && (
-          <div className="max-w-5xl mx-auto p-4 space-y-4">
-            <div className="bg-[#111B2B] border border-slate-800 rounded-2xl p-4 flex flex-wrap items-center justify-between gap-3">
+          <div className="max-w-5xl mx-auto space-y-4">
+            <div className="px-panel p-4 flex flex-wrap items-center justify-between gap-3">
               <div className="flex items-center gap-3">
                 <PixelNewspaperIcon size={28} />
                 <div>
-                  <h2 className="font-display font-extrabold text-base text-white">
-                    Portal de Notícias Pixel Football
+                  <h2 className="font-display font-bold text-base text-white">
+                    PORTAL DE NOTÍCIAS PIXEL FOOTBALL
                   </h2>
                   <p className="text-xs text-slate-400">
                     Cobertura automática da temporada {career.season}, copa, artilharia e mercado
@@ -837,10 +852,8 @@ export const CareerHub: React.FC<CareerHubProps> = ({
                         clickSfx();
                         setNewsFilter(cat);
                       }}
-                      className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold cursor-pointer ${
-                        newsFilter === cat
-                          ? 'bg-emerald-500 text-slate-950'
-                          : 'bg-slate-900 text-slate-400 hover:text-white border border-slate-800'
+                      className={`px-2.5 py-1 text-[11px] font-display font-semibold cursor-pointer ${
+                        newsFilter === cat ? 'px-btn-primary' : 'px-btn-secondary'
                       }`}
                     >
                       {cat}
@@ -851,7 +864,7 @@ export const CareerHub: React.FC<CareerHubProps> = ({
             </div>
 
             {visibleNews.length === 0 ? (
-              <div className="bg-[#111B2B] border border-slate-800 rounded-xl p-6 text-center text-xs text-slate-400">
+              <div className="px-panel p-6 text-center text-xs text-slate-400">
                 Nenhuma notícia registrada nesta categoria ainda. Dispute jogos e avançe no calendário!
               </div>
             ) : (
@@ -860,11 +873,8 @@ export const CareerHub: React.FC<CareerHubProps> = ({
                   const mainClub = item.clubId ? getClubById(item.clubId) : club;
                   const opp = item.opponentClubId ? getClubById(item.opponentClubId) : null;
                   return (
-                    <article
-                      key={item.id}
-                      className="bg-[#111B2B] border border-slate-800 rounded-xl p-4 flex gap-3.5 items-start"
-                    >
-                      <div className="w-16 h-16 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-center shrink-0 relative">
+                    <article key={item.id} className="px-panel p-4 flex gap-3.5 items-start">
+                      <div className="w-16 h-16 px-panel-soft flex items-center justify-center shrink-0">
                         {item.artKind === 'trophy' ? (
                           <PixelTrophyIcon size={32} />
                         ) : item.artKind === 'stadium' ? (
@@ -899,13 +909,13 @@ export const CareerHub: React.FC<CareerHubProps> = ({
         )}
 
         {tab === 'OBJETIVOS' && (
-          <div className="max-w-5xl mx-auto p-4 space-y-4">
-            <div className="bg-[#111B2B] border border-slate-800 rounded-2xl p-4 flex items-center justify-between gap-3">
+          <div className="max-w-5xl mx-auto space-y-4">
+            <div className="px-panel p-4 flex items-center justify-between gap-3">
               <div className="flex items-center gap-3">
                 <PixelTargetIcon size={28} />
                 <div>
-                  <h2 className="font-display font-extrabold text-base text-white">
-                    Metas da Temporada {career.season}
+                  <h2 className="font-display font-bold text-base text-white">
+                    METAS DA TEMPORADA {career.season}
                   </h2>
                   <p className="text-xs text-slate-400">
                     Conclua objetivos individuais e coletivos para ganhar XP, moral e confiança do treinador
@@ -928,11 +938,7 @@ export const CareerHub: React.FC<CareerHubProps> = ({
                 return (
                   <div
                     key={obj.id}
-                    className={`p-4 rounded-xl border space-y-2.5 ${
-                      obj.completed
-                        ? 'bg-emerald-500/12 border-emerald-500/50'
-                        : 'bg-[#111B2B] border-slate-800'
-                    }`}
+                    className={`p-4 space-y-2.5 ${obj.completed ? 'px-panel-active' : 'px-panel'}`}
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div>
@@ -951,9 +957,9 @@ export const CareerHub: React.FC<CareerHubProps> = ({
                       </span>
                     </div>
 
-                    <div className="w-full h-2 bg-slate-900 rounded-full overflow-hidden">
+                    <div className="w-full h-2 bg-[#060D14] border border-[#1B2F41]">
                       <div
-                        className={`h-full rounded-full transition-all ${
+                        className={`h-full transition-all ${
                           obj.completed ? 'bg-amber-400' : 'bg-emerald-500'
                         }`}
                         style={{ width: `${pct}%` }}
@@ -974,12 +980,12 @@ export const CareerHub: React.FC<CareerHubProps> = ({
         )}
 
         {tab === 'ESTATS' && (
-          <div className="max-w-6xl mx-auto p-4 space-y-4">
+          <div className="max-w-6xl mx-auto space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <h2 className="font-display font-bold text-base text-white">
-                Perfil Profissional, Evolução & Reputação
+                PERFIL PROFISSIONAL, EVOLUÇÃO &amp; REPUTAÇÃO
               </h2>
-              <div className="flex gap-1 bg-slate-900 p-1 rounded-lg border border-slate-800">
+              <div className="flex gap-1">
                 {(['TEMPORADA', 'CARREIRA'] as const).map((sc) => (
                   <button
                     key={sc}
@@ -988,8 +994,8 @@ export const CareerHub: React.FC<CareerHubProps> = ({
                       clickSfx();
                       setStatScope(sc);
                     }}
-                    className={`px-3 py-1 rounded text-xs font-semibold cursor-pointer ${
-                      statScope === sc ? 'bg-emerald-500 text-slate-950' : 'text-slate-400'
+                    className={`px-3 py-1 text-xs font-display font-semibold cursor-pointer ${
+                      statScope === sc ? 'px-btn-primary' : 'px-btn-secondary'
                     }`}
                   >
                     {sc === 'TEMPORADA' ? `Temporada ${career.season}` : 'Toda Carreira'}
@@ -998,12 +1004,9 @@ export const CareerHub: React.FC<CareerHubProps> = ({
               </div>
             </div>
 
-            {/* Potential, Value, Secondary Positions, Traits & Relationships */}
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-              <div className="lg:col-span-5 bg-[#111B2B] border border-slate-800 rounded-xl p-4 space-y-3">
-                <h3 className="font-display font-bold text-sm text-white">
-                  Projeção & Especialidades
-                </h3>
+              <div className="lg:col-span-5 px-panel p-4 space-y-3">
+                <h3 className="font-display font-bold text-sm text-white">PROJEÇÃO &amp; ESPECIALIDADES</h3>
                 <div className="grid grid-cols-3 gap-2">
                   <InfoCell label="OVR Atual" value={String(career.ovr)} highlight />
                   <InfoCell label="Potencial" value={String(career.potential ?? career.ovr)} />
@@ -1025,9 +1028,9 @@ export const CareerHub: React.FC<CareerHubProps> = ({
                 </div>
               </div>
 
-              <div className="lg:col-span-7 bg-[#111B2B] border border-slate-800 rounded-xl p-4 space-y-2.5">
+              <div className="lg:col-span-7 px-panel p-4 space-y-2.5">
                 <h3 className="font-display font-bold text-sm text-white">
-                  Clima & Relacionamentos na Carreira
+                  CLIMA &amp; RELACIONAMENTOS NA CARREIRA
                 </h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                   <MeterBar label="Moral do Atleta" value={career.morale} />
@@ -1073,24 +1076,21 @@ export const CareerHub: React.FC<CareerHubProps> = ({
 
             <EvolutionChart points={career.evolutionHistory || []} />
 
-            <div className="bg-[#111B2B] border border-slate-800 rounded-xl p-4">
+            <div className="px-panel p-4">
               <h3 className="font-display font-bold text-sm text-white mb-3">
-                Mapa Completo de Atributos ({posMeta.name} · {career.playstyle})
+                MAPA COMPLETO DE ATRIBUTOS ({posMeta.name} · {career.playstyle})
               </h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
                 {ATTRIBUTE_LABELS.map((item) => {
                   const val = career.attributes[item.key];
                   return (
-                    <div
-                      key={item.key}
-                      className="p-2.5 rounded-lg bg-slate-900/70 border border-slate-800/80"
-                    >
+                    <div key={item.key} className="p-2.5 px-panel-soft">
                       <div className="flex items-center justify-between text-xs mb-1">
                         <span className="text-slate-300">{item.label}</span>
                         <span className="font-mono-num font-bold text-emerald-400">{val}</span>
                       </div>
-                      <div className="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
-                        <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${val}%` }} />
+                      <div className="w-full h-1.5 bg-[#060D14] border border-[#1B2F41]">
+                        <div className="h-full bg-emerald-500" style={{ width: `${val}%` }} />
                       </div>
                     </div>
                   );
@@ -1099,9 +1099,9 @@ export const CareerHub: React.FC<CareerHubProps> = ({
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              <section className="bg-[#111B2B] border border-slate-800 rounded-xl p-4">
+              <section className="px-panel p-4">
                 <h3 className="font-display font-bold text-sm text-white mb-2.5">
-                  Histórico de Partidas Recentes
+                  HISTÓRICO DE PARTIDAS RECENTES
                 </h3>
                 {career.recentMatches.length === 0 ? (
                   <p className="text-xs text-slate-400">Nenhuma partida disputada ainda.</p>
@@ -1110,7 +1110,7 @@ export const CareerHub: React.FC<CareerHubProps> = ({
                     {career.recentMatches.map((m) => (
                       <div
                         key={m.id}
-                        className="p-2.5 rounded-lg bg-slate-900/75 border border-slate-800 flex items-center justify-between text-xs"
+                        className="p-2.5 px-panel-soft flex items-center justify-between text-xs"
                       >
                         <div>
                           <div className="font-bold text-white font-mono-num">
@@ -1135,17 +1135,17 @@ export const CareerHub: React.FC<CareerHubProps> = ({
                 )}
               </section>
 
-              <section className="bg-[#111B2B] border border-slate-800 rounded-xl p-4 space-y-3">
+              <section className="px-panel p-4 space-y-3">
                 <h3 className="font-display font-bold text-sm text-white flex items-center gap-1.5">
                   <Award size={16} className="text-amber-400" />
-                  Títulos, Prêmios & Decisões
+                  TÍTULOS, PRÊMIOS &amp; DECISÕES
                 </h3>
                 {career.awards.length > 0 && (
                   <div className="space-y-1.5">
                     {career.awards.map((aw) => (
                       <div
                         key={aw.id}
-                        className="text-xs text-amber-300 bg-amber-500/10 border border-amber-500/30 rounded-lg px-3 py-1.5"
+                        className="text-xs text-amber-300 bg-amber-500/10 border border-amber-500/30 rounded-[2px] px-3 py-1.5"
                       >
                         {aw.title} — {aw.clubName}
                       </div>
@@ -1161,7 +1161,7 @@ export const CareerHub: React.FC<CareerHubProps> = ({
                     {career.history.map((h, i) => (
                       <div
                         key={i}
-                        className="text-xs text-slate-300 flex justify-between bg-slate-900/60 px-3 py-1.5 rounded-lg"
+                        className="text-xs text-slate-300 flex justify-between px-panel-soft px-3 py-1.5"
                       >
                         <span>
                           {h.season} · {h.clubName} ({h.division})
@@ -1174,15 +1174,15 @@ export const CareerHub: React.FC<CareerHubProps> = ({
                   </div>
                 )}
                 {career.narrativeHistory && career.narrativeHistory.length > 0 && (
-                  <div className="pt-2 border-t border-slate-800 space-y-1.5">
+                  <div className="pt-2 border-t border-[#1D3143] space-y-1.5">
                     <div className="text-[11px] font-bold uppercase text-emerald-400">
-                      Registro de Entrevistas & Vestiário
+                      Registro de Entrevistas &amp; Vestiário
                     </div>
                     <div className="space-y-1 max-h-36 overflow-y-auto custom-scroll">
                       {career.narrativeHistory.slice(0, 6).map((nh) => (
                         <div
                           key={`${nh.eventId}_${nh.dayIndex}`}
-                          className="text-[11px] bg-slate-900/65 border border-slate-800/80 rounded-lg px-2.5 py-1.5"
+                          className="text-[11px] px-panel-soft px-2.5 py-1.5"
                         >
                           <div className="font-semibold text-white">
                             {nh.dateLabel} · {nh.title}
@@ -1199,10 +1199,10 @@ export const CareerHub: React.FC<CareerHubProps> = ({
         )}
 
         {tab === 'CONTRATO' && (
-          <div className="max-w-5xl mx-auto p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-            <section className="bg-[#111B2B] border border-slate-800 rounded-xl p-4 space-y-3">
-              <h2 className="font-display font-bold text-base text-white">Contrato Atual</h2>
-              <div className="flex items-center gap-3 p-3 rounded-lg bg-slate-900/75 border border-slate-800">
+          <div className="max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-4">
+            <section className="px-panel p-4 space-y-3">
+              <h2 className="font-display font-bold text-base text-white">CONTRATO ATUAL</h2>
+              <div className="flex items-center gap-3 p-3 px-panel-soft">
                 <ClubCrest club={club} size={46} />
                 <div>
                   <div className="font-display font-bold text-sm text-white">{club.name}</div>
@@ -1217,30 +1217,24 @@ export const CareerHub: React.FC<CareerHubProps> = ({
                   value={`R$ ${career.contract.weeklySalary.toLocaleString('pt-BR')}`}
                   highlight
                 />
-                <InfoCell
-                  label="Duração Restante"
-                  value={`${career.contract.yearsRemaining} ano(s)`}
-                />
+                <InfoCell label="Duração Restante" value={`${career.contract.yearsRemaining} ano(s)`} />
                 <InfoCell label="Valor de Mercado" value={marketValueM} highlight />
                 <InfoCell label="Potencial" value={String(career.potential ?? career.ovr)} />
               </div>
             </section>
 
-            <section className="bg-[#111B2B] border border-slate-800 rounded-xl p-4 space-y-3">
+            <section className="px-panel p-4 space-y-3">
               <h2 className="font-display font-bold text-base text-white">
-                Propostas & Interesse de Clubes
+                PROPOSTAS &amp; INTERESSE DE CLUBES
               </h2>
               {career.offers.length === 0 ? (
-                <p className="text-xs text-slate-400 p-3 rounded-lg bg-slate-900/60 border border-slate-800">
+                <p className="text-xs text-slate-400 p-3 px-panel-soft">
                   Nenhuma proposta ativa nesta rodada. Boas atuações e gols atraem olheiros de novos clubes a cada 3 rodadas!
                 </p>
               ) : (
                 <div className="space-y-2.5">
                   {career.offers.map((off) => (
-                    <div
-                      key={off.id}
-                      className="p-3 rounded-lg bg-slate-900/80 border border-slate-800 flex items-center justify-between gap-3"
-                    >
+                    <div key={off.id} className="p-3 px-panel-soft flex items-center justify-between gap-3">
                       <div className="min-w-0">
                         <div className="text-xs font-bold text-emerald-400">
                           {off.type} · {off.division}
@@ -1258,7 +1252,7 @@ export const CareerHub: React.FC<CareerHubProps> = ({
                           soundEngine.play('celebration');
                           onAcceptOffer(off);
                         }}
-                        className="min-h-[40px] px-3.5 py-2 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs cursor-pointer shrink-0 whitespace-nowrap"
+                        className="px-btn-primary min-h-[38px] px-3.5 py-2 text-xs cursor-pointer shrink-0 whitespace-nowrap"
                       >
                         Assinar
                       </button>
@@ -1271,41 +1265,50 @@ export const CareerHub: React.FC<CareerHubProps> = ({
         )}
       </main>
 
-      <nav className="career-bottom-nav" aria-label="Navegação da carreira">
-        {(
-          [
-            { id: 'CENTRAL', label: 'CARREIRA', icon: LayoutDashboard },
-            { id: 'ELENCO', label: 'ELENCO', icon: Users },
-            { id: 'CALENDARIO', label: 'CALENDÁRIO', icon: Calendar },
-            { id: 'TREINO', label: 'TREINOS', icon: Dumbbell },
-            { id: 'COMPETICOES', label: 'COMPETIÇÕES', icon: Trophy },
-            { id: 'NOTICIAS', label: 'NOTÍCIAS', icon: Newspaper },
-            { id: 'OBJETIVOS', label: 'OBJETIVOS', icon: Target },
-            { id: 'ESTATS', label: 'PERFIL', icon: BarChart3 },
-            { id: 'CONTRATO', label: 'CONTRATO', icon: Briefcase },
-          ] as const
-        ).map((item) => {
-          const Icon = item.icon;
-          const active = tab === item.id;
-          return (
-            <button
-              key={item.id}
-              type="button"
-              className={`career-nav-item${active ? ' is-active' : ''}`}
-              aria-current={active ? 'page' : undefined}
-              onClick={() => {
-                clickSfx();
-                setTab(item.id);
-              }}
-            >
-              <Icon size={17} />
-              <span>{item.label}</span>
-              {item.id === 'TREINO' && career.trainingPoints > 0 && (
-                <i className="career-nav-badge">{career.trainingPoints}</i>
-              )}
-            </button>
-          );
-        })}
+      {/* Bottom Pixel Dock matching reference */}
+      <nav className="career-bottom-dock" aria-label="Navegação da carreira">
+        <div className="career-dock-tabs">
+          {(
+            [
+              { id: 'CENTRAL', label: 'CARREIRA', icon: LayoutDashboard },
+              { id: 'CALENDARIO', label: 'CALENDÁRIO', icon: Calendar },
+              { id: 'TREINO', label: 'TREINOS', icon: Dumbbell },
+              { id: 'COMPETICOES', label: 'COMPETIÇÕES', icon: Trophy },
+              { id: 'ELENCO', label: 'ELENCO', icon: Users },
+              { id: 'NOTICIAS', label: 'NOTÍCIAS', icon: Newspaper },
+              { id: 'CONTRATO', label: 'CONTRATO', icon: Briefcase },
+              { id: 'OBJETIVOS', label: 'OBJETIVOS', icon: Target },
+              { id: 'ESTATS', label: 'PERFIL', icon: BarChart3 },
+            ] as const
+          ).map((item) => {
+            const Icon = item.icon;
+            const active = tab === item.id;
+            return (
+              <button
+                key={item.id}
+                type="button"
+                className={`career-dock-item${active ? ' is-active' : ''}`}
+                aria-current={active ? 'page' : undefined}
+                onClick={() => {
+                  clickSfx();
+                  setTab(item.id);
+                }}
+              >
+                <Icon size={16} />
+                <span>{item.label}</span>
+                {item.id === 'TREINO' && career.trainingPoints > 0 && (
+                  <i className="career-dock-badge">{career.trainingPoints}</i>
+                )}
+              </button>
+            );
+          })}
+        </div>
+
+        <div className="career-dock-motto">
+          <div>SONHOS</div>
+          <div>DISCIPLINA</div>
+          <div>EVOLUÇÃO</div>
+        </div>
       </nav>
 
       {activeDrill && (
@@ -1333,7 +1336,7 @@ function InfoCell({
   highlight?: boolean;
 }) {
   return (
-    <div className="p-2.5 rounded-lg bg-slate-900/75 border border-slate-800">
+    <div className="p-2.5 px-panel-soft">
       <div className="text-[11px] text-slate-400">{label}</div>
       <div
         className={`text-xs sm:text-sm font-bold truncate mt-0.5 font-mono-num ${
@@ -1349,13 +1352,13 @@ function InfoCell({
 function MeterBar({ label, value }: { label: string; value: number }) {
   const pct = Math.max(0, Math.min(100, Math.round(value)));
   return (
-    <div className="p-2.5 rounded-lg bg-slate-900/70 border border-slate-800/80 space-y-1">
+    <div className="p-2.5 px-panel-soft space-y-1">
       <div className="flex items-center justify-between text-xs">
         <span className="text-slate-300">{label}</span>
         <span className="font-mono-num font-bold text-emerald-400">{pct}%</span>
       </div>
-      <div className="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
-        <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${pct}%` }} />
+      <div className="w-full h-1.5 bg-[#060D14] border border-[#1B2F41]">
+        <div className="h-full bg-emerald-500" style={{ width: `${pct}%` }} />
       </div>
     </div>
   );

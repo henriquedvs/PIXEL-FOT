@@ -2,9 +2,18 @@
 
 @layer base {
   :root {
-    --font-display: 'Outfit', system-ui, sans-serif;
+    --font-display: 'Pixelify Sans', system-ui, sans-serif;
     --font-sans: 'Plus Jakarta Sans', system-ui, sans-serif;
     --font-mono: 'JetBrains Mono', monospace;
+    --px-bg: #071019;
+    --px-panel: rgba(9, 18, 28, 0.90);
+    --px-panel-solid: #0a1420;
+    --px-panel-elevated: rgba(13, 24, 37, 0.94);
+    --px-border: #203447;
+    --px-border-strong: #2f4d68;
+    --px-accent: #22c55e;
+    --px-accent-bright: #4ade80;
+    --px-gold: #e6b84c;
   }
 
   html,
@@ -16,7 +25,7 @@
     padding: 0;
     overflow: hidden;
     font-family: var(--font-sans);
-    background-color: #081018;
+    background-color: #071019;
     color: #f1f5f9;
     -webkit-tap-highlight-color: transparent;
     user-select: none;
@@ -26,6 +35,7 @@
 
 .font-display {
   font-family: var(--font-display);
+  letter-spacing: 0.02em;
 }
 
 .font-mono-num {
@@ -36,6 +46,130 @@
 .pixelated {
   image-rendering: pixelated;
   image-rendering: crisp-edges;
+}
+
+/* Pixel Football Authentic HUD Primitives */
+.px-shell {
+  position: relative;
+  width: 100%;
+  height: 100dvh;
+  background-color: #071019;
+  color: #edf4f7;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.px-header {
+  background: rgba(8, 16, 24, 0.92);
+  border-bottom: 1px solid #1e3346;
+  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(6px);
+}
+
+.px-panel {
+  background: rgba(9, 18, 28, 0.90);
+  border: 1px solid #22384c;
+  border-radius: 3px;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    0 10px 26px rgba(0, 0, 0, 0.46);
+}
+
+.px-panel-soft {
+  background: rgba(12, 23, 35, 0.84);
+  border: 1px solid #1c3042;
+  border-radius: 2px;
+}
+
+.px-panel-active {
+  background: rgba(16, 185, 129, 0.12);
+  border: 1px solid #34d399;
+  border-radius: 2px;
+  box-shadow: inset 0 0 14px rgba(34, 197, 94, 0.14);
+}
+
+.px-btn-primary {
+  background: linear-gradient(180deg, #2ee072 0%, #16a34a 100%);
+  color: #04130a;
+  border: 1px solid #86efac;
+  border-radius: 3px;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.35),
+    0 0 18px rgba(34, 197, 94, 0.25),
+    0 3px 0 #0a4620;
+  font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  transition: transform 80ms ease, filter 120ms ease;
+}
+
+.px-btn-primary:hover {
+  filter: brightness(1.07);
+}
+
+.px-btn-primary:active {
+  transform: translateY(2px);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.25),
+    0 1px 0 #0a4620;
+}
+
+.px-btn-secondary {
+  background: rgba(13, 25, 38, 0.94);
+  color: #d6e4ef;
+  border: 1px solid #2c465e;
+  border-radius: 3px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 2px 0 #040910;
+  font-family: var(--font-display);
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  transition: border-color 120ms ease, background 120ms ease, transform 80ms ease;
+}
+
+.px-btn-secondary:hover {
+  border-color: #4b7496;
+  background: rgba(18, 34, 52, 0.96);
+  color: #ffffff;
+}
+
+.px-btn-secondary:active {
+  transform: translateY(1px);
+}
+
+.px-btn-gold {
+  background: linear-gradient(180deg, #facc15 0%, #ca8a04 100%);
+  color: #161002;
+  border: 1px solid #fef08a;
+  border-radius: 3px;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.4),
+    0 3px 0 #713f12;
+  font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.px-divider-v {
+  width: 1px;
+  background: #23384c;
+  align-self: stretch;
+}
+
+.px-scanlines {
+  background-image: repeating-linear-gradient(
+    to bottom,
+    rgba(255, 255, 255, 0.015) 0px,
+    rgba(255, 255, 255, 0.015) 1px,
+    transparent 1px,
+    transparent 3px
+  );
+}
+
+.px-flag-stripe-br {
+  width: 3px;
+  height: 18px;
+  background: linear-gradient(to bottom, #22c55e 0%, #22c55e 50%, #facc15 50%, #facc15 100%);
 }
 
 @keyframes pixelFadeIn {
@@ -59,21 +193,21 @@
   }
 }
 
-/* Custom subtle scrollbars for landscape menu panels */
+/* Custom pixel-aligned scrollbars */
 .custom-scroll::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
 
 .custom-scroll::-webkit-scrollbar-track {
-  background: rgba(15, 23, 42, 0.5);
+  background: rgba(7, 16, 25, 0.75);
 }
 
 .custom-scroll::-webkit-scrollbar-thumb {
-  background: rgba(148, 163, 184, 0.35);
-  border-radius: 3px;
+  background: #29435a;
+  border-radius: 1px;
 }
 
 .custom-scroll::-webkit-scrollbar-thumb:hover {
-  background: rgba(16, 185, 129, 0.6);
+  background: #22c55e;
 }

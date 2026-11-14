@@ -20,7 +20,6 @@ import { getPositionMeta } from '../data/positions';
 import { getStadiumForClub } from '../data/stadiums';
 import {
   PITCH_GEO,
-  drawPixelPlayerSprite,
   drawPixelStadium,
   generateCrowd,
 } from '../engine/pixelRenderer';
@@ -28,12 +27,14 @@ import { PlayerCareer } from '../types/game';
 import { calculateAge } from '../utils/storage';
 import { ClubCrest } from './ClubCrest';
 import {
-  PixelBootIcon,
+  PixelBallIcon,
   PixelCalendarIcon,
+  PixelFlag,
   PixelShieldIcon,
   PixelStadiumIcon,
   PixelTrophyIcon,
 } from './PixelIcons';
+import { PixelPortrait } from './PixelPortrait';
 import './MainMenu.css';
 
 export type CareerHubTab =
@@ -93,7 +94,6 @@ export const MainMenu: React.FC<MainMenuProps> = ({
   onOpenCredits,
 }) => {
   const [confirmOverwrite, setConfirmOverwrite] = useState(false);
-  const spriteRef = useRef<HTMLCanvasElement | null>(null);
   const backdropRef = useRef<HTMLCanvasElement | null>(null);
 
   const club = career ? getClubById(career.clubId) : null;
@@ -159,15 +159,14 @@ export const MainMenu: React.FC<MainMenuProps> = ({
         )
       : null;
 
-  // Nocturnal live pixel-art stadium background behind the hub
   useEffect(() => {
     const canvas = backdropRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    const bgClub = club || getClubById('flamengo');
-    const bgOpp = oppClub || getClubById('palmeiras');
+    const bgClub = club || getClubById('mirassol');
+    const bgOpp = oppClub || getClubById('cruzeiro');
     const bgStadium = getStadiumForClub(bgClub);
     const crowd = generateCrowd(bgClub.kit.primary, bgClub.kit.secondary, '#F8FAFC', 'low', {
       capacity: bgStadium.capacity,
@@ -179,18 +178,18 @@ export const MainMenu: React.FC<MainMenuProps> = ({
     let lastDraw = 0;
 
     const frame = (now: number) => {
-      if (now - lastDraw >= 45) {
+      if (now - lastDraw >= 55) {
         lastDraw = now;
-        t += 0.045;
+        t += 0.055;
         const w = canvas.width;
         const h = canvas.height;
         ctx.imageSmoothingEnabled = false;
-        ctx.fillStyle = '#070D15';
+        ctx.fillStyle = '#071019';
         ctx.fillRect(0, 0, w, h);
 
         const zoom = Math.max(w / 1450, h / 820);
-        const camX = PITCH_GEO.worldW / 2 + Math.sin(t * 0.22) * 70;
-        const camY = PITCH_GEO.worldH / 2 + Math.cos(t * 0.18) * 32;
+        const camX = PITCH_GEO.worldW / 2 + Math.sin(t * 0.2) * 65;
+        const camY = PITCH_GEO.worldH / 2 + Math.cos(t * 0.16) * 28;
 
         ctx.save();
         ctx.translate(w / 2, h / 2);
@@ -229,477 +228,472 @@ export const MainMenu: React.FC<MainMenuProps> = ({
     return () => cancelAnimationFrame(raf);
   }, [club, oppClub, activeDivision]);
 
-  // Animated pixel player sprite in spotlight
-  useEffect(() => {
-    if (!career || !club) return;
-    const canvas = spriteRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    let raf = 0;
-    let phase = 0;
-    const render = () => {
-      phase += 0.055;
-      ctx.imageSmoothingEnabled = false;
-      ctx.fillStyle = '#0D1726';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-      ctx.fillStyle = '#186A3B';
-      ctx.fillRect(10, canvas.height - 22, canvas.width - 20, 12);
-
-      drawPixelPlayerSprite(
-        ctx,
-        canvas.width / 2,
-        canvas.height / 2 + 12 + Math.sin(phase) * 0.9,
-        4.8,
-        {
-          appearance: career.appearance,
-          gear: career.gear,
-          kit: club.kit,
-          isGoalkeeper: career.position === 'GK_TRAD' || career.position === 'GK_SWEEPER',
-          isUserControlled: false,
-          facingAngle: 0,
-          animPhase: phase,
-          isSprinting: false,
-          isDribbling: false,
-          hasBall: false,
-          viewAngle: 'front',
-        },
-        'preview'
-      );
-      raf = requestAnimationFrame(render);
-    };
-    raf = requestAnimationFrame(render);
-    return () => cancelAnimationFrame(raf);
-  }, [career, club]);
-
-  const clickSfx = () => {
-    soundEngine.unlock();
-    soundEngine.play('menu');
-  };
-
-  const handleNewCareerClick = () => {
-    clickSfx();
-    if (career) {
-      setConfirmOverwrite(true);
-    } else {
-      onNewCareer();
+  const sfx = () => soundEngine.play('menu');
+  const openCareerTab = (tab: CareerHubTab) => {
+    sfx();
+    if (career && onOpenCareerTab) {
+      onOpenCareerTab(tab);
+      return;
     }
+    if (tab === 'CALENDARIO') onOpenCalendar();
+    else if (tab === 'COMPETICOES') onOpenCompetitions();
+    else if (tab === 'ELENCO') onOpenSquad();
+    else if (tab === 'ESTATS') onOpenPlayerProfile();
+    else onNewCareer();
   };
 
-  const menuCards = [
-    {
-      id: 'profile',
-      title: 'Meu Jogador',
-      subtitle: career
-        ? `OVR ${career.ovr} · Pot ${career.potential ?? career.ovr} · ${career.careerStats.goals}G ${career.careerStats.assists}A`
-        : 'Ficha completa, atributos e evolução',
-      icon: <PixelBootIcon size={20} />,
-      onClick: onOpenPlayerProfile,
-    },
-    {
-      id: 'squad',
-      title: 'Elenco',
-      subtitle: club
-        ? `${club.shortName} · Formação ${club.formation} · 16 atletas`
-        : 'Escalação tática e elenco completo',
-      icon: <Users size={18} className="text-emerald-300" />,
-      onClick: onOpenSquad,
-    },
-    {
-      id: 'training',
-      title: 'Treinamento',
-      subtitle: career
-        ? `${career.trainingPoints} sessão(ões) · Fadiga ${career.fatigue}%`
-        : 'Minijogos técnicos, físicos e táticos',
-      icon: <Dumbbell size={18} className="text-emerald-300" />,
-      onClick: () => (career && onOpenCareerTab ? onOpenCareerTab('TREINO') : onContinueCareer()),
-    },
-    {
-      id: 'calendar',
-      title: 'Calendário',
-      subtitle: career
-        ? `${career.calendar[career.currentDayIndex]?.dateLabel || 'Agenda'} · Compromissos`
-        : 'Agenda da temporada e copas',
-      icon: <PixelCalendarIcon size={20} />,
-      onClick: onOpenCalendar,
-    },
-    {
-      id: 'competitions',
-      title: 'Competições',
-      subtitle: 'Série A, Série B, Copa do Brasil e Supercopa',
-      icon: <PixelTrophyIcon size={20} />,
-      onClick: onOpenCompetitions,
-    },
-    {
-      id: 'news',
-      title: 'Notícias',
-      subtitle: career?.news?.[0]?.headline || 'Portal de imprensa e destaques',
-      icon: <Newspaper size={18} className="text-emerald-300" />,
-      onClick: () => (career && onOpenCareerTab ? onOpenCareerTab('NOTICIAS') : onOpenCompetitions()),
-    },
-    {
-      id: 'transfers',
-      title: 'Transferências',
-      subtitle: career
-        ? `${career.offers.length} proposta(s) · Contrato ${career.contract.yearsRemaining}a`
-        : 'Mercado, renovações e propostas',
-      icon: <Briefcase size={18} className="text-emerald-300" />,
-      onClick: () => (career && onOpenCareerTab ? onOpenCareerTab('CONTRATO') : onNewCareer()),
-    },
-    {
-      id: 'clubs',
-      title: 'Clubes',
-      subtitle: '40 equipes (Série A e B) · 3 uniformes',
-      icon: <PixelShieldIcon size={20} />,
-      onClick: onOpenClubs,
-    },
-    {
-      id: 'stadiums',
-      title: 'Estádios',
-      subtitle: '40 arenas em Pixel Art interativo',
-      icon: <PixelStadiumIcon size={20} />,
-      onClick: onOpenStadiums,
-    },
-    {
-      id: 'settings',
-      title: 'Configurações',
-      subtitle: 'Áudio, controles, gráficos e tela cheia',
-      icon: <Settings size={18} className="text-slate-200" />,
-      onClick: onOpenSettings,
-    },
-  ];
-
+  const currentDay = career?.calendar[career.currentDayIndex];
   const age = career ? calculateAge(career.personal.birthDate) : 18;
-  const latestNews = career?.news?.[0];
-  const marketValueM = career?.marketValue
-    ? `R$ ${(career.marketValue / 1000000).toFixed(1)}M`
-    : '—';
+  const posMeta = career ? getPositionMeta(career.position) : null;
 
   return (
-    <div className="main-menu-shell animate-fadeIn">
-      <header className="main-menu-header">
-        <div className="main-menu-brand">
-          <div className="main-menu-brand-mark">
-            <PixelTrophyIcon size={24} />
-          </div>
-          <div>
-            <div className="main-menu-wordmark">
-              PIXEL <b>FOOTBALL</b>
-            </div>
-            <div className="main-menu-tagline">CARREIRA DE JOGADOR EM PIXEL ART</div>
+    <div className="px-menu-shell animate-fadeIn">
+      <canvas ref={backdropRef} width={960} height={540} className="px-menu-backdrop pixelated" />
+      <div className="px-menu-scrim px-scanlines" />
+
+      {/* Top Reference Header */}
+      <header className="px-menu-topbar">
+        <div className="px-menu-brand">
+          <PixelBallIcon size={28} />
+          <div className="px-menu-brand-title">PIXEL FOOTBALL</div>
+          <div className="px-divider-v h-7 hidden sm:block" />
+          <div className="px-menu-brand-sub hidden sm:block">
+            <div>MAIS QUE FUTEBOL</div>
+            <div>CARREIRA DE JOGADOR 11V11</div>
           </div>
         </div>
-        <div className="main-menu-header-actions">
-          {career && (
-            <div className="main-season-chip">
-              TEMPORADA {career.season} · {activeDivision.toUpperCase()}
+
+        <div className="flex items-center gap-2.5 shrink-0">
+          {career && club && (
+            <div className="hidden md:flex items-center gap-2.5 px-3 py-1.5 px-panel-soft text-xs font-mono-num">
+              <ClubCrest club={club} size={20} />
+              <span className="font-bold text-white">{club.shortName}</span>
+              <span className="text-slate-500">·</span>
+              <span className="text-emerald-400">
+                {currentDay ? currentDay.dateLabel : `ROD ${career.round}/${maxRound}`}
+              </span>
             </div>
           )}
-          {career && (
+
+          {career ? (
             <button
               type="button"
-              className="main-menu-utility"
               onClick={() => {
-                clickSfx();
-                onOpenCustomization();
+                sfx();
+                onContinueCareer();
               }}
+              className="px-btn-primary px-4 py-2 min-h-[38px] text-xs flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
             >
-              <Paintbrush size={15} />
-              <span>PERSONALIZAR</span>
+              <Play size={13} fill="currentColor" />
+              CENTRAL DA CARREIRA
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => {
+                sfx();
+                onNewCareer();
+              }}
+              className="px-btn-primary px-4 py-2 min-h-[38px] text-xs flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
+            >
+              <Play size={13} fill="currentColor" />
+              CRIAR JOGADOR
             </button>
           )}
+
           <button
             type="button"
-            className="main-menu-utility"
             onClick={() => {
-              clickSfx();
-              onOpenCredits();
+              sfx();
+              onOpenSettings();
             }}
+            className="px-btn-secondary w-[38px] h-[38px] flex items-center justify-center cursor-pointer"
+            aria-label="Configurações"
+            title="Configurações"
           >
-            <Info size={15} />
-            <span>CRÉDITOS</span>
+            <Settings size={16} />
           </button>
         </div>
       </header>
 
-      <main className="main-menu-stage">
-        <canvas
-          ref={backdropRef}
-          width={960}
-          height={540}
-          className="main-menu-backdrop pixelated"
-          aria-hidden="true"
-        />
-        <div className="main-menu-backdrop-scrim" aria-hidden="true" />
+      {/* Main Split: Career Dossier Left + Pixel Menu Tiles Right */}
+      <main className="px-menu-body custom-scroll">
+        <div className="px-menu-grid">
+          {/* LEFT COLUMN: Active Career Dossier OR New Career Hero */}
+          <section className="px-panel p-4 flex flex-col justify-between gap-3">
+            {career && club && posMeta ? (
+              <>
+                <div className="flex items-start gap-3.5">
+                  <PixelPortrait
+                    variant="bust"
+                    size={90}
+                    skinColor={career.appearance.skinColor}
+                    hairColor={career.appearance.hairColor}
+                    hairStyle={career.appearance.hairStyle}
+                    shirtPrimary={club.kit.primary}
+                    shirtSecondary={club.kit.secondary}
+                    beard={career.appearance.beardStyle !== 'Nenhuma'}
+                    jerseyNumber={career.gear.jerseyNumber}
+                    crestBg={club.kit.primary}
+                    crestAccent={club.kit.secondary}
+                  />
 
-        <section className="main-career-panel">
-          <div className="main-menu-pitch" aria-hidden="true">
-            <i />
-            <b />
-            <em />
-          </div>
-          {career && club ? (
-            <>
-              <div className="main-panel-overline">
-                <span>CARREIRA ATIVA · {career.contract.role.toUpperCase()}</span>
-                <span>
-                  T{career.season} · ROD. {career.round}/{maxRound}
-                </span>
-              </div>
+                  <div className="flex-1 min-w-0 space-y-1.5">
+                    <div className="flex items-center justify-between gap-2">
+                      <PixelFlag nationality={career.personal.nationality} width={22} />
+                      <span className="font-mono-num text-[11px] font-bold text-slate-400">
+                        {age} ANOS
+                      </span>
+                    </div>
+                    <h2 className="font-display font-bold text-xl text-white leading-none truncate">
+                      {(career.personal.nickname || career.personal.firstName).toUpperCase()}
+                    </h2>
+                    <div className="font-display font-bold text-base text-amber-400 leading-none">
+                      #{career.gear.jerseyNumber}
+                    </div>
+                    <div className="text-[11px] text-slate-400 uppercase font-mono-num truncate">
+                      {posMeta.name}
+                    </div>
 
-              <div className="main-player-spotlight">
-                <canvas
-                  ref={spriteRef}
-                  width={96}
-                  height={96}
-                  className="main-player-canvas pixelated"
-                  aria-label="Retrato em pixel art do atleta"
-                />
-                <div className="main-player-copy">
-                  <div className="main-player-rating">
-                    <span>OVR / POT</span>
-                    <b>
-                      {career.ovr}
-                      <small>/{career.potential ?? career.ovr}</small>
-                    </b>
+                    <div className="pt-2 border-t border-[#1D3143] flex items-end justify-between">
+                      <div>
+                        <div className="font-mono-num text-[10px] text-slate-400">OVR</div>
+                        <div className="font-display font-bold text-3xl text-amber-300 leading-none">
+                          {career.ovr}
+                        </div>
+                      </div>
+                      <div className="text-right font-mono-num">
+                        <div className="text-[10px] text-slate-400">TEMPORADA {career.season}</div>
+                        <div className="text-xs font-bold text-emerald-400">
+                          {leaguePos || 1}º {activeDivision}
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                  <h1>
-                    {career.personal.nickname ||
-                      `${career.personal.firstName} ${career.personal.lastName}`}
-                  </h1>
-                  <p>
-                    {getPositionMeta(career.position).code} · #{career.gear.jerseyNumber} · {age} ANOS
+                </div>
+
+                {/* Club & Season Split Counters */}
+                <div className="grid grid-cols-3 gap-2 py-2.5 border-y border-[#1C3042] text-center font-mono-num">
+                  <div>
+                    <div className="text-base font-bold text-white">{career.seasonStats.goals}</div>
+                    <div className="text-[10px] text-slate-400">GOLS</div>
+                  </div>
+                  <div className="border-x border-[#1C3042]">
+                    <div className="text-base font-bold text-white">{career.seasonStats.assists}</div>
+                    <div className="text-[10px] text-slate-400">ASSIST.</div>
+                  </div>
+                  <div>
+                    <div className="text-base font-bold text-emerald-400">
+                      {career.seasonStats.matches}
+                    </div>
+                    <div className="text-[10px] text-slate-400">JOGOS</div>
+                  </div>
+                </div>
+
+                {/* Next Fixture Mini Box */}
+                {nextFixture && homeClub && awayClub && (
+                  <div className="px-panel-soft p-3 space-y-2">
+                    <div className="flex items-center justify-between text-[10px] font-mono-num text-slate-400">
+                      <span className="text-emerald-400 font-bold uppercase truncate">
+                        PRÓXIMO JOGO · {nextFixture.competition}
+                      </span>
+                      <span>{nextFixture.dateLabel}</span>
+                    </div>
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <ClubCrest club={homeClub} size={28} />
+                        <span className="font-display font-bold text-sm text-white truncate">
+                          {homeClub.shortName}
+                        </span>
+                      </div>
+                      <span className="font-display font-bold text-xs text-slate-400">X</span>
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="font-display font-bold text-sm text-white truncate">
+                          {awayClub.shortName}
+                        </span>
+                        <ClubCrest club={awayClub} size={28} />
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Primary Menu Actions */}
+                <div className="space-y-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      sfx();
+                      onContinueCareer();
+                    }}
+                    className="px-btn-primary w-full py-2.5 min-h-[42px] text-sm flex items-center justify-center gap-2 cursor-pointer"
+                  >
+                    <Play size={15} fill="currentColor" />
+                    ENTRAR NA CARREIRA
+                  </button>
+
+                  {nextFixture && onPlayNextMatch && onSimulateNextMatch && (
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          soundEngine.play('whistle');
+                          onPlayNextMatch(
+                            nextFixture.homeClubId,
+                            nextFixture.awayClubId,
+                            nextFixture.competition,
+                            nextFixture.fixtureId
+                          );
+                        }}
+                        className="px-btn-secondary py-2 min-h-[38px] text-xs text-emerald-300 flex items-center justify-center gap-1.5 cursor-pointer"
+                      >
+                        <Play size={12} fill="currentColor" />
+                        JOGAR AGORA
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          sfx();
+                          onSimulateNextMatch(
+                            nextFixture.homeClubId,
+                            nextFixture.awayClubId,
+                            nextFixture.competition,
+                            nextFixture.fixtureId
+                          );
+                        }}
+                        className="px-btn-secondary py-2 min-h-[38px] text-xs flex items-center justify-center gap-1.5 cursor-pointer"
+                      >
+                        <FastForward size={12} />
+                        SIMULAR
+                      </button>
+                    </div>
+                  )}
+
+                  {!confirmOverwrite ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        sfx();
+                        setConfirmOverwrite(true);
+                      }}
+                      className="w-full py-1.5 text-[11px] font-mono-num text-slate-400 hover:text-amber-300 flex items-center justify-center gap-1.5 cursor-pointer"
+                    >
+                      <RotateCcw size={12} />
+                      COMEÇAR NOVA CARREIRA
+                    </button>
+                  ) : (
+                    <div className="p-2.5 px-panel-soft border-amber-500/50 space-y-2">
+                      <div className="flex items-center gap-1.5 text-[11px] text-amber-300 font-semibold">
+                        <AlertTriangle size={13} />
+                        Substituir carreira atual?
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            sfx();
+                            setConfirmOverwrite(false);
+                            onNewCareer();
+                          }}
+                          className="px-btn-gold py-1.5 text-xs cursor-pointer"
+                        >
+                          Confirmar
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            sfx();
+                            setConfirmOverwrite(false);
+                          }}
+                          className="px-btn-secondary py-1.5 text-xs cursor-pointer"
+                        >
+                          Cancelar
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </>
+            ) : (
+              <div className="flex-1 flex flex-col justify-between gap-4 py-2">
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 text-emerald-400 font-mono-num text-xs font-bold">
+                    <span className="px-flag-stripe-br inline-block" />
+                    NOVA CARREIRA DE JOGADOR
+                  </div>
+                  <h2 className="font-display font-bold text-2xl text-white leading-tight">
+                    CRIE SEU CRAQUE E DOMINE O GRAMADO
+                  </h2>
+                  <p className="text-xs text-slate-300 leading-relaxed">
+                    Escolha aparência em Pixel Art, posição, estilo de jogo e inicie sua jornada da Série B ou Série A rumo aos títulos nacionais.
                   </p>
-                  <div className="main-player-club">
-                    <ClubCrest club={club} size={20} />
-                    <span>
-                      {club.name} · {marketValueM}
-                    </span>
-                  </div>
                 </div>
-              </div>
 
-              <div className="main-career-stats">
-                <div>
-                  <small>{activeDivision.toUpperCase()}</small>
-                  <b>{leaguePos > 0 ? `${leaguePos}º` : '—'}</b>
+                <div className="px-panel-soft p-3 flex items-center justify-around">
+                  <ClubCrest club={getClubById('mirassol')} size={38} />
+                  <ClubCrest club={getClubById('flamengo')} size={38} />
+                  <ClubCrest club={getClubById('palmeiras')} size={38} />
+                  <ClubCrest club={getClubById('cruzeiro')} size={38} />
                 </div>
-                <div>
-                  <small>GOLS / ASS.</small>
-                  <b>
-                    {career.seasonStats.goals} / {career.seasonStats.assists}
-                  </b>
-                </div>
-                <div>
-                  <small>CONTRATO</small>
-                  <b>
-                    {career.contract.yearsRemaining}A · R${' '}
-                    {Math.round(career.contract.weeklySalary / 1000)}k
-                  </b>
-                </div>
-                <div className="main-next-opponent">
-                  <small>PRÓXIMO JOGO</small>
-                  <b>{oppClub ? `VS ${oppClub.shortName}` : 'AGENDA'}</b>
-                </div>
-              </div>
 
-              {homeClub && awayClub && nextFixture && (
-                <div className="main-next-match-card">
-                  <div className="main-next-match-teams">
-                    <span className="main-next-team">
-                      <ClubCrest club={homeClub} size={20} />
-                      {homeClub.shortName}
-                    </span>
-                    <span className="main-next-vs">x</span>
-                    <span className="main-next-team">
-                      {awayClub.shortName}
-                      <ClubCrest club={awayClub} size={20} />
-                    </span>
-                  </div>
-                  <div className="main-next-match-meta">
-                    <span>{nextFixture.competition}</span>
-                    <span>{getStadiumForClub(homeClub).name}</span>
-                  </div>
-                </div>
-              )}
-
-              {latestNews && (
                 <button
                   type="button"
-                  className="main-news-ticker"
                   onClick={() => {
-                    clickSfx();
-                    onOpenCareerTab?.('NOTICIAS');
+                    sfx();
+                    onNewCareer();
                   }}
+                  className="px-btn-primary w-full py-3.5 text-sm flex items-center justify-center gap-2 cursor-pointer"
                 >
-                  <small>{latestNews.category}</small>
-                  <span>{latestNews.headline}</span>
+                  <Play size={16} fill="currentColor" />
+                  INICIAR CARREIRA
                 </button>
-              )}
+              </div>
+            )}
+          </section>
 
-              <div className="main-career-actions">
-                <button
-                  type="button"
-                  className="main-primary-action"
-                  onClick={() => {
-                    clickSfx();
-                    onContinueCareer();
-                  }}
-                >
-                  <Play size={15} fill="currentColor" /> CENTRAL DA CARREIRA
-                </button>
-                {nextFixture && onPlayNextMatch && (
-                  <button
-                    type="button"
-                    className="main-secondary-action is-accent"
-                    onClick={() => {
-                      soundEngine.play('whistle');
-                      onPlayNextMatch(
-                        nextFixture.homeClubId,
-                        nextFixture.awayClubId,
-                        nextFixture.competition,
-                        nextFixture.fixtureId
-                      );
-                    }}
-                  >
-                    <Play size={13} fill="currentColor" /> JOGAR
-                  </button>
-                )}
-                {nextFixture && onSimulateNextMatch && (
-                  <button
-                    type="button"
-                    className="main-secondary-action"
-                    onClick={() => {
-                      clickSfx();
-                      onSimulateNextMatch(
-                        nextFixture.homeClubId,
-                        nextFixture.awayClubId,
-                        nextFixture.competition,
-                        nextFixture.fixtureId
-                      );
-                    }}
-                  >
-                    <FastForward size={13} /> SIMULAR
-                  </button>
-                )}
-                <button
-                  type="button"
-                  className="main-secondary-action"
-                  onClick={handleNewCareerClick}
-                  title="Iniciar Nova Carreira"
-                >
-                  <RotateCcw size={14} /> NOVA
-                </button>
+          {/* RIGHT COLUMN: Pixel Game Menu Navigation Grid */}
+          <section className="px-panel p-4 flex flex-col justify-between gap-3">
+            <div className="flex items-center justify-between border-b border-[#1C3042] pb-2">
+              <div className="flex items-center gap-2">
+                <span className="px-flag-stripe-br inline-block" />
+                <h2 className="font-display font-bold text-base text-white tracking-wider">
+                  MENU PRINCIPAL
+                </h2>
               </div>
-            </>
-          ) : (
-            <>
-              <div className="main-panel-overline">
-                <span>COMECE SUA JORNADA</span>
-                <span>BRASIL · 2026</span>
-              </div>
-              <div className="main-new-career-promo">
-                <div className="main-promo-emblem">
-                  <PixelShieldIcon size={34} />
-                </div>
-                <span className="main-promo-kicker">SEU CAMINHO. SUA HISTÓRIA.</span>
-                <h1>
-                  O próximo craque
-                  <br />
-                  pode ser você.
-                </h1>
-                <p>
-                  Crie seu atleta, escolha um dos 40 clubes da Série A ou Série B, evolua nos treinos e viva partidas 11v11 em Pixel Art.
-                </p>
-              </div>
-              <div className="main-career-actions">
-                <button
-                  type="button"
-                  className="main-primary-action"
-                  onClick={handleNewCareerClick}
-                >
-                  <User size={17} /> NOVA CARREIRA <ChevronRight size={17} />
-                </button>
-              </div>
-            </>
-          )}
-        </section>
-
-        <section className="main-menu-options" aria-label="Opções principais">
-          <div className="main-options-heading">
-            <span>NAVEGAÇÃO RÁPIDA</span>
-            <span>TOQUE PARA ABRIR</span>
-          </div>
-          <div className="main-options-grid">
-            {menuCards.map((card, index) => (
-              <button
-                key={card.id}
-                type="button"
-                className="main-option-row"
-                onClick={() => {
-                  clickSfx();
-                  card.onClick();
-                }}
-              >
-                <span className="main-option-index">{String(index + 1).padStart(2, '0')}</span>
-                <span className="main-option-icon">{card.icon}</span>
-                <span className="main-option-copy">
-                  <b>{card.title}</b>
-                  <small>{card.subtitle}</small>
-                </span>
-                <ChevronRight size={15} className="main-option-arrow" />
-              </button>
-            ))}
-          </div>
-        </section>
-      </main>
-
-      {confirmOverwrite && (
-        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="max-w-md w-full bg-[#111B2B] border border-amber-500/40 rounded-2xl p-5 space-y-4 shadow-2xl animate-fadeIn">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-amber-500/15 flex items-center justify-center shrink-0">
-                <AlertTriangle size={20} className="text-amber-400" />
-              </div>
-              <div>
-                <h3 className="font-display font-bold text-base text-white">
-                  Iniciar Nova Carreira?
-                </h3>
-                <p className="text-xs text-slate-400">
-                  Você já possui uma carreira ativa ({career?.personal.nickname} · OVR {career?.ovr}).
-                </p>
-              </div>
+              <span className="font-mono-num text-[10px] text-slate-400 uppercase">
+                SONHOS · DISCIPLINA · EVOLUÇÃO
+              </span>
             </div>
-            <p className="text-xs text-slate-300 leading-relaxed">
-              Ao concluir a criação de um novo jogador e assinar com um clube, o progresso da carreira anterior será substituído.
-            </p>
-            <div className="flex items-center justify-end gap-2">
-              <button
-                type="button"
+
+            <div className="px-menu-nav-grid flex-1">
+              <MenuTile
+                icon={<User size={18} className="text-emerald-400" />}
+                title="MEU JOGADOR"
+                desc="Perfil, atributos e evolução"
                 onClick={() => {
-                  clickSfx();
-                  setConfirmOverwrite(false);
+                  sfx();
+                  onOpenPlayerProfile();
                 }}
-                className="px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-200 cursor-pointer"
-              >
-                Cancelar
-              </button>
-              <button
-                type="button"
+              />
+              <MenuTile
+                icon={<Users size={18} className="text-sky-400" />}
+                title="ELENCO"
+                desc="Formação tática e companheiros"
                 onClick={() => {
-                  clickSfx();
-                  setConfirmOverwrite(false);
-                  onNewCareer();
+                  sfx();
+                  onOpenSquad();
                 }}
-                className="px-4 py-2 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-display font-bold text-xs cursor-pointer"
-              >
-                Sim, Criar Novo Atleta
-              </button>
+              />
+              <MenuTile
+                icon={<Dumbbell size={18} className="text-amber-300" />}
+                title="TREINOS"
+                desc="Minijogos para ganhar XP"
+                onClick={() => openCareerTab('TREINO')}
+              />
+              <MenuTile
+                icon={<PixelCalendarIcon size={18} />}
+                title="CALENDÁRIO"
+                desc="Jogos, copa e agenda anual"
+                onClick={() => {
+                  sfx();
+                  onOpenCalendar();
+                }}
+              />
+              <MenuTile
+                icon={<PixelTrophyIcon size={18} />}
+                title="COMPETIÇÕES"
+                desc="Série A, Série B, Copa e Supercopa"
+                onClick={() => {
+                  sfx();
+                  onOpenCompetitions();
+                }}
+              />
+              <MenuTile
+                icon={<Newspaper size={18} className="text-slate-200" />}
+                title="NOTÍCIAS"
+                desc="Cobertura da imprensa e rodadas"
+                onClick={() => openCareerTab('NOTICIAS')}
+              />
+              <MenuTile
+                icon={<Briefcase size={18} className="text-emerald-300" />}
+                title="CONTRATO"
+                desc="Salário e propostas de clubes"
+                onClick={() => openCareerTab('CONTRATO')}
+              />
+              <MenuTile
+                icon={<PixelShieldIcon size={18} />}
+                title="CLUBES"
+                desc="40 times e uniformes em pixel"
+                onClick={() => {
+                  sfx();
+                  onOpenClubs();
+                }}
+              />
+              <MenuTile
+                icon={<PixelStadiumIcon size={18} />}
+                title="ESTÁDIOS"
+                desc="Arenas brasileiras e capacidade"
+                onClick={() => {
+                  sfx();
+                  onOpenStadiums();
+                }}
+              />
+              <MenuTile
+                icon={<Paintbrush size={18} className="text-amber-300" />}
+                title="PERSONALIZAR"
+                desc="Rosto, chuteiras e comemoração"
+                onClick={() => {
+                  sfx();
+                  if (career) onOpenCustomization();
+                  else onNewCareer();
+                }}
+              />
+              <MenuTile
+                icon={<Settings size={18} className="text-sky-300" />}
+                title="CONFIGURAÇÕES"
+                desc="Câmeras, HUD, áudio e toques"
+                onClick={() => {
+                  sfx();
+                  onOpenSettings();
+                }}
+              />
+              <MenuTile
+                icon={<Info size={18} className="text-slate-300" />}
+                title="CRÉDITOS"
+                desc="Sobre o Pixel Football"
+                onClick={() => {
+                  sfx();
+                  onOpenCredits();
+                }}
+              />
             </div>
-          </div>
+          </section>
         </div>
-      )}
+      </main>
     </div>
   );
 };
+
+function MenuTile({
+  icon,
+  title,
+  desc,
+  onClick,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  desc: string;
+  onClick: () => void;
+}) {
+  return (
+    <button type="button" onClick={onClick} className="px-menu-tile">
+      <div className="flex items-center justify-between w-full">
+        {icon}
+        <ChevronRight size={14} className="text-slate-500" />
+      </div>
+      <div>
+        <div className="px-menu-tile-title">{title}</div>
+        <div className="px-menu-tile-desc truncate">{desc}</div>
+      </div>
+    </button>
+  );
+}

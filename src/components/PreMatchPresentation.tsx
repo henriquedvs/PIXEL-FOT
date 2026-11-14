@@ -26,6 +26,7 @@ import {
 } from '../engine/pixelRenderer';
 import { Club, ClubKit, MatchEnvironment, PlayerCareer } from '../types/game';
 import { ClubCrest } from './ClubCrest';
+import { PixelBackdrop } from './PixelBackdrop';
 import { PixelPortrait } from './PixelPortrait';
 
 interface PreMatchPresentationProps {
@@ -287,18 +288,23 @@ export const PreMatchPresentation: React.FC<PreMatchPresentationProps> = ({
     : Sun;
 
   return (
-    <div className="w-full h-[100dvh] bg-[#081018] text-slate-100 flex flex-col overflow-hidden relative">
+    <div className="px-shell animate-fadeIn">
+      {step === 'LINEUPS' && (
+        <PixelBackdrop homeKit={resolvedKits.homeKit} awayKit={resolvedKits.awayKit} dimOpacity={0.86} />
+      )}
+
       {/* Top Broadcast Strip */}
-      <header className="relative z-20 px-4 py-2.5 bg-[#0D1624]/95 border-b border-slate-800 flex items-center justify-between gap-3 shrink-0">
+      <header className="relative z-20 px-header px-4 py-2.5 flex items-center justify-between gap-3 shrink-0">
         <div className="flex items-center gap-3 min-w-0">
+          <div className="px-flag-stripe-br shrink-0" />
           <span
-            className={`text-xs font-extrabold tracking-wide uppercase whitespace-nowrap ${
-              isSpecialMatch ? 'text-amber-400' : 'text-emerald-400'
+            className={`font-display text-xs font-extrabold tracking-wide uppercase whitespace-nowrap ${
+              isSpecialMatch ? 'text-[#E6B84C]' : 'text-emerald-400'
             }`}
           >
             {isSpecialMatch ? 'Transmissão Especial' : 'Transmissão Oficial'}
           </span>
-          <span className="text-xs text-slate-300 truncate">
+          <span className="text-xs font-mono-num text-slate-300 truncate">
             {env.competitionName} · {env.roundLabel} · {env.dateStr} às {env.kickoffTime}
           </span>
         </div>
@@ -312,7 +318,7 @@ export const PreMatchPresentation: React.FC<PreMatchPresentationProps> = ({
               awayKitOverride: resolvedKits.awayKit,
             });
           }}
-          className="px-3.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-200 cursor-pointer whitespace-nowrap"
+          className="px-btn-secondary px-3.5 py-1.5 text-xs uppercase cursor-pointer whitespace-nowrap"
         >
           Ir para o Jogo
         </button>
@@ -327,21 +333,23 @@ export const PreMatchPresentation: React.FC<PreMatchPresentationProps> = ({
             height={600}
             className="absolute inset-0 w-full h-full object-cover pixelated"
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-[#081018] via-[#081018]/25 to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-t from-[#071019] via-[#071019]/25 to-transparent" />
 
           {/* Cinematic Shot Indicator */}
-          <div className="absolute top-4 left-4 z-10 flex items-center gap-2 bg-[#0D1624]/88 border border-slate-700/80 rounded-lg px-3 py-1.5">
+          <div className="px-panel absolute top-4 left-4 z-10 flex items-center gap-2 px-3 py-1.5">
             <span className="text-[11px] font-bold text-emerald-400 font-mono-num">
               CENA {shotIdx + 1}/{INTRO_SHOTS.length}
             </span>
-            <span className="text-xs text-white font-medium">{INTRO_SHOTS[shotIdx].label}</span>
+            <span className="text-xs font-display uppercase text-white font-bold">
+              {INTRO_SHOTS[shotIdx].label}
+            </span>
             <button
               type="button"
               onClick={() => {
                 soundEngine.play('menu');
                 setShotIdx((prev) => (prev + 1) % INTRO_SHOTS.length);
               }}
-              className="ml-1 p-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-200 cursor-pointer"
+              className="px-btn-secondary ml-1 p-1 cursor-pointer"
               aria-label="Próxima cena"
             >
               <FastForward size={13} />
@@ -349,46 +357,46 @@ export const PreMatchPresentation: React.FC<PreMatchPresentationProps> = ({
           </div>
 
           <div
-            className={`relative z-10 w-full max-w-5xl mx-auto bg-[#0D1624]/92 border rounded-2xl p-4 sm:p-5 grid grid-cols-1 md:grid-cols-12 gap-4 items-center ${
-              isSpecialMatch ? 'border-amber-400/50' : 'border-slate-700/80'
+            className={`px-panel relative z-10 w-full max-w-5xl mx-auto p-4 sm:p-5 grid grid-cols-1 md:grid-cols-12 gap-4 items-center ${
+              isSpecialMatch ? 'border-amber-400/60' : ''
             }`}
           >
-            <div className="md:col-span-5 flex items-center justify-between gap-3 bg-slate-900/80 rounded-xl p-3.5 border border-slate-800">
+            <div className="md:col-span-5 px-panel-soft flex items-center justify-between gap-3 p-3.5">
               <div className="flex flex-col items-center text-center w-2/5">
                 <ClubCrest club={homeClub} size={52} />
-                <span className="font-display font-bold text-xs sm:text-sm text-white mt-1.5 truncate w-full">
+                <span className="font-display font-bold text-xs sm:text-sm text-white uppercase mt-1.5 truncate w-full">
                   {homeClub.name}
                 </span>
-                <span className="text-[10px] text-slate-400">Téc. {homeClub.coachName}</span>
+                <span className="text-[10px] font-mono-num text-slate-400">Téc. {homeClub.coachName}</span>
               </div>
               <span className="font-display font-extrabold text-lg text-emerald-400">VS</span>
               <div className="flex flex-col items-center text-center w-2/5">
                 <ClubCrest club={awayClub} size={52} />
-                <span className="font-display font-bold text-xs sm:text-sm text-white mt-1.5 truncate w-full">
+                <span className="font-display font-bold text-xs sm:text-sm text-white uppercase mt-1.5 truncate w-full">
                   {awayClub.name}
                 </span>
-                <span className="text-[10px] text-slate-400">Téc. {awayClub.coachName}</span>
+                <span className="text-[10px] font-mono-num text-slate-400">Téc. {awayClub.coachName}</span>
               </div>
             </div>
 
             <div className="md:col-span-4 space-y-1.5 text-xs">
-              <div className="font-display font-bold text-base text-white">
+              <div className="font-display font-bold text-base text-white uppercase">
                 {env.stadium.name}
               </div>
               <div className="text-slate-300 flex items-center gap-1.5">
                 <MapPin size={13} className="text-emerald-400 shrink-0" />
                 {env.stadium.city}, {env.stadium.state} · Mosaico: {homeClub.mascotName}
               </div>
-              <div className="text-slate-300 flex flex-wrap items-center gap-3 pt-1">
+              <div className="text-slate-300 flex flex-wrap items-center gap-3 pt-1 font-mono-num">
                 <span className="flex items-center gap-1">
-                  <WeatherIcon size={14} className="text-amber-300" />
+                  <WeatherIcon size={14} className="text-[#E6B84C]" />
                   {env.weather} ({env.timeOfDay})
                 </span>
-                <span className="flex items-center gap-1 font-mono-num">
+                <span className="flex items-center gap-1">
                   <Thermometer size={14} className="text-sky-300" />
                   {env.temperatureC}°C
                 </span>
-                <span className="flex items-center gap-1 font-mono-num">
+                <span className="flex items-center gap-1">
                   <Users size={14} className="text-emerald-300" />
                   {env.stadium.capacity.toLocaleString('pt-BR')}
                 </span>
@@ -402,7 +410,7 @@ export const PreMatchPresentation: React.FC<PreMatchPresentationProps> = ({
                   soundEngine.play('menu');
                   setStep('LINEUPS');
                 }}
-                className="w-full py-3.5 px-4 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-display font-extrabold text-sm flex items-center justify-center gap-2 cursor-pointer"
+                className="px-btn-primary w-full py-3.5 px-4 text-sm uppercase flex items-center justify-center gap-2 cursor-pointer"
               >
                 Ver Escalações
                 <ArrowRight size={17} />
@@ -414,14 +422,16 @@ export const PreMatchPresentation: React.FC<PreMatchPresentationProps> = ({
 
       {/* STEP 2: STARTING XI LINEUPS WITH TACTICAL PITCH BOARD, KIT SELECTOR & COACHES */}
       {step === 'LINEUPS' && (
-        <div className="flex-1 overflow-y-auto custom-scroll p-4">
+        <div className="relative z-10 flex-1 overflow-y-auto custom-scroll p-4">
           <div className="max-w-6xl mx-auto space-y-4">
             {/* Kit Selector & Auto Color Clash Prevention */}
-            <div className="bg-[#111B2B] border border-slate-800 rounded-xl p-3 flex flex-wrap items-center justify-between gap-3">
+            <div className="px-panel p-3 flex flex-wrap items-center justify-between gap-3">
               <div className="text-xs text-slate-300">
-                <span className="font-bold text-white">Uniforme do seu time:</span>{' '}
+                <span className="font-display font-bold uppercase text-white">Uniforme do seu time:</span>{' '}
                 {resolvedKits.clashResolved && (
-                  <span className="text-emerald-400">· Adversário ajustado para evitar choque de cores</span>
+                  <span className="text-emerald-400 font-mono-num">
+                    · Adversário ajustado para evitar choque de cores
+                  </span>
                 )}
               </div>
               <div className="flex items-center gap-2">
@@ -439,14 +449,14 @@ export const PreMatchPresentation: React.FC<PreMatchPresentationProps> = ({
                         soundEngine.play('menu');
                         setKitChoice(slot);
                       }}
-                      className={`px-3 py-1.5 rounded-lg border text-xs font-semibold flex items-center gap-2 cursor-pointer ${
+                      className={`px-3 py-1.5 rounded-[2px] border text-xs font-display font-bold uppercase flex items-center gap-2 cursor-pointer ${
                         kitChoice === slot
                           ? 'bg-emerald-500/20 border-emerald-400 text-emerald-300'
-                          : 'bg-slate-900 border-slate-700 text-slate-300 hover:border-slate-500'
+                          : 'bg-[#081018] border-[#22384C] text-slate-300 hover:border-[#4b7496]'
                       }`}
                     >
                       <span
-                        className="w-3.5 h-3.5 rounded-sm border border-white/40 inline-block"
+                        className="w-3.5 h-3.5 border border-white/40 inline-block"
                         style={{ backgroundColor: kit.primary }}
                       />
                       {label}
@@ -455,6 +465,7 @@ export const PreMatchPresentation: React.FC<PreMatchPresentationProps> = ({
                 })}
               </div>
             </div>
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {[
                 { club: homeClub, label: 'Mandante' },
@@ -520,21 +531,21 @@ export const PreMatchPresentation: React.FC<PreMatchPresentationProps> = ({
                 return (
                   <section
                     key={club.id}
-                    className="bg-[#111B2B] border border-slate-800 rounded-xl p-3.5 space-y-3"
+                    className="px-panel p-3.5 space-y-3"
                   >
-                    <div className="flex items-center justify-between border-b border-slate-800 pb-2.5">
+                    <div className="flex items-center justify-between border-b border-[#1E3346] pb-2.5">
                       <div className="flex items-center gap-2.5">
                         <ClubCrest club={club} size={36} />
                         <div>
-                          <div className="font-display font-bold text-sm text-white">
+                          <div className="font-display font-bold text-sm text-white uppercase">
                             {club.name}
                           </div>
-                          <div className="text-[11px] text-slate-400">
+                          <div className="text-[11px] font-mono-num text-slate-400">
                             {label} · Formação {club.formation}
                           </div>
                         </div>
                       </div>
-                      <div className="flex items-center gap-2 bg-slate-900/80 px-2.5 py-1.5 rounded-lg border border-slate-800">
+                      <div className="px-panel-soft flex items-center gap-2 px-2.5 py-1.5">
                         <PixelPortrait
                           skinColor="#D19A6E"
                           hairColor="#334155"
@@ -545,15 +556,17 @@ export const PreMatchPresentation: React.FC<PreMatchPresentationProps> = ({
                           size={30}
                         />
                         <div className="text-right">
-                          <div className="text-[10px] text-slate-400">Treinador</div>
-                          <div className="text-xs font-semibold text-white">{club.coachName}</div>
+                          <div className="text-[9px] font-mono-num uppercase text-slate-400">Treinador</div>
+                          <div className="text-xs font-display font-bold text-white uppercase">
+                            {club.coachName}
+                          </div>
                         </div>
                       </div>
                     </div>
 
                     {/* Broadcast Tactical Formation Diagram */}
                     <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-center">
-                      <div className="sm:col-span-5 bg-[#0A2540] border border-slate-700/80 rounded-xl p-2 flex flex-col items-center">
+                      <div className="sm:col-span-5 px-panel-soft p-2 flex flex-col items-center">
                         <svg viewBox="0 0 100 124" className="w-32 h-40">
                           <rect x="4" y="4" width="92" height="116" fill="#0B3B2B" stroke="#E2E8F0" strokeWidth="1.4" />
                           <line x1="4" y1="62" x2="96" y2="62" stroke="#E2E8F0" strokeWidth="1" />
@@ -620,10 +633,8 @@ export const PreMatchPresentation: React.FC<PreMatchPresentationProps> = ({
                           return (
                             <div
                               key={m.id}
-                              className={`flex items-center justify-between gap-2 p-1.5 rounded-lg border ${
-                                isUserSlot
-                                  ? 'bg-emerald-500/15 border-emerald-500/60'
-                                  : 'bg-slate-900/60 border-slate-800/80'
+                              className={`flex items-center justify-between gap-2 p-1.5 ${
+                                isUserSlot ? 'px-panel-active' : 'px-panel-soft'
                               }`}
                             >
                               <div className="flex items-center gap-2 min-w-0">
@@ -636,11 +647,11 @@ export const PreMatchPresentation: React.FC<PreMatchPresentationProps> = ({
                                   size={24}
                                 />
                                 <div className="min-w-0">
-                                  <div className="text-[11px] font-semibold text-white truncate">
+                                  <div className="text-[11px] font-display font-bold text-white truncate">
                                     #{displayNum} {displayName}
                                     {idx === 1 ? ' (C)' : ''}
                                   </div>
-                                  <div className="text-[9px] text-slate-400">{posCode}</div>
+                                  <div className="text-[9px] font-mono-num text-slate-400">{posCode}</div>
                                 </div>
                               </div>
                               <span className="font-mono-num text-[11px] font-bold text-emerald-400 pr-1">
@@ -664,7 +675,7 @@ export const PreMatchPresentation: React.FC<PreMatchPresentationProps> = ({
                   soundEngine.play('flagWave');
                   setStep('ENTRANCE');
                 }}
-                className="px-7 py-3.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-display font-extrabold text-sm flex items-center gap-2 cursor-pointer"
+                className="px-btn-primary px-7 py-3.5 text-sm uppercase flex items-center gap-2 cursor-pointer"
               >
                 Entrada dos Jogadores em Campo
                 <ArrowRight size={17} />
@@ -683,12 +694,12 @@ export const PreMatchPresentation: React.FC<PreMatchPresentationProps> = ({
             height={600}
             className="absolute inset-0 w-full h-full object-cover pixelated"
           />
-          <div className="relative z-10 bg-[#0D1624]/92 border border-emerald-500/50 rounded-2xl px-6 py-4 flex flex-col sm:flex-row items-center gap-4 shadow-2xl">
+          <div className="px-panel relative z-10 border-emerald-500/60 px-6 py-4 flex flex-col sm:flex-row items-center gap-4 shadow-2xl">
             <div className="text-center sm:text-left">
-              <div className="text-xs font-bold text-emerald-400 uppercase">
+              <div className="text-xs font-mono-num font-bold text-emerald-400 uppercase">
                 Times em Campo · {env.stadium.name}
               </div>
-              <div className="font-display font-bold text-lg text-white">
+              <div className="font-display font-bold text-lg text-white uppercase">
                 {homeClub.name} x {awayClub.name}
               </div>
             </div>
@@ -701,7 +712,7 @@ export const PreMatchPresentation: React.FC<PreMatchPresentationProps> = ({
                   awayKitOverride: resolvedKits.awayKit,
                 });
               }}
-              className="px-7 py-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-display font-extrabold text-sm flex items-center gap-2 cursor-pointer whitespace-nowrap"
+              className="px-btn-primary px-7 py-3 text-sm uppercase flex items-center gap-2 cursor-pointer whitespace-nowrap"
             >
               <Play size={16} fill="currentColor" />
               Apitar Início da Partida

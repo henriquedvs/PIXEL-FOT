@@ -83,7 +83,14 @@ export const DEFAULT_SETTINGS: GameSettings = {
   controlPosition: 'standard',
   aimAssist: true,
   highContrastHud: false,
-  showMatchHints: true,
+  cameraAngle: 'cima',
+  cameraZoom: 'normal',
+  cameraCustomScale: 1.0,
+  showMatchCommentary: false,
+  showMatchRadar: false,
+  showMatchPlayerBar: false,
+  showMatchHints: false,
+  hudCleanV2: true,
   vibration: true,
   language: 'pt-BR',
   orientation: 'landscape-auto',
@@ -94,9 +101,21 @@ export function loadSettings(): GameSettings {
     const raw = localStorage.getItem(SETTINGS_KEY);
     if (!raw) return DEFAULT_SETTINGS;
     const parsed = JSON.parse(raw);
+    const hasCleanV2 = Boolean(parsed?.hudCleanV2);
     return {
       ...DEFAULT_SETTINGS,
       ...parsed,
+      cameraAngle: parsed.cameraAngle ?? DEFAULT_SETTINGS.cameraAngle,
+      cameraZoom: parsed.cameraZoom ?? DEFAULT_SETTINGS.cameraZoom,
+      cameraCustomScale:
+        typeof parsed.cameraCustomScale === 'number'
+          ? Math.max(0.75, Math.min(1.35, parsed.cameraCustomScale))
+          : DEFAULT_SETTINGS.cameraCustomScale,
+      showMatchCommentary: hasCleanV2 ? Boolean(parsed.showMatchCommentary) : false,
+      showMatchRadar: hasCleanV2 ? Boolean(parsed.showMatchRadar) : false,
+      showMatchPlayerBar: hasCleanV2 ? Boolean(parsed.showMatchPlayerBar) : false,
+      showMatchHints: hasCleanV2 ? Boolean(parsed.showMatchHints) : false,
+      hudCleanV2: true,
       audio: {
         ...DEFAULT_SETTINGS.audio,
         ...(parsed.audio || {}),

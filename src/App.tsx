@@ -385,6 +385,7 @@ export default function App() {
               competitionName={activeFixture.competitionName}
               fixtureId={activeFixture.fixtureId}
               settings={settings}
+              onUpdateSettings={setSettings}
               onOpenSettings={() => handleOpenSettings('MATCH')}
               onMatchFinished={(result) => {
                 const next = applyMatchOutcomeToCareer(career, result);
